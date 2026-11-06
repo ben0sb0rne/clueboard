@@ -184,6 +184,9 @@ function join() {
   roomState(code)
     .then((state) => {
       if (state === "over") throw new Error("That game has ended. Ask for the new code.");
+      // Anything but a live room: a typo, or a game that was cleared. Refusing here is what
+      // stops a mistyped code looking exactly like a room nobody has started yet.
+      if (state !== "live") throw new Error("No game with that code. Check the board.");
       const ref = db.ref("rooms/" + code + "/teams").push();
       // score is left off: database.rules.json requires only the four the buzzer required,
       // and a missing score reads as 0 everywhere, so joining stays one write.
@@ -308,6 +311,7 @@ function sendWager() {
   teamRef.update({ wager: bet })
     .then(() => {
       sending = null;
+      $("#wagerErr").textContent = "";     // an offline notice has no other way out
       if (team && game.clue) renderWager(game.clue);
     })
     .catch((err) => { sending = null; $("#wagerErr").textContent = err.message; });

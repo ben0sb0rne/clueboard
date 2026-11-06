@@ -33,7 +33,8 @@ column the teams' submissions are in, so marking is one glance down a column.
 - `board.html` - student-facing, on the TV. Never touched during a game.
 - `control.html` - everything the teacher does. Holds the clue set, in memory.
 - `index.html` - student devices: buzz, answer, wager, and pick a clue when handed the board.
-- `clues.js` - parses a pasted clue set. `node clues.test.js` checks it.
+- `clues.js` - parses a clue set, and works out what a clue is worth. `node clues.test.js`.
+- `ui.test.js` - checks every button carries a style of its own. `node ui.test.js`.
 - `demo.js` - a localStorage stand-in for Firebase, see below.
 - `sample-clues.tsv` - a working clue set, and the template to copy.
 - `katex/` - KaTeX, committed rather than loaded from a CDN. woff2 fonts only.

@@ -231,6 +231,37 @@ tests["clampWager keeps what a student types inside the cap"] = function () {
   assert.strictEqual(C.clampWager("500", 0), 0, "a zero cap allows only zero");
 };
 
+// stake() is the only function that moves a score, so it is the one worth pinning hardest.
+tests["a clue is worth its value, a wagered clue is worth the wager"] = function () {
+  var plain = { value: 600, dd: false };
+  var dd = { value: 800, dd: true };
+  var fin = { final: true, value: 0 };
+  assert.strictEqual(C.stake(plain, { wager: 1500 }), 600, "a normal clue ignores any wager");
+  assert.strictEqual(C.stake(dd, { wager: 1500 }), 1500, "a Daily Double pays the wager");
+  assert.strictEqual(C.stake(fin, { wager: 2000 }), 2000, "Final pays the wager");
+};
+
+tests["a wagered clue with no wager is worth nothing, never NaN"] = function () {
+  var dd = { value: 800, dd: true };
+  assert.strictEqual(C.stake(dd, {}), 0, "a team that never wagered scores 0, not the value");
+  assert.strictEqual(C.stake(dd, { wager: null }), 0);
+  assert.strictEqual(C.stake({ final: true }, undefined), 0);
+  assert.strictEqual(C.stake(null, { wager: 5 }), 0, "no clue is worth nothing");
+  assert.strictEqual(C.stake({ value: "lots" }, {}), 0, "an unparseable value is 0, not NaN");
+};
+
+tests["extra final rows are reported rather than silently dropped"] = function () {
+  var rows = [row(1, "ONE", "", "Board clue", "A"),
+              row("final", "END A", "", "First final", "X"),
+              row("final", "END B", "", "Second final", "Y")];
+  var set = C.parseClueSet(tsv(rows));
+  assert.strictEqual(set.final.length, 2, "both are still parsed");
+  assert.match(set.errors.join(" "), /Only the first "final" row is played.*1 are ignored/);
+  // One final warns about nothing; the short round-1 column warns on its own account.
+  var one = C.parseClueSet(tsv(rows.slice(0, 2))).errors.join(" ");
+  assert.ok(one.indexOf("final") === -1, "one final must not be reported: " + one);
+};
+
 var failed = 0;
 Object.keys(tests).forEach(function (name) {
   try {

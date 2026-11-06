@@ -96,6 +96,11 @@ function parseClueSet(text) {
     });
   });
 
+  if (final.length > 1) {
+    errors.push("Only the first \"final\" row is played; the other " + (final.length - 1) +
+      " are ignored.");
+  }
+
   // Short categories are padded with blanks rather than rejected: a half-built board is worth
   // playing, and the gap is reported so it is a choice rather than a surprise at the lesson.
   Object.keys(rounds).forEach(function (k) {
@@ -133,6 +138,15 @@ function cellKey(round, cat, row) { return round + "-" + cat + "-" + row; }
 function clueAt(set, round, cat, row) {
   var r = set.rounds[round];
   return (r && r.cells[cat] && r.cells[cat][row]) || null;
+}
+
+// What one clue is worth to one team. A Daily Double and Final are worth the wager that team
+// placed; every other clue is worth the value on the board. This is the only thing that moves
+// a score, so it lives here where a test can reach it.
+function stake(clue, team) {
+  if (!clue) return 0;
+  if (clue.final || clue.dd) return Number((team || {}).wager) || 0;
+  return Number(clue.value) || 0;
 }
 
 // The cap on a wager: the larger of what a team already has and the top value on the board.
@@ -174,6 +188,6 @@ if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     parseClueSet: parseClueSet, roundGrid: roundGrid, cellKey: cellKey,
     clueAt: clueAt, clueCount: clueCount, ROUND_VALUES: ROUND_VALUES,
-    wagerCap: wagerCap, clampWager: clampWager
+    wagerCap: wagerCap, clampWager: clampWager, stake: stake
   };
 }

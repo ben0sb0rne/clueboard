@@ -60,8 +60,8 @@
     <span class="note">Tap a team's name to rename it, or its score to correct it. During Final,
       tap a team's answer to put it on the board. You pick the clues unless you hand the board
       over, with the icon beside whoever is up next. Remove a team
-      with the &times; beside its row. A game left open ends by itself an hour after this
-      screen is closed.</span>
+      with the &times; beside its row. A game ends by itself an hour after you last touch this
+      screen, or an hour after it is closed; you get a warning five minutes before.</span>
     <span id="rulesHint" class="note warn" hidden>Auto-cleanup is off: deploy the latest database.rules.json.</span>
   </div>
 
@@ -208,7 +208,7 @@ function showSetup(importing) {
 
   const counts = [1, 2].filter((r) => clueSet.rounds[r])
     .map((r) => clueCount(clueSet, r, {}) + " in round " + r);
-  if (clueSet.final.length) counts.push(clueSet.final.length + " final");
+  if (clueSet.final.length) counts.push("a final");   // only the first is ever played
   $("#setSummary").textContent = "Clue set loaded: " + counts.join(", ") + ".";
 
   const list = $("#setWarnings");
@@ -401,13 +401,6 @@ function startFinal() {
   })
     .then(resetBuzzers)
     .catch((err) => { alert("Could not start Final Jeopardy: " + err.message); });
-}
-
-// What this clue is worth to this team: a wager when one was placed, the cell value otherwise.
-function stake(clue, team) {
-  if (!clue) return 0;
-  if (clue.final || clue.dd) return Number(team.wager) || 0;
-  return Number(clue.value) || 0;
 }
 
 // The answer is held here, never published until the teacher reveals it. game/clue carries
@@ -722,6 +715,9 @@ function toggleShown(id, on) {
 function editScore(id, current) {
   const raw = prompt("Score:", String(current));
   if (raw === null) return;
+  // An empty box is a change of mind, not a score of zero: Number("") is 0 and isFinite(0)
+  // is true, so without this, clearing the field and pressing OK wiped the team's game.
+  if (String(raw).trim() === "") return;
   const next = Number(String(raw).replace(/[^0-9.\-]/g, ""));
   if (!isFinite(next)) return;
   teamsRef.child(id).update({ score: next })
@@ -765,8 +761,23 @@ function renameTeam(id, current) {
 }
 
 function removeTeam(id) {
-  if (!teamsRef) return;
-  teamsRef.child(id).remove().catch((err) => { alert("Remove failed: " + err.message); });
+  if (!teamsRef || !roomCode) return;
+  const base = "rooms/" + roomCode;
+  const updates = {};
+  updates[base + "/teams/" + id] = null;
+  // Written in the same update as the removal, so the turn can never be left pointing at a
+  // team that is gone - a Daily Double picked after that would belong to nobody, and the
+  // cell would already be spent. The replacement is chosen here rather than left to the
+  // random-picker in renderTeams: that runs before renderGame and so still sees the old
+  // turn, and would never fire.
+  if (game.turn === id) {
+    const rest = teams.filter((t) => t.id !== id);
+    updates[base + "/game/turn"] = rest.length
+      ? rest[Math.floor(Math.random() * rest.length)].id
+      : null;
+  }
+  if (game.picker === id) updates[base + "/game/picker"] = null;
+  db.ref().update(updates).catch((err) => { alert("Remove failed: " + err.message); });
 }
 
 /* ---------- settings, and ending ---------- */
