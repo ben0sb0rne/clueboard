@@ -216,13 +216,16 @@ function () {
   assert.strictEqual(C.wagerCap(1000, grid), 1000);
 };
 
-tests["a final wager is capped by the score alone"] = function () {
+tests["a final wager is capped by the score, unless there is no score to cap it by"] =
+function () {
   var set = C.parseClueSet(tsv(column(1, "ONE", "a")));
   var grid = C.roundGrid(set, 1);                 // top value 1000
   assert.strictEqual(C.wagerCap(600, grid, true), 600, "never more money than the team has");
   assert.strictEqual(C.wagerCap(2500, grid, true), 2500);
-  assert.strictEqual(C.wagerCap(0, grid, true), 0, "nothing to bet, so nothing to lose");
-  assert.strictEqual(C.wagerCap(-400, grid, true), 0, "a cap is never negative");
+  assert.strictEqual(C.wagerCap(1, grid, true), 1, "a dollar is a score, and caps at a dollar");
+  assert.strictEqual(C.wagerCap(0, grid, true), 1000, "nothing to bet is not a reason to sit out");
+  assert.strictEqual(C.wagerCap(-400, grid, true), 1000, "nor is being in the red");
+  assert.strictEqual(C.wagerCap(0, null, true), 0, "with no board there is no stake either");
 };
 
 tests["wagerCap survives a missing or empty grid"] = function () {

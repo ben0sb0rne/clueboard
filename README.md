@@ -17,8 +17,10 @@ Wagers work the same way in both: the team enters one on their device before the
 shown, and the clue is then worth that wager instead of the cell value. **The two caps are
 different, and deliberately so.** A Daily Double is capped at the larger of the team's score
 and the top value on the board, so a team on zero or in the red can still play the clue for
-what it is worth. **The final clue is capped at the team's score alone** - a team cannot bet
-money it has never won, which also means a team on nothing has nothing to lose there.
+what it is worth. **The final clue is capped at the team's score** - a team cannot bet money
+it has never won. The exception is a team on nothing, or in the red: its cap would be `$0`
+and the last clue of the game would be over for it before it began, so it gets the top value
+on the board as a stake instead.
 
 A Daily Double belongs to the team whose turn it is - whoever picked it - and only that team
 can answer it. The final clue is everyone's: the category goes up, every team wagers, then
