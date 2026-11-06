@@ -343,8 +343,10 @@ body.board {
 .control #dash > .bar,
 .control #dash > .panel,
 .control #dash > .idlebar { grid-column: 1 / -1; }
-/* Clue on the left, teams on the right, as soon as a clue is open. Same DOM either way. */
-.control.inclue #dash { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); }
+/* The clue runs full width with the teams beneath it, rather than beside them. Checking an
+   answer is most of this screen's job, and that needs the correct answer and the submissions
+   in one column - which means one column for the whole screen. The clue gets the width back
+   as type size. */
 
 .control #openBoard {
   margin-left: auto;
@@ -444,29 +446,59 @@ body.board {
   border-radius: 12px;
 }
 .control #ctlClueText {
-  font-size: clamp(17px, 2.1vw, 28px);
+  font-size: clamp(21px, 3.1vw, 44px);
   font-weight: 600;
-  line-height: 1.3;
+  line-height: 1.25;
 }
-.control .ctlanswer {
-  margin-top: 0.9em;
-  padding-top: 0.8em;
-  border-top: 2px solid var(--line);
+
+/* The answer, at the head of the column the submissions are in. */
+.control tr.keyrow td {
+  padding-top: 0.5em;
+  padding-bottom: 0.5em;
+  background: #f1f8f2;
+  border-bottom: 3px solid #0a7d28;
 }
-.control .ctlanswer .lbl {
-  display: block;
-  margin-bottom: 0.2em;
-  font-size: 0.72em;
+.control td.keylbl {
+  font-size: clamp(11px, 1.05vw, 14px);
   font-weight: 700;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--muted);
+  cursor: default;
+  vertical-align: middle;
 }
-.control #ctlAnswerText {
-  font-size: clamp(18px, 2.2vw, 30px);
+/* Scoped to the row so it outranks td.answer below, which the same cell also carries. */
+.control tr.keyrow td.keyans {
+  font-size: clamp(20px, 2.7vw, 38px);
   font-weight: 800;
   color: #0a7d28;
+  line-height: 1.2;
+  vertical-align: middle;
+}
+
+/* What the teacher is reading, so it is the biggest thing in the table. */
+.control td.answer {
+  font-size: clamp(16px, 1.9vw, 28px);
   line-height: 1.25;
+}
+
+/* Hands the board to one team for one pick. Only ever shown beside whoever is up next. */
+.control button.give {
+  display: block;
+  width: 1.9em;
+  height: 1.9em;
+  padding: 0.3em;
+  border-radius: 8px;
+  color: var(--muted);
+  background: #fff;
+  box-shadow: inset 0 0 0 2px var(--line);
+}
+.control button.give svg { display: block; width: 100%; height: 100%; fill: currentColor; }
+.control button.give:hover { color: var(--ink); box-shadow: inset 0 0 0 2px var(--ink); }
+.control button.give.has {
+  color: #fff;
+  background: #0a7d28;
+  box-shadow: none;
 }
 
 .control td.score {

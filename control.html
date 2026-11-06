@@ -53,11 +53,13 @@
 
   <div id="panel" class="panel" hidden>
     <label class="opt"><input type="checkbox" id="mute"> Mute buzzer on this device</label>
+    <label class="opt"><input type="checkbox" id="teamsPick"> Teams pick their own clues</label>
     <button id="roundBtn">Go to round 2</button>
     <button id="finalBtn">Final Jeopardy</button>
     <button id="endGame">End game</button>
     <span class="note">Tap a team's name to rename it, or its score to correct it. During Final,
-      tap a team's answer to put it on the board. Remove a team
+      tap a team's answer to put it on the board. You pick the clues unless you hand the board
+      over, with the icon beside whoever is up next. Remove a team
       with the &times; beside its row. A game left open ends by itself an hour after this
       screen is closed.</span>
     <span id="rulesHint" class="note warn" hidden>Auto-cleanup is off: deploy the latest database.rules.json.</span>
@@ -67,7 +69,7 @@
     <section id="gridState">
       <p class="turnline">
         <span id="turnLine"></span>
-        <span class="hintline">Click any cell to pick for them. Overriding does not change whose turn it is.</span>
+        <span class="hintline">Click a cell to open it. The icon beside a team hands them the board.</span>
       </p>
       <div id="ctlGrid" class="ctlgrid"></div>
       <p class="empty" id="roundDone" hidden>Every clue in this round is spent.</p>
@@ -83,10 +85,6 @@
       <p class="wagerline" id="wagerLine" hidden></p>
       <div class="ctlclue">
         <div id="ctlClueText"></div>
-        <div class="ctlanswer">
-          <span class="lbl">Answer</span>
-          <div id="ctlAnswerText"></div>
-        </div>
       </div>
     </section>
   </div>
@@ -122,6 +120,7 @@ const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ";   // no I or O: they read as 1 and 
 const MUTE_KEY = "clueboard-muted";
 const LAST_ROOM = "clueboard-host-room";
 const SET_KEY = "clueboard-set";           // the raw paste, re-parsed on load
+const PICK_KEY = "clueboard-teams-pick";   // host preference, remembered between games
 const STILL_BEATING = 3 * 60 * 1000;
 
 let roomCode = null;
@@ -134,6 +133,7 @@ let gameLoaded = false;     // the game node has been read at least once
 let teams = [];
 let buzzedIds = null;       // null until the first snapshot, so reopening a room does not beep
 let muted = localStorage.getItem(MUTE_KEY) === "1";
+let teamsPick = localStorage.getItem(PICK_KEY) === "1";
 
 const IDLE_WARN = 55 * 60 * 1000;
 const IDLE_GRACE = 5 * 60 * 1000;
@@ -141,6 +141,7 @@ let lastActivity = Date.now();
 let idleTimer = null;
 
 $("#mute").checked = muted;
+$("#teamsPick").checked = teamsPick;
 $("#importBtn").addEventListener("click", importSet);
 $("#sampleBtn").addEventListener("click", loadSample);
 $("#reimportBtn").addEventListener("click", () => showSetup(true));
@@ -148,6 +149,7 @@ $("#createBtn").addEventListener("click", () => openRoom(newCode()));
 $("#openBoard").addEventListener("click", openBoardWindow);
 $("#cog").addEventListener("click", togglePanel);
 $("#mute").addEventListener("change", setMute);
+$("#teamsPick").addEventListener("change", setTeamsPick);
 $("#roundBtn").addEventListener("click", toggleRound);
 $("#endGame").addEventListener("click", armEndGame);
 $("#keepAlive").addEventListener("click", markActive);
@@ -256,7 +258,8 @@ function openRoom(code) {
   // the clue set lives on this device and a fresh tab has to put it back.
   gameRef.once("value").then((snap) => {
     const round = Number((snap.val() || {}).round) || 1;
-    return gameRef.update({ round: round, grid: roundGrid(clueSet, round), pick: null });
+    return gameRef.update({ round: round, grid: roundGrid(clueSet, round), pick: null,
+                            teamsPick: teamsPick || null, picker: null });
   }).catch((err) => { alert("Could not start the game: " + err.message); });
 
   teamsRef.on("value", renderTeams);
@@ -327,7 +330,6 @@ function renderGame(snap) {
       ? "FINAL JEOPARDY - " + (clue.category || "")
       : (clue.category || "") + " - " + money(clue.value) + (clue.dd ? " - DAILY DOUBLE" : "");
     mathText($("#ctlClueText"), clue.text);
-    mathText($("#ctlAnswerText"), clue.answer || lookupAnswer(clue));
 
     // While wagers are being collected the clue is not on the board yet, so revealing the
     // answer would be revealing it to nobody.
@@ -453,8 +455,8 @@ function renderGrid() {
   $("#roundDone").hidden = left > 0;
   $("#roundDone").textContent = "Every clue in round " + round + " is spent.";
   $("#turnLine").textContent = game.turn
-    ? "Picking: " + (teamName(game.turn) || "a team that has left")
-    : "Nobody is picking yet.";
+    ? "Up next: " + (teamName(game.turn) || "a team that has left")
+    : "Nobody is up yet.";
 }
 
 // Publishes the clue text, which is about to be on the projector anyway, and marks the cell
@@ -480,6 +482,7 @@ function selectCell(cat, row) {
     wagering: owner ? true : null,
     reveal: false,
     pick: null,
+    picker: null,
     shown: null
   };
   update["used/" + cellKey(round, cat, row)] = true;
@@ -508,7 +511,7 @@ function toggleRound() {
   const next = Number(game.round) === 2 ? 1 : 2;
   if (!clueSet.rounds[next]) { alert("This clue set has no round " + next + "."); return; }
   gameRef.update({ round: next, grid: roundGrid(clueSet, next), clue: null, reveal: false,
-                   pick: null, wagering: null, shown: null })
+                   pick: null, picker: null, wagering: null, shown: null })
     .then(resetBuzzers)
     .catch((err) => { alert("Could not change round: " + err.message); });
 }
@@ -561,8 +564,8 @@ function renderTeams(snap) {
 
   renderTeamRows();
   if (!document.body.classList.contains("inclue")) $("#turnLine").textContent = game.turn
-    ? "Picking: " + (teamName(game.turn) || "a team that has left")
-    : "Nobody is picking yet.";
+    ? "Up next: " + (teamName(game.turn) || "a team that has left")
+    : "Nobody is up yet.";
 
   // A wager is a write to teams, not to game, so the wager line and the auto-advance have to
   // be driven from here as well as from renderGame.
@@ -570,17 +573,66 @@ function renderTeams(snap) {
   maybeShowClue();
 }
 
+// A small grid glyph, so it reads as "the board" rather than as another score control.
+function boardButton(t, has) {
+  const b = document.createElement("button");
+  b.className = "give" + (has ? " has" : "");
+  b.title = has
+    ? t.name + " has the board - tap to take it back"
+    : "Let " + t.name + " pick the next clue";
+  b.setAttribute("aria-label", b.title);
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("focusable", "false");
+  [[3, 3], [13, 3], [3, 13], [13, 13]].forEach(([x, y]) => {
+    const r = document.createElementNS(NS, "rect");
+    r.setAttribute("x", x); r.setAttribute("y", y);
+    r.setAttribute("width", 8); r.setAttribute("height", 8); r.setAttribute("rx", 1.5);
+    svg.appendChild(r);
+  });
+  b.appendChild(svg);
+  b.addEventListener("click", () => giveBoard(t.id, has));
+  return b;
+}
+
 function renderTeamRows() {
   const body = $("#rows");
   const clue = game.clue || null;
+  const wagering = !!game.wagering;
   body.textContent = "";
+
+  // Checking answers is most of what this screen is for, so the answer being marked against
+  // heads the same column the submissions are in. Same table, so they line up on their own
+  // and the eye runs straight down instead of back and forth across the screen.
+  if (clue && !wagering) {
+    const kr = body.insertRow();
+    kr.className = "keyrow";
+    cell(kr, "", "num");
+    cell(kr, "", "name");
+    // The label sits in the column to the left, so the answer itself starts on exactly the
+    // same edge as every submission under it.
+    cell(kr, clue.final ? "Correct response" : "Correct answer", "score keylbl");
+    const ka = kr.insertCell();
+    ka.className = "answer keyans";
+    mathText(ka, clue.answer || lookupAnswer(clue));
+    kr.insertCell().className = "mark";
+    kr.insertCell().className = "rm";
+  }
 
   teams.forEach((t, i) => {
     const tr = body.insertRow();
     if (t.buzzedAt) tr.className = "buzzed";
     if (t.id === game.turn) tr.className += " turn";
 
-    cell(tr, t.buzzedAt ? String(i + 1) : "", "num");
+    // The buzz order and the hand-over icon never want this cell at the same time: order only
+    // matters while a clue is open, picking only matters while one is not.
+    const numCell = cell(tr, t.buzzedAt ? String(i + 1) : "", "num");
+    if (!clue && t.id === game.turn && !game.teamsPick) {
+      numCell.textContent = "";
+      numCell.appendChild(boardButton(t, game.picker === t.id));
+    }
 
     const nameCell = cell(tr, t.name, "name", true);
     nameCell.title = "Rename this team";
@@ -728,6 +780,23 @@ function setMute() {
   muted = $("#mute").checked;
   localStorage.setItem(MUTE_KEY, muted ? "1" : "0");
   if (!muted) beep();
+}
+
+// Off by default: the teacher paces the game, and a class that can open clues whenever it
+// likes takes that away. On, it restores the old behaviour for a whole game, so a lesson
+// built around teams choosing does not need the board handed over thirty times.
+function setTeamsPick() {
+  teamsPick = $("#teamsPick").checked;
+  localStorage.setItem(PICK_KEY, teamsPick ? "1" : "0");
+  if (gameRef) gameRef.update({ teamsPick: teamsPick || null, picker: null }).catch(() => {});
+}
+
+// One pick, handed to the team whose turn it is. It is deliberately not a mode: the board
+// comes straight back once the clue opens.
+function giveBoard(id, has) {
+  if (!gameRef) return;
+  gameRef.child("picker").set(has ? null : id)
+    .catch((err) => { alert("Could not hand the board over: " + err.message); });
 }
 
 let endArmed = false;

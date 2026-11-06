@@ -1,7 +1,7 @@
 # Clueboard
 
 A Jeopardy-style quiz board for the classroom: a board on the projector, a control screen for
-the teacher, and student devices that buzz, answer and pick clues. Forked from
+the teacher, and student devices that buzz and answer. Forked from
 [the classroom buzzer](https://github.com/ben0sb0rne/buzzer), which stays as it is.
 
 No framework, no build step. Plain files served by GitHub Pages.
@@ -20,9 +20,19 @@ then the clue, then the teacher reveals the teams one at a time by tapping each 
 Start Final from the cog, at any point - the class is about to end and the board is half
 full. It leaves spent cells alone, so dismissing it returns to the board as it was.
 
+**You pick the clues.** Pacing the game is the teacher's job, and a class that can open a
+clue whenever it likes takes that away, so student devices cannot touch the board by default.
+An icon sits beside whoever is up next: tap it to hand them the board for one pick, and it
+comes back on its own the moment the clue opens. If you want a whole game where teams choose,
+`Teams pick their own clues` in the cog restores that, and is remembered between games.
+
+The control screen is built around checking answers, which is most of what you do with it.
+The clue runs full width across the top, and the correct answer sits at the head of the same
+column the teams' submissions are in, so marking is one glance down a column.
+
 - `board.html` - student-facing, on the TV. Never touched during a game.
 - `control.html` - everything the teacher does. Holds the clue set, in memory.
-- `index.html` - student devices: buzz, answer, pick a clue.
+- `index.html` - student devices: buzz, answer, wager, and pick a clue when handed the board.
 - `clues.js` - parses a pasted clue set. `node clues.test.js` checks it.
 - `demo.js` - a localStorage stand-in for Firebase, see below.
 - `sample-clues.tsv` - a working clue set, and the template to copy.

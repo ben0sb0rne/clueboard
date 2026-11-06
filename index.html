@@ -230,10 +230,16 @@ function route() {
     return;
   }
 
-  if (game.turn === myId) { renderPick(); show("pick"); return; }
-  const picker = game.turn ? "another team" : "the teacher";
-  $("#waitMsg").textContent = game.turn
-    ? "Waiting for " + picker + " to pick..."
+  // The teacher paces the game and normally picks the clues themselves. A team only sees the
+  // board when it has been handed to them for one pick, or when the teacher has turned
+  // team picking on for the whole game.
+  if (game.turn === myId && (game.teamsPick || game.picker === myId)) {
+    renderPick(); show("pick"); return;
+  }
+  const elsewhere = (game.picker && game.picker !== myId)
+    || (game.teamsPick && game.turn && game.turn !== myId);
+  $("#waitMsg").textContent = elsewhere
+    ? "Waiting for another team to pick..."
     : "Waiting for the next clue...";
   show("wait");
 }
