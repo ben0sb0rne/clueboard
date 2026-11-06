@@ -79,6 +79,16 @@ body.board {
   -webkit-text-stroke: var(--edge-stroke) #000;
   paint-order: stroke fill;
 }
+/* White needs a deeper shadow than gold does. Against gold the black reads at once; against
+   white it collapses into the stroke and the letter just looks outlined, which from the back
+   of a room is no shadow at all. Set on the containers, so the clue, the answer, the Daily
+   Double line, the Final category, the podiums and the KaTeX spans inside any of them all
+   take the same one by inheritance. */
+.board #cluePanel,
+.board #podiums {
+  --edge: 0.075em;
+  --edge-stroke: 0.028em;
+}
 
 .board #stage {
   position: relative;
@@ -180,7 +190,7 @@ body.board {
 /* The opening sweep. The values carry a transition so the stagger is the browser's work, not
    a timer's; .sweeping is the bare board they start from, and .nocats holds the category
    names back until the intro reveals them one at a time. */
-.board .grid .cell span { transition: opacity 440ms linear; }
+.board .grid .cell span { transition: opacity calc(var(--slow) / 3) linear; }
 .board .grid.sweeping .cell span { opacity: 0; transition: none; }
 .board .grid.nocats .cat { visibility: hidden; }
 .board #boardState.dissolve { animation: boardFade var(--slow) linear; }

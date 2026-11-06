@@ -90,13 +90,16 @@ let shrinkTimer = null;  // non-null while a dismiss is on its way back to its c
 // The opening of a game: a bare board, then the values five at a time, then the categories
 // one by one. Paced from the control screen except for the value sweep, which is one run of
 // staggered transitions rather than a timer the teacher could get ahead of.
+// Three movements, end to end, none overlapping: the board dissolves in bare over one beat,
+// the values fill it, the title card rises over another. The sweep ticks five times to the
+// beat and each value fades over a third of one, so the whole opening is counted in the same
+// 1500ms as everything else rather than in numbers of its own.
 const SWEEP_BATCH = 5;
-const SWEEP_STEP = 340;
+const SWEEP_STEP = SLOW / 5;
+const SWEEP_FADE = SLOW / 3;   // matches .cell span's transition in board.css
 const INTRO_FADE = SLOW;
 let introAt = null;      // the intro stop on screen, null when there is no intro
-let introSwept = false;  // the value sweep has finished for this intro
 let introStripSig = "";
-let sweepTimer = null;
 let introHide = null;
 
 let game = {};
@@ -479,13 +482,13 @@ function renderIntro() {
   if (at === null) {
     if (introAt !== null) {                       // dissolve back to the populated board
       panel.classList.remove("up");
+      // Cleared, or the fade out would first sit through the wait the sweep gave the fade in.
+      panel.style.transitionDelay = "";
       clearTimeout(introHide);
       introHide = setTimeout(() => { panel.hidden = true; }, INTRO_FADE);
       $("#grid").classList.remove("nocats", "sweeping");
-      clearTimeout(sweepTimer);
     }
     introAt = null;
-    introSwept = false;
     return;
   }
 
@@ -494,7 +497,6 @@ function renderIntro() {
 
   buildStrip();
   $("#introStrip").style.setProperty("--i", String(at));
-  if (introSwept) raiseIntro();
 }
 
 // "The prices randomly appear 5 at a time." One shuffle and one delay per cell, so the
@@ -513,13 +515,19 @@ function sweepValues() {
     const t = spans[i]; spans[i] = spans[j]; spans[j] = t;
   }
   spans.forEach((span, i) => {
-    span.style.transitionDelay = (Math.floor(i / SWEEP_BATCH) * SWEEP_STEP) + "ms";
+    // Held back a whole beat, so the values start filling the board exactly as the board
+    // itself finishes dissolving in, rather than arriving through it.
+    span.style.transitionDelay = (SLOW + Math.floor(i / SWEEP_BATCH) * SWEEP_STEP) + "ms";
   });
   grid.classList.remove("sweeping");
 
-  const runs = Math.ceil(spans.length / SWEEP_BATCH) * SWEEP_STEP;
-  clearTimeout(sweepTimer);
-  sweepTimer = setTimeout(() => { introSwept = true; raiseIntro(); }, runs + 600);
+  // The title card starts rising the moment the last value has finished fading, with no
+  // pause between. Held off in CSS rather than fired by a timer, so it is on the same clock
+  // as the values themselves and cannot drift from them - a timer is read off the moment the
+  // script ran, and a browser that is behind on frames commits the transitions later than
+  // that. Reduced motion zeroes this delay with every other one, so it needs no case here.
+  const batches = Math.ceil(spans.length / SWEEP_BATCH);
+  raiseIntro(SLOW + (batches - 1) * SWEEP_STEP + SWEEP_FADE);
 }
 
 // Stop 0 is the game's title and the rest are the categories, all on one strip: the title
@@ -539,10 +547,11 @@ function buildStrip() {
   });
 }
 
-function raiseIntro() {
+function raiseIntro(delay) {
   const panel = $("#introPanel");
   if (!panel.hidden) return;
   clearTimeout(introHide);
+  panel.style.transitionDelay = (delay || 0) + "ms";
   panel.hidden = false;
   void panel.offsetWidth;
   panel.classList.add("up");

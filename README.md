@@ -46,7 +46,11 @@ by mistake. Round 2 has no intro.
 here overshoots or springs: one easing that leaves rest and arrives at rest, and one duration
 - a second and a half - for every move the room watches, so the board keeps a single tempo
 instead of five. It is `SLOW` in `board.html` and `--slow` in `board.css`; change both. The
-value sweep is the exception, because it is a sequence of thirty rather than one move. A clue expands out of its own cell, a
+opening is three beats of it end to end, none of them overlapping: the board dissolves in
+bare, then the values fill it five at a time - the sweep ticks five times to the beat, each
+value fading over a third of one - then the title card rises. The card is held off in CSS
+rather than fired by a timer, so it is on the same clock as the values and cannot drift from
+them. A clue expands out of its own cell, a
 Daily Double arrives with weight, and a score counts up with the podium flashing which way it
 went. The player screen stays deliberately still - a student should be looking up, not down -
 and the control screen is a working surface. Anyone whose system asks for reduced motion gets
@@ -57,7 +61,12 @@ answer and its rule fade in underneath, both over the same span, so they are ful
 exactly as the clue comes to rest.
 
 **A clue screen is the words and nothing else**, as on the show: no value, no category, no
-room code, and the answer in white with the clue when you reveal it. Nothing names whose turn
+room code, and the answer in white with the clue when you reveal it. Every word on the board
+carries the show's hard black edge - a thin stroke and a sharp shadow thrown down and right
+at 45 degrees, both in `em` so they hold their proportion from a podium to an 86px clue. The
+white type takes a deeper one than the gold does, because against white the black collapses
+into the stroke and the letter just looks outlined, which from the back of a room is no
+shadow at all. Nothing names whose turn
 it is either - the gold line under a podium already says that. `Show the room code on the
 board` in the cog puts the code and the join address back in the corner between clues; it is
 off, because a class that has already joined has no use for it.
