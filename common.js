@@ -1,4 +1,4 @@
-// Shared by index.html (student) and host.html (teacher).
+// Shared by index.html (student), control.html (teacher) and board.html (projector).
 
 if (!firebaseConfig.databaseURL) {
   document.body.innerHTML =
@@ -57,14 +57,12 @@ addEventListener("keydown", audio, { once: true });
 
 // Clue and answer text may carry $...$ maths, because 8th grade algebra needs stacked
 // fractions and multi-term radicals that Unicode cannot do. KaTeX renders it on the two
-// screens that load KaTeX - the board and the control screen. Everywhere else, and if the CDN
-// is blocked, the raw text shows through: wrong-looking, but never blank mid-question.
+// screens that load KaTeX - the board and the control screen. It is committed to the repo, so
+// a blocked CDN cannot reach it; anywhere KaTeX is absent the raw text shows through, which
+// looks wrong but is never blank mid-question.
 //
 // Only ever called on text from the teacher's own spreadsheet. Student-typed text goes
 // through textContent and nothing else, here as in the buzzer.
-//
-// shortcut: KaTeX comes off a CDN, as Firebase already does. Commit its dist folder to the
-// repo before the first real lesson, so a blocked CDN cannot flatten the board mid-question.
 function mathText(el, text) {
   el.textContent = "";
   String(text == null ? "" : text).split(/(\$[^$]*\$)/).forEach(function (bit) {

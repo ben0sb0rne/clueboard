@@ -325,8 +325,13 @@ function shrinkBack(panel) {
 }
 
 // A projector's size does not change mid-lesson, but a window dragged onto one does, and the
-// grid is the thing the expand is measured against.
-addEventListener("resize", () => { gridSig = ""; render(); });
+// grid is the thing the expand is measured against. Debounced, because a drag fires this many
+// times a second and each one rebuilds every cell.
+let resizeTimer = null;
+addEventListener("resize", () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => { gridSig = ""; render(); }, 150);
+});
 </script>
 </body>
 </html>

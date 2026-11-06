@@ -147,6 +147,23 @@
   window.firebase = { initializeApp: function () {}, database: database };
   window.DEMO = true;
 
+  // Say so, on every screen this takes over. Styled inline rather than from the stylesheets:
+  // this is a fixture, and it should not need the shipped CSS to know to carry a rule for it.
+  // pointer-events:none so it can never swallow a tap on the screen underneath.
+  function banner() {
+    var el = document.createElement("div");
+    el.textContent = "DEMO - nothing here is on the network, and no student can join";
+    el.setAttribute("style", [
+      "position:fixed", "top:0", "left:0", "right:0", "z-index:2147483647",
+      "padding:4px 10px", "background:#ffd34d", "color:#1d1a00",
+      "font:700 12px/1.5 system-ui,sans-serif", "letter-spacing:.08em",
+      "text-transform:uppercase", "text-align:center", "pointer-events:none"
+    ].join(";"));
+    document.body.appendChild(el);
+  }
+  if (document.body) banner();
+  else addEventListener("DOMContentLoaded", banner);
+
   // A room that is always there, so a screen opened with no code still has something to show.
   var tree = load();
   if (!get(tree, "rooms/DEMO")) {

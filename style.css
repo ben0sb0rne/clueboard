@@ -150,7 +150,7 @@ body.student { height: 100dvh; overflow: hidden; }
   transform: none;
 }
 
-/* ---------- teacher (host.html) ---------- */
+/* ---------- teacher (control.html) ---------- */
 
 .host { padding: 2.5vh 3vw; }
 .host h1 { margin: 0 0 0.4em; font-size: clamp(26px, 4vw, 44px); }
