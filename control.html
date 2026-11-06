@@ -70,6 +70,23 @@
   </div>
 
   <div id="stage">
+    <!-- Before the first clue, and only then: the teacher decides whether the class gets the
+         category intro or the board straight away. -->
+    <section id="preGame" hidden>
+      <p class="turnline"><span>The class is looking at the room code. Pick how it opens.</span></p>
+      <div class="startrow">
+        <button id="introBtn">Start intro</button>
+        <button id="startBtn">Start game</button>
+      </div>
+    </section>
+
+    <section id="introState" hidden>
+      <p class="turnline"><span id="introWhere"></span></p>
+      <div class="startrow">
+        <button id="introNext">Next category</button>
+      </div>
+    </section>
+
     <section id="gridState">
       <p class="turnline">
         <span id="turnLine"></span>
@@ -167,6 +184,9 @@ $("#dismissBtn").addEventListener("click", dismissClue);
 $("#showClueBtn").addEventListener("click", showClue);
 $("#finalBtn").addEventListener("click", startFinal);
 $("#timerBtn").addEventListener("click", startTimer);
+$("#introBtn").addEventListener("click", () => startGame(0));
+$("#startBtn").addEventListener("click", () => startGame(null));
+$("#introNext").addEventListener("click", nextIntro);
 addEventListener("pointerdown", markActive);
 addEventListener("keydown", markActive);
 
@@ -323,6 +343,24 @@ function buildCheck() {
   $("#check").open = problems > 0;
 }
 
+// Two ways to open a game, and the only difference is whether the board runs the category
+// intro on the way in. Writing started separately from intro means a game that is already
+// under way never falls back to the pre-game buttons on a refresh.
+function startGame(intro) {
+  gameRef.update({ started: true, intro: intro })
+    .catch((err) => { alert("Could not start the game: " + err.message); });
+}
+
+// The board follows this and decides nothing itself, so the teacher's press is the only thing
+// that moves the intro on. Past the last category it ends, which is also the way out of an
+// intro started by mistake.
+function nextIntro() {
+  const cats = (((game.grid || {}).cats) || []).length;
+  const at = Number(game.intro) || 0;
+  gameRef.update({ intro: at + 1 >= cats ? null : at + 1 })
+    .catch((err) => { alert("Could not move the intro on: " + err.message); });
+}
+
 /* ---------- the room ---------- */
 
 function newCode() {
@@ -417,9 +455,28 @@ function renderGame(snap) {
     return;
   }
 
+  // Four states, and only one of them is on screen: not started, running the intro, the grid,
+  // or a clue. game/intro is the category index on the board, so 0 is a real value and
+  // "no intro" has to be told apart from it rather than tested for truth.
+  const intro = Number.isInteger(game.intro) ? game.intro : null;
+  const cats = ((game.grid || {}).cats) || [];
+  const pre = !game.started && !clue;
+  const introing = intro !== null && !clue;
+
   document.body.classList.toggle("inclue", !!clue);
-  $("#gridState").hidden = !!clue;
+  $("#preGame").hidden = !pre;
+  $("#introState").hidden = !introing;
+  $("#gridState").hidden = !!clue || pre || introing;
   $("#clueState").hidden = !clue;
+
+  if (introing) {
+    $("#introWhere").textContent = (intro + 1) + " of " + cats.length + " on the board: " +
+      (cats[intro] || "");
+    // The next category's own name, because the teacher reads it out as it lands.
+    $("#introNext").textContent = intro + 1 < cats.length
+      ? "Next: " + cats[intro + 1]
+      : "Start the game";
+  }
   $("#roundBtn").textContent = "Go to round " + (Number(game.round) === 2 ? 1 : 2);
 
   if (clue) {

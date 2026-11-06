@@ -44,6 +44,11 @@
       </div>
     </div>
   </section>
+  <!-- The category intro. One tile fills the screen with its neighbours' edges showing, and
+       the strip slides across; the teacher's press is the only thing that moves it. -->
+  <section id="introPanel" hidden>
+    <div class="introstrip" id="introStrip"></div>
+  </section>
 </main>
 
 <footer id="podiums"></footer>
@@ -72,6 +77,18 @@ const code = (new URL(location).searchParams.get("room") || "")
 const EXPAND_MS = 380;
 const SHRINK_MS = 220;
 let shrinkTimer = null;  // non-null while a dismiss is on its way back to its cell
+
+// The opening of a game: a bare board, then the values five at a time, then the categories
+// one by one. Paced from the control screen except for the value sweep, which is one run of
+// staggered transitions rather than a timer the teacher could get ahead of.
+const SWEEP_BATCH = 5;
+const SWEEP_STEP = 300;
+const INTRO_FADE = 420;
+let introAt = null;      // the category index on screen, null when there is no intro
+let introSwept = false;  // the value sweep has finished for this intro
+let introStripSig = "";
+let sweepTimer = null;
+let introHide = null;
 
 let game = {};
 let teams = [];
@@ -123,7 +140,7 @@ function render() {
 
   // The welcome card holds until the first clue is picked, so it needs nothing from the
   // teacher to get out of the way. After that the code lives in the corner instead.
-  const welcoming = !played && !clue;
+  const welcoming = !game.started && !played && !clue;
   $("#welcome").hidden = !welcoming;
   // Off while a clue is up, so the clue is the only thing on the screen. It comes back with
   // the grid, which is where a latecomer has time to read it anyway.
@@ -134,6 +151,7 @@ function render() {
 
   $("#boardState").hidden = welcoming;
   if (!welcoming) renderGrid();
+  renderIntro();
 
   renderPodiums();
   renderClue(clue);
@@ -185,8 +203,12 @@ function renderGrid() {
     const wrap = $("#grid");
     // A resize rebuilds the same grid, and replaying the intro then would be a flourish in the
     // middle of a lesson. Only a grid we have not introduced before gets one.
-    const intro = sig !== introSig;
-    if (intro) introSig = sig;
+    // The categories-drop-in intro belongs to a board that opens straight onto the grid. A
+    // game opening with the category intro gets its own reveal, so this one sits out - but
+    // the signature is still recorded, so it does not fire later when the intro ends.
+    const fresh = sig !== introSig;
+    if (fresh) introSig = sig;
+    const intro = fresh && !Number.isInteger(game.intro);
     wrap.classList.toggle("intro", intro);
     wrap.textContent = "";
     cellEls = [];
@@ -390,6 +412,83 @@ function renderClue(clue) {
   }
 
   if (fresh || panel.hidden) expandFrom(panel, clue.cat, clue.row);
+}
+
+// Driven entirely by game/intro: the board decides when things move on screen, never when
+// the game moves on. A category index of 0 is a real position, so "no intro" is told apart
+// from it by type rather than by truthiness.
+function renderIntro() {
+  const at = Number.isInteger(game.intro) ? game.intro : null;
+  const panel = $("#introPanel");
+
+  if (at === null) {
+    if (introAt !== null) {                       // dissolve back to the populated board
+      panel.classList.remove("up");
+      clearTimeout(introHide);
+      introHide = setTimeout(() => { panel.hidden = true; }, INTRO_FADE);
+      $("#grid").classList.remove("nocats", "sweeping");
+      clearTimeout(sweepTimer);
+    }
+    introAt = null;
+    introSwept = false;
+    return;
+  }
+
+  if (introAt === null) sweepValues();            // the first snapshot of this intro
+  introAt = at;
+
+  buildStrip();
+  $("#introStrip").style.setProperty("--i", String(at));
+  if (introSwept) raiseIntro();
+}
+
+// "The prices randomly appear 5 at a time." One shuffle and one delay per cell, so the
+// browser runs the whole sweep - no timer per batch to leave behind if the intro is cut
+// short, and nothing to drift if the tab is throttled.
+function sweepValues() {
+  const grid = $("#grid");
+  const spans = Array.prototype.slice.call(grid.querySelectorAll(".cell span"));
+  grid.classList.add("nocats", "sweeping");
+  $("#boardState").classList.remove("dissolve");
+  void grid.offsetWidth;                          // the bare board, committed before it fills
+  $("#boardState").classList.add("dissolve");
+
+  for (let i = spans.length - 1; i > 0; i--) {    // Fisher-Yates, so no value lands in order
+    const j = Math.floor(Math.random() * (i + 1));
+    const t = spans[i]; spans[i] = spans[j]; spans[j] = t;
+  }
+  spans.forEach((span, i) => {
+    span.style.transitionDelay = (Math.floor(i / SWEEP_BATCH) * SWEEP_STEP) + "ms";
+  });
+  grid.classList.remove("sweeping");
+
+  const runs = Math.ceil(spans.length / SWEEP_BATCH) * SWEEP_STEP;
+  clearTimeout(sweepTimer);
+  sweepTimer = setTimeout(() => { introSwept = true; raiseIntro(); }, runs + 600);
+}
+
+function buildStrip() {
+  const cats = ((game.grid || {}).cats) || [];
+  const sig = cats.join("|");
+  if (sig === introStripSig) return;
+  introStripSig = sig;
+  const strip = $("#introStrip");
+  strip.textContent = "";
+  cats.forEach((name) => {
+    const tile = document.createElement("div");
+    tile.className = "introtile";
+    tile.textContent = name;                      // the teacher's own text, still not innerHTML
+    strip.appendChild(tile);
+  });
+}
+
+function raiseIntro() {
+  const panel = $("#introPanel");
+  if (!panel.hidden) return;
+  clearTimeout(introHide);
+  panel.hidden = false;
+  void panel.offsetWidth;
+  panel.classList.add("up");
 }
 
 // The signature move: the cell grows to fill the screen. A FLIP off the cell's own rect, so

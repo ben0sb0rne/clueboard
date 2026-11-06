@@ -31,11 +31,23 @@ An icon sits beside whoever is up next: tap it to hand them the board for one pi
 comes back on its own the moment the clue opens. If you want a whole game where teams choose,
 `Teams pick their own clues` in the cog restores that, and is remembered between games.
 
-**Only the board moves.** Categories drop in one at a time when a round opens, a clue expands
-out of its own cell, a Daily Double punches onto the screen, and a score counts up with the
-podium flashing which way it went. The player screen stays deliberately still - a student
-should be looking up, not down - and the control screen is a working surface. Anyone whose
-system asks for reduced motion gets the same board with none of it.
+**Two ways to open a game.** `Start game` drops the class straight onto the board.
+`Start intro` runs the show's opening instead: the board dissolves to a bare grid, the values
+appear five at a time in no order, and then each category fills the screen in turn with the
+dark edges of its neighbours still in frame. You press on; the board never moves on its own,
+because you are the one reading the categories out. Past the last one the button becomes
+`Start the game`, which is also the way out of an intro started by mistake. Round 2 has no
+intro.
+
+**Only the board moves.** A clue expands out of its own cell, a Daily Double punches onto the
+screen, and a score counts up with the podium flashing which way it went. The player screen
+stays deliberately still - a student should be looking up, not down - and the control screen
+is a working surface. Anyone whose system asks for reduced motion gets the same board with
+none of it.
+
+**A clue screen is the words and nothing else**, as on the show: no value, no category, no
+room code in the corner, and the answer in white with the clue when you reveal it. The room
+code comes back with the grid, where a latecomer has time to read it.
 
 The control screen is built around checking answers, which is most of what you do with it.
 The clue runs full width across the top, and the correct answer sits at the head of the same
