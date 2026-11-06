@@ -31,17 +31,22 @@ An icon sits beside whoever is up next: tap it to hand them the board for one pi
 comes back on its own the moment the clue opens. If you want a whole game where teams choose,
 `Teams pick their own clues` in the cog restores that, and is remembered between games.
 
+**Every game has a title**, asked for before the room is made and remembered between games.
+It heads the welcome card the class joins on, and it is the first card of the intro.
+
 **Two ways to open a game.** `Start game` drops the class straight onto the board.
 `Start intro` runs the show's opening instead: the board dissolves to a bare grid, the values
-appear five at a time in no order, and then each category fills the screen in turn with the
-dark edges of its neighbours still in frame. You press on; the board never moves on its own,
-because you are the one reading the categories out. Past the last one the button becomes
-`Start the game`, which is also the way out of an intro started by mistake. Round 2 has no
-intro.
+appear five at a time in no order, then the game's title fills the screen, and then each
+category in turn with the dark edges of its neighbours still in frame. You press on; the
+board never moves on its own, because you are the one reading the categories out. Past the
+last one the button becomes `Start the game`, which is also the way out of an intro started
+by mistake. Round 2 has no intro.
 
 **Only the board moves, and it moves calmly.** The show is low energy by design, so nothing
-here overshoots or springs: one easing that leaves rest and arrives at rest, and durations
-long enough to read as a camera move rather than a cut. A clue expands out of its own cell, a
+here overshoots or springs: one easing that leaves rest and arrives at rest, and one duration
+- a second and a half - for every move the room watches, so the board keeps a single tempo
+instead of five. It is `SLOW` in `board.html` and `--slow` in `board.css`; change both. The
+value sweep is the exception, because it is a sequence of thirty rather than one move. A clue expands out of its own cell, a
 Daily Double arrives with weight, and a score counts up with the podium flashing which way it
 went. The player screen stays deliberately still - a student should be looking up, not down -
 and the control screen is a working surface. Anyone whose system asks for reduced motion gets

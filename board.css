@@ -61,8 +61,11 @@
   --edge-stroke: 0.022em;
 
   /* The show is low energy by design. One easing for everything that moves: it leaves rest
-     and arrives at rest, and nothing on this board overshoots or springs. */
+     and arrives at rest, and nothing on this board overshoots or springs. One duration too,
+     so the board keeps a single tempo - it is SLOW in board.html, and they change together.
+     The value sweep is the exception: it is a sequence of thirty, not one move. */
   --ease: cubic-bezier(.4, 0, .2, 1);
+  --slow: 1500ms;
 
   /* The board font is Swiss 911 Ultra Compressed, which is licensed and cannot be used.
      Anton is the nearest free thing: self-hosted in fonts/, declared at the top of this file.
@@ -115,6 +118,17 @@ body.board {
   gap: 0.6rem;
   text-align: center;
   padding: 2vh 3vw;
+}
+.board .wtitle {
+  margin: 0 0 0.4em;
+  max-width: 88vw;
+  font-size: clamp(24px, 4.4vw, 76px);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  text-wrap: balance;
+  color: var(--value-gold);
 }
 .board .wlabel {
   margin: 0;
@@ -188,7 +202,7 @@ body.board {
 .board .grid .cell span { transition: opacity 440ms linear; }
 .board .grid.sweeping .cell span { opacity: 0; transition: none; }
 .board .grid.nocats .cat { visibility: hidden; }
-.board #boardState.dissolve { animation: boardFade 820ms linear; }
+.board #boardState.dissolve { animation: boardFade var(--slow) linear; }
 @keyframes boardFade { from { opacity: 0; } to { opacity: 1; } }
 
 /* Spent cells go dark rather than disappearing: the grid has to keep its shape, because the
@@ -213,7 +227,7 @@ body.board {
   background: var(--board-blue);
   will-change: transform;
 }
-.board #cluePanel .cluebody { opacity: 0; transition: opacity 340ms linear; }
+.board #cluePanel .cluebody { opacity: 0; transition: opacity 900ms linear; }
 .board #cluePanel.settled .cluebody { opacity: 1; }
 .board .cluebody {
   display: flex;
@@ -263,7 +277,7 @@ body.board {
   overflow: hidden;
   background: var(--surround);
   opacity: 0;
-  transition: opacity 620ms linear;
+  transition: opacity var(--slow) linear;
 }
 .board #introPanel.up { opacity: 1; }
 .board .introstrip {
@@ -277,7 +291,7 @@ body.board {
   display: flex;
   gap: var(--itg);
   transform: translateX(calc(-1 * var(--i) * (var(--itw) + var(--itg))));
-  transition: transform 820ms var(--ease);
+  transition: transform var(--slow) var(--ease);
 }
 .board .introtile {
   /* board.html does not load style.css, so there is no border-box reset here and the padding
@@ -296,6 +310,12 @@ body.board {
   line-height: 1.05;
   letter-spacing: 0.02em;
   text-transform: uppercase;
+}
+/* The title card is a stop on the same strip, so it differs only in type: gold and a size
+   up, because it is the game's name rather than one of six columns. */
+.board .introtile.gametitle {
+  color: var(--value-gold);
+  font-size: clamp(34px, 8vw, 150px);
 }
 
 /* Podiums along the bottom, as on the show. */
@@ -369,6 +389,27 @@ body.board {
   white-space: pre;
   overflow-wrap: normal;
   overflow-x: auto;
+}
+.control .field {
+  display: block;
+  max-width: 42ch;
+  margin: 0 0 1.4em;
+  font-size: clamp(13px, 1.4vw, 16px);
+  font-weight: 600;
+  color: var(--muted);
+}
+.control .field input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 0.35em;
+  padding: 0.6em 0.7em;
+  font: inherit;
+  font-size: clamp(17px, 2vw, 23px);
+  font-weight: 700;
+  color: var(--ink);
+  border: 2px solid var(--line);
+  border-radius: 12px;
 }
 .control button.minor {
   padding: 0.5em 1em;
@@ -761,8 +802,8 @@ body.board {
   from { opacity: 0; transform: translateY(14%); }
   to   { opacity: 1; transform: none; }
 }
-.board .grid.intro .cat  { animation: catDrop 520ms var(--ease) backwards; }
-.board .grid.intro .cell { animation: cellRise 440ms var(--ease) backwards; }
+.board .grid.intro .cat  { animation: catDrop var(--slow) var(--ease) backwards; }
+.board .grid.intro .cell { animation: cellRise var(--slow) var(--ease) backwards; }
 
 /* The Daily Double is the one moment the board raises its voice - but it still does not
    overshoot. A scale that settles rather than bounces reads as weight, not as a cartoon. */
@@ -770,8 +811,8 @@ body.board {
   from { opacity: 0; transform: scale(0.72); }
   to   { opacity: 1; transform: scale(1); }
 }
-.board .splash.punch .splashtitle { animation: ddPunch 620ms var(--ease) both; }
-.board .splash.punch .splashwho   { animation: ddPunch 560ms var(--ease) 220ms both; }
+.board .splash.punch .splashtitle { animation: ddPunch var(--slow) var(--ease) both; }
+.board .splash.punch .splashwho   { animation: ddPunch var(--slow) var(--ease) 400ms both; }
 
 /* A score changing is the result of the clue, so it gets the beat. The fill is an inset
    shadow because the podium's own background and its border are already spoken for by
@@ -789,10 +830,10 @@ body.board {
   40%  { transform: scale(1.07); }
   100% { transform: scale(1); }
 }
-.board .podium.up   { animation: flashUp 860ms var(--ease); }
-.board .podium.down { animation: flashDown 860ms var(--ease); }
+.board .podium.up   { animation: flashUp var(--slow) var(--ease); }
+.board .podium.down { animation: flashDown var(--slow) var(--ease); }
 .board .podium.up .pscore,
-.board .podium.down .pscore { animation: scorePop 760ms var(--ease); }
+.board .podium.down .pscore { animation: scorePop var(--slow) var(--ease); }
 
 /* Someone who asked their system not to animate gets the same board, instantly. The counting
    score is switched off in board.html, which reads the same query. */

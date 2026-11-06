@@ -14,6 +14,7 @@
 
 <main id="stage">
   <section id="welcome">
+    <div class="wtitle" id="wTitle" hidden></div>
     <p class="wlabel">Room code</p>
     <div class="wcode" id="wCode">----</div>
     <p class="wjoin">Join at <span id="wLink"></span></p>
@@ -70,16 +71,19 @@ const code = (new URL(location).searchParams.get("room") || "")
 // listener's own synchronous first callback, and a const declared further down is still in
 // its dead zone when that happens.
 //
-// Long enough to read as the board opening rather than a cut, short enough to sit through
-// thirty times in a lesson. The text fades in over the back half: it is not scaled with the
-// panel, which would squash it on the way out of the cell.
 // Low energy on purpose. Nothing here overshoots or snaps: one easing that leaves rest and
-// returns to rest, and durations long enough to read as a camera move rather than a cut.
+// returns to rest, and one duration for every move the room watches, so the board keeps a
+// single tempo instead of five. The same number is --slow in board.css: change both.
 const EASE = "cubic-bezier(.4, 0, .2, 1)";
-const EXPAND_MS = 560;
-const SHRINK_MS = 400;
-const REVEAL_MS = 780;
-const BODY_FADE = 340;   // matches .cluebody's transition in board.css
+const SLOW = 1500;
+const EXPAND_MS = SLOW;
+const SHRINK_MS = SLOW;
+const REVEAL_MS = SLOW;
+const COUNT_MS = SLOW;
+// The clue text fades in over the back of the expand and lands exactly as the panel stops.
+// It is not scaled with the panel, which would squash it on the way out of the cell.
+// Matches .cluebody's transition in board.css.
+const BODY_FADE = 900;
 let shrinkTimer = null;  // non-null while a dismiss is on its way back to its cell
 
 // The opening of a game: a bare board, then the values five at a time, then the categories
@@ -87,8 +91,8 @@ let shrinkTimer = null;  // non-null while a dismiss is on its way back to its c
 // staggered transitions rather than a timer the teacher could get ahead of.
 const SWEEP_BATCH = 5;
 const SWEEP_STEP = 340;
-const INTRO_FADE = 620;
-let introAt = null;      // the category index on screen, null when there is no intro
+const INTRO_FADE = SLOW;
+let introAt = null;      // the intro stop on screen, null when there is no intro
 let introSwept = false;  // the value sweep has finished for this intro
 let introStripSig = "";
 let sweepTimer = null;
@@ -146,6 +150,9 @@ function render() {
   // teacher to get out of the way. After that the code lives in the corner instead.
   const welcoming = !game.started && !played && !clue;
   $("#welcome").hidden = !welcoming;
+  // The one place a game that skips the category intro still shows its own name.
+  $("#wTitle").textContent = game.title || "";
+  $("#wTitle").hidden = !game.title;
   // Off unless the teacher turns it on, and never over a clue. A class that has already
   // joined has no use for it, and a game screen is the clue and nothing else.
   $("#cornerCode").hidden = welcoming || !!clue || !game.showCode;
@@ -342,7 +349,7 @@ function setScore(els, id, to) {
 
   const started = performance.now();
   (function step(now) {
-    const p = Math.min(1, (now - started) / 760);
+    const p = Math.min(1, (now - started) / COUNT_MS);
     const eased = 1 - Math.pow(1 - p, 3);
     els.score.textContent = money(Math.round(from + (to - from) * eased));
     if (p < 1) requestAnimationFrame(step);
@@ -462,8 +469,8 @@ function openAnswer(ansEl, text) {
 }
 
 // Driven entirely by game/intro: the board decides when things move on screen, never when
-// the game moves on. A category index of 0 is a real position, so "no intro" is told apart
-// from it by type rather than by truthiness.
+// the game moves on. A stop index of 0 is a real position - the title card - so "no intro"
+// is told apart from it by type rather than by truthiness.
 function renderIntro() {
   const at = Number.isInteger(game.intro) ? game.intro : null;
   const panel = $("#introPanel");
@@ -514,16 +521,18 @@ function sweepValues() {
   sweepTimer = setTimeout(() => { introSwept = true; raiseIntro(); }, runs + 600);
 }
 
+// Stop 0 is the game's title and the rest are the categories, all on one strip: the title
+// pans in and out exactly as a category does, and the board needs no second panel for it.
 function buildStrip() {
-  const cats = ((game.grid || {}).cats) || [];
-  const sig = cats.join("|");
+  const names = [game.title || ""].concat(((game.grid || {}).cats) || []);
+  const sig = names.join("|");
   if (sig === introStripSig) return;
   introStripSig = sig;
   const strip = $("#introStrip");
   strip.textContent = "";
-  cats.forEach((name) => {
+  names.forEach((name, i) => {
     const tile = document.createElement("div");
-    tile.className = "introtile";
+    tile.className = i ? "introtile" : "introtile gametitle";
     tile.textContent = name;                      // the teacher's own text, still not innerHTML
     strip.appendChild(tile);
   });
@@ -573,7 +582,10 @@ function expandFrom(panel, cat, row) {
   panel.style.transform = "translate(0,0) scale(1,1)";
   // Timed so the text is fully there exactly as the panel stops, rather than popping in part
   // way and then being scaled the rest of the journey.
-  setTimeout(() => panel.classList.add("settled"), EXPAND_MS - BODY_FADE);
+  // Nothing to wait for when the expand itself was taken away: without this the clue screen
+  // would sit blank for the 600ms the fade was meant to start at.
+  setTimeout(() => panel.classList.add("settled"),
+             reduced.matches ? 0 : EXPAND_MS - BODY_FADE);
 }
 
 function boxTransform(r, base) {

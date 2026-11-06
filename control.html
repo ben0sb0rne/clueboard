@@ -25,6 +25,12 @@
 
   <div id="ready" hidden>
     <p class="sub" id="setSummary"></p>
+    <!-- Required, because the board opens on it: the title is the first stop of the category
+         intro, and the heading on the welcome card for a game that skips the intro. -->
+    <label class="field">Game title
+      <input id="title" maxlength="60" autocomplete="off" placeholder="Unit 3 Review">
+    </label>
+    <p id="titleErr" class="err"></p>
     <ul id="setWarnings" class="warnings"></ul>
     <details id="check" class="check">
       <summary id="checkSum">Check the clues</summary>
@@ -85,7 +91,7 @@
     <section id="introState" hidden>
       <p class="turnline"><span id="introWhere"></span></p>
       <div class="startrow">
-        <button id="introNext">Next category</button>
+        <button id="introNext">Next</button>
       </div>
     </section>
 
@@ -146,6 +152,7 @@ const LAST_ROOM = "clueboard-host-room";
 const SET_KEY = "clueboard-set";           // the raw paste, re-parsed on load
 const PICK_KEY = "clueboard-teams-pick";   // host preference, remembered between games
 const CODE_KEY = "clueboard-show-code";    // the same, for the code in the board's corner
+const TITLE_KEY = "clueboard-title";       // so a refresh mid-lesson still knows the game
 const STILL_BEATING = 3 * 60 * 1000;
 // The show gives 30 seconds. An 8th grade algebra problem needs longer, and a teacher who
 // wants a different length can say so out loud - the timer shows the room the same number
@@ -166,6 +173,9 @@ let teamsPick = localStorage.getItem(PICK_KEY) === "1";
 // Off unless it has been turned on: a game screen carries the clue and nothing else, and a
 // class that has joined has no use for the code.
 let showCode = localStorage.getItem(CODE_KEY) === "1";
+// Kept rather than read off the field at publish time, because openRoom also runs on a
+// refresh, where the setup screen the field lives on was never shown.
+let gameTitle = localStorage.getItem(TITLE_KEY) || "";
 
 const IDLE_WARN = 55 * 60 * 1000;
 const IDLE_GRACE = 5 * 60 * 1000;
@@ -178,7 +188,7 @@ $("#showCode").checked = showCode;
 $("#importBtn").addEventListener("click", importSet);
 $("#sampleBtn").addEventListener("click", loadSample);
 $("#reimportBtn").addEventListener("click", () => showSetup(true));
-$("#createBtn").addEventListener("click", () => openRoom(newCode()));
+$("#createBtn").addEventListener("click", createRoom);
 $("#openBoard").addEventListener("click", openBoardWindow);
 $("#cog").addEventListener("click", togglePanel);
 $("#mute").addEventListener("change", setMute);
@@ -262,7 +272,20 @@ function showSetup(importing) {
     list.appendChild(li);
   }
 
+  $("#title").value = gameTitle;
   buildCheck();
+}
+
+function createRoom() {
+  gameTitle = $("#title").value.trim().slice(0, 60);
+  if (!gameTitle) {
+    $("#titleErr").textContent = "Give the game a title - the board opens on it.";
+    $("#title").focus();
+    return;
+  }
+  $("#titleErr").textContent = "";
+  localStorage.setItem(TITLE_KEY, gameTitle);
+  openRoom(newCode());
 }
 
 // The whole set, read before the lesson rather than discovered during it. It renders with the
@@ -363,9 +386,9 @@ function startGame(intro) {
 // that moves the intro on. Past the last category it ends, which is also the way out of an
 // intro started by mistake.
 function nextIntro() {
-  const cats = (((game.grid || {}).cats) || []).length;
+  const stops = (((game.grid || {}).cats) || []).length + 1;   // the title, then each category
   const at = Number(game.intro) || 0;
-  gameRef.update({ intro: at + 1 >= cats ? null : at + 1 })
+  gameRef.update({ intro: at + 1 >= stops ? null : at + 1 })
     .catch((err) => { alert("Could not move the intro on: " + err.message); });
 }
 
@@ -401,10 +424,14 @@ function openRoom(code) {
   // already there wins and an open clue stays open. Only the grid is republished, because
   // the clue set lives on this device and a fresh tab has to put it back.
   gameRef.once("value").then((snap) => {
-    const round = Number((snap.val() || {}).round) || 1;
+    const was = snap.val() || {};
+    const round = Number(was.round) || 1;
+    // Reopening on a device that never typed the title takes it back off the room, rather
+    // than blanking the card the board opens on.
+    if (!gameTitle && was.title) gameTitle = was.title;
     return gameRef.update({ round: round, grid: roundGrid(clueSet, round), pick: null,
                             teamsPick: teamsPick || null, picker: null,
-                            showCode: showCode || null });
+                            showCode: showCode || null, title: gameTitle || null });
   }).catch((err) => { alert("Could not start the game: " + err.message); });
 
   teamsRef.on("value", renderTeams);
@@ -465,8 +492,8 @@ function renderGame(snap) {
   }
 
   // Four states, and only one of them is on screen: not started, running the intro, the grid,
-  // or a clue. game/intro is the category index on the board, so 0 is a real value and
-  // "no intro" has to be told apart from it rather than tested for truth.
+  // or a clue. game/intro is the stop on the board, 0 being the title card, so 0 is a real
+  // value and "no intro" has to be told apart from it rather than tested for truth.
   const intro = Number.isInteger(game.intro) ? game.intro : null;
   const cats = ((game.grid || {}).cats) || [];
   const pre = !game.started && !clue;
@@ -479,11 +506,13 @@ function renderGame(snap) {
   $("#clueState").hidden = !clue;
 
   if (introing) {
-    $("#introWhere").textContent = (intro + 1) + " of " + cats.length + " on the board: " +
-      (cats[intro] || "");
-    // The next category's own name, because the teacher reads it out as it lands.
-    $("#introNext").textContent = intro + 1 < cats.length
-      ? "Next: " + cats[intro + 1]
+    // The same strip the board is showing: the game's title, then the categories.
+    const stops = [game.title || "Title"].concat(cats);
+    $("#introWhere").textContent = (intro + 1) + " of " + stops.length + " on the board: " +
+      (stops[intro] || "");
+    // The next card's own name, because the teacher reads it out as it lands.
+    $("#introNext").textContent = intro + 1 < stops.length
+      ? "Next: " + stops[intro + 1]
       : "Start the game";
   }
   $("#roundBtn").textContent = "Go to round " + (Number(game.round) === 2 ? 1 : 2);
