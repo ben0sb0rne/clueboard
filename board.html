@@ -25,8 +25,10 @@
     <div class="grid" id="grid"></div>
   </section>
 
+  <!-- Nothing but the words. On the show a clue screen carries no value, no category and no
+       room code - and a classroom that can read the category off the grid behind it does not
+       need it twice. -->
   <section id="cluePanel" hidden aria-live="polite">
-    <div class="cluehead" id="clueHead"></div>
     <div class="cluebody">
       <div class="splash" id="ddSplash" hidden>
         <div class="splashtitle">DAILY DOUBLE</div>
@@ -58,6 +60,18 @@
 const $ = (s) => document.querySelector(s);
 const code = (new URL(location).searchParams.get("room") || "")
   .toUpperCase().replace(/[^A-Z]/g, "").slice(0, 4);
+
+// Up here, not beside expandFrom, because the first snapshot can arrive while this script is
+// still being evaluated - a board opened on a clue that is already up renders from inside the
+// listener's own synchronous first callback, and a const declared further down is still in
+// its dead zone when that happens.
+//
+// Long enough to read as the board opening rather than a cut, short enough to sit through
+// thirty times in a lesson. The text fades in over the back half: it is not scaled with the
+// panel, which would squash it on the way out of the cell.
+const EXPAND_MS = 380;
+const SHRINK_MS = 220;
+let shrinkTimer = null;  // non-null while a dismiss is on its way back to its cell
 
 let game = {};
 let teams = [];
@@ -111,7 +125,9 @@ function render() {
   // teacher to get out of the way. After that the code lives in the corner instead.
   const welcoming = !played && !clue;
   $("#welcome").hidden = !welcoming;
-  $("#cornerCode").hidden = welcoming;
+  // Off while a clue is up, so the clue is the only thing on the screen. It comes back with
+  // the grid, which is where a latecomer has time to read it anyway.
+  $("#cornerCode").hidden = welcoming || !!clue;
   $("#wTeams").textContent = teams.length
     ? teams.map((t) => t.name).join("  ·  ")
     : "Waiting for teams...";
@@ -315,8 +331,12 @@ function renderClue(clue) {
   const panel = $("#cluePanel");
 
   if (!clue) {
-    if (!panel.hidden) shrinkBack(panel);
-    shownKey = null;
+    // Dismissing writes two fields, so a second snapshot lands about a millisecond later and
+    // re-enters this. Starting the shrink twice killed it outright: the second call's layout
+    // read commits the end transform before the browser has begun a transition to it, so the
+    // panel vanished where it stood. shownKey is cleared when the shrink lands, not here, for
+    // the same reason - the second call needs a cell to aim at.
+    if (!panel.hidden && !shrinkTimer) shrinkBack(panel);
     return;
   }
 
@@ -345,10 +365,6 @@ function renderClue(clue) {
   }
   $("#finalCat").hidden = !catOnly;
   if (catOnly) $("#finalCat").textContent = clue.category || "";
-
-  $("#clueHead").textContent = splash ? ""
-    : clue.final ? "FINAL JEOPARDY"
-    : (clue.category || "") + "   " + money(clue.value) + (clue.dd ? "   DAILY DOUBLE" : "");
 
   $("#clueText").hidden = hideClue;
   if (!hideClue) mathText($("#clueText"), clue.text);
@@ -379,8 +395,13 @@ function renderClue(clue) {
 // The signature move: the cell grows to fill the screen. A FLIP off the cell's own rect, so
 // it is one transform and nothing is measured twice. Transform only - no width or height - so
 // it stays on the compositor and holds its frame rate on a school laptop driving a projector.
+//
 function expandFrom(panel, cat, row) {
   const cell = cellEls[cat] && cellEls[cat][row];
+  // A clue picked while the last one is still shrinking: drop the pending hide, or it fires
+  // mid-expand and blanks the new clue.
+  clearTimeout(shrinkTimer);
+  shrinkTimer = null;
   panel.hidden = false;
   panel.classList.remove("settled");
 
@@ -396,13 +417,15 @@ function expandFrom(panel, cat, row) {
   panel.style.transform = boxTransform(r, base);
   panel.style.opacity = "1";
 
-  requestAnimationFrame(() => {
-    panel.style.transition = "transform 260ms cubic-bezier(.22,.61,.36,1)";
-    panel.style.transform = "translate(0,0) scale(1,1)";
-    // The text fades in behind the growing panel rather than being scaled with it, which
-    // would squash it on the way out of the cell.
-    setTimeout(() => panel.classList.add("settled"), 170);
-  });
+  // Reads a layout property to force the start transform into the computed style. Without it
+  // the browser coalesces both transforms into one recalc, never holds the cell-sized frame,
+  // and the panel simply appears full screen - which is what it did. The same one-line trick
+  // the Daily Double splash uses two functions up.
+  void panel.offsetWidth;
+
+  panel.style.transition = "transform " + EXPAND_MS + "ms cubic-bezier(.22,.61,.36,1)";
+  panel.style.transform = "translate(0,0) scale(1,1)";
+  setTimeout(() => panel.classList.add("settled"), EXPAND_MS * 0.55);
 }
 
 function boxTransform(r, base) {
@@ -414,19 +437,26 @@ function shrinkBack(panel) {
   const parts = (shownKey || "").split("-");
   const cell = cellEls[parts[0]] && cellEls[parts[0]][parts[1]];
   panel.classList.remove("settled");
-  if (!cell) { panel.hidden = true; panel.style.transform = ""; return; }
+  if (!cell) { panel.hidden = true; panel.style.transform = ""; shownKey = null; return; }
 
   const r = cell.getBoundingClientRect();
   const base = panel.parentElement.getBoundingClientRect();
-  panel.style.transition = "transform 200ms cubic-bezier(.4,0,.7,.4), opacity 200ms linear";
+  panel.style.transition = "transform " + SHRINK_MS + "ms cubic-bezier(.4,0,.7,.4)," +
+    " opacity " + SHRINK_MS + "ms linear";
+  // Committed before the transform moves. Changing the transition and the transform in one
+  // style recalc started the opacity transition and silently dropped the transform one - the
+  // panel faded where it stood instead of shrinking into its cell.
+  void panel.offsetWidth;
   panel.style.transform = boxTransform(r, base);
   panel.style.opacity = "0";
-  setTimeout(() => {
+  shrinkTimer = setTimeout(() => {
     panel.hidden = true;
     panel.style.transition = "none";
     panel.style.transform = "";
     panel.style.opacity = "1";
-  }, 210);
+    shownKey = null;
+    shrinkTimer = null;
+  }, SHRINK_MS + 10);
 }
 
 // A projector's size does not change mid-lesson, but a window dragged onto one does, and the

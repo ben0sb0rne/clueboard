@@ -42,13 +42,23 @@
      --board-blue-lit is the control grid's hover, derived from the blue, not picked.
 
      shortcut: faithful to the frame, which is darker than the board looks in the room. If a
-     classroom projector washes these out, scale the blue up and keep the hue. */
+     classroom projector washes these out, scale the blue up and keep the hue.
+
+     The gold is Ben's, not the sampler's: #eca035 came off the frame, #fea441 is what he
+     wants on the wall. Brighter and a touch warmer, which is the direction a projector
+     needs anyway. */
   --board-blue: #04106e;
   --board-blue-lit: #071dc6;
   --gap-ink: #04051c;
   --surround: #090a26;
-  --value-gold: #eca035;
+  --value-gold: #fea441;
   --clue-white: #fff;
+
+  /* The show's board type carries a hard black edge: a thin outline, and a solid shadow
+     thrown down and right with no blur at all. Both in em so they hold their proportion
+     from the 14px turn banner to an 86px clue. Equal x and y is 45 degrees exactly. */
+  --edge: 0.045em;
+  --edge-stroke: 0.022em;
 
   /* The board font is Swiss 911 Ultra Compressed, which is licensed and cannot be used.
      Anton is the nearest free thing: self-hosted in fonts/, declared at the top of this file.
@@ -69,6 +79,17 @@ body.board {
   color: var(--clue-white);
   font-family: var(--board-font);
   -webkit-font-smoothing: antialiased;
+}
+
+/* Declared on every element, not inherited: text-shadow in em computes to px at the element
+   that carries the declaration, so one rule on body.board would hand the 86px clue the 16px
+   body's 0.7px shadow. paint-order keeps the stroke outside the letterform instead of eating
+   into it; where it is not supported the glyphs read a hair lighter and nothing else. */
+.board,
+.board * {
+  text-shadow: var(--edge) var(--edge) 0 #000;
+  -webkit-text-stroke: var(--edge-stroke) #000;
+  paint-order: stroke fill;
 }
 
 .board #stage {
@@ -104,7 +125,6 @@ body.board {
   line-height: 0.95;
   letter-spacing: 0.06em;
   color: var(--value-gold);
-  text-shadow: 0 0.06em 0 rgba(0, 0, 0, 0.45);
 }
 .board .wjoin { margin: 0; font-size: clamp(20px, 3vw, 44px); color: #fff; }
 .board .wjoin span { color: var(--value-gold); }
@@ -161,14 +181,12 @@ body.board {
   line-height: 1.08;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.4);
 }
 .board .cell span {
   font-size: clamp(20px, 3.6vw, 68px);
   font-weight: 700;
   letter-spacing: 0.01em;
   color: var(--value-gold);
-  text-shadow: 0 0.05em 0 rgba(0, 0, 0, 0.5);
 }
 /* Spent cells go dark rather than disappearing: the grid has to keep its shape, because the
    clue animation is measured against these cells. */
@@ -192,18 +210,8 @@ body.board {
   background: var(--board-blue);
   will-change: transform;
 }
-.board #cluePanel .cluehead,
 .board #cluePanel .cluebody { opacity: 0; transition: opacity 130ms linear; }
-.board #cluePanel.settled .cluehead,
 .board #cluePanel.settled .cluebody { opacity: 1; }
-
-.board .cluehead {
-  font-size: clamp(14px, 1.8vw, 28px);
-  letter-spacing: 0.28em;
-  text-transform: uppercase;
-  color: var(--value-gold);
-  text-align: center;
-}
 .board .cluebody {
   display: flex;
   flex-direction: column;
@@ -220,7 +228,6 @@ body.board {
   line-height: 1.18;
   text-align: center;
   text-transform: uppercase;
-  text-shadow: 0 3px 0 rgba(0, 0, 0, 0.4);
 }
 .board #clueImage {
   max-width: min(60vw, 100%);
@@ -229,11 +236,16 @@ body.board {
   background: #fff;
   border-radius: 6px;
 }
+/* White, like the clue above it: on the show the only thing on this screen is the words, and
+   the rule is what separates them. */
 .board .clueanswer {
   padding: 0.3em 0.9em;
+  /* A set width, so the rule is the same line under "12" as under a sentence. Hugging the
+     text made a two-character answer look like a mistake. */
+  min-width: min(40vw, 100%);
   font-size: clamp(22px, 3.6vw, 64px);
   font-weight: 700;
-  color: var(--value-gold);
+  color: var(--clue-white);
   border-top: 4px solid rgba(255, 255, 255, 0.35);
   text-align: center;
 }
@@ -599,7 +611,6 @@ body.board {
   line-height: 1;
   letter-spacing: 0.03em;
   color: var(--value-gold);
-  text-shadow: 0 6px 0 rgba(0, 0, 0, 0.45);
 }
 .board .splashwho {
   margin-top: 0.55em;
@@ -619,7 +630,6 @@ body.board {
   text-align: center;
   text-transform: uppercase;
   color: #fff;
-  text-shadow: 0 5px 0 rgba(0, 0, 0, 0.4);
 }
 
 /* Who is ready, never how much: a wager stays secret until that team is revealed. */
