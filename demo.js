@@ -79,10 +79,19 @@
   // Every listener is re-fired after every write. With a handful of listeners per page that
   // costs nothing, and it rules out the whole class of bug where a parent listener misses a
   // write to one of its children.
+  // Deferred and coalesced, because a listener that writes - the random first picker does -
+  // would otherwise re-enter fire() from inside its own set() and recurse until the stack
+  // blows. The real SDK never calls a listener synchronously from inside a write either.
+  var queued = false;
   function fire() {
-    var tree = load();
-    listeners.slice().forEach(function (l) {
-      try { l.cb(snap(l.path, get(tree, l.path))); } catch (e) { console.error(e); }
+    if (queued) return;
+    queued = true;
+    Promise.resolve().then(function () {
+      queued = false;
+      var tree = load();
+      listeners.slice().forEach(function (l) {
+        try { l.cb(snap(l.path, get(tree, l.path))); } catch (e) { console.error(e); }
+      });
     });
   }
 
