@@ -6,14 +6,42 @@ the teacher, and student devices that buzz, answer and pick clues. Forked from
 
 No framework, no build step. Plain files served by GitHub Pages.
 
-**Status: prototype.** The files inherited from the buzzer (`index.html`, `host.html`) are
-still the plain buzzer. The board, control and player screens are not built yet.
+**Status: playable prototype.** A round runs end to end: import a clue set, open a room,
+teams join, clues are picked and answered, and the teacher scores by hand. Daily Double
+wagers and Final Jeopardy are not built; a Daily Double shows and plays as a normal clue.
 
-- `board.html` - student-facing, on the TV. Never touched during a game. *(not built)*
-- `control.html` - everything the teacher does. Holds the clue set. *(not built)*
-- `index.html` - student devices: buzz, answer, pick, wager.
+- `board.html` - student-facing, on the TV. Never touched during a game.
+- `control.html` - everything the teacher does. Holds the clue set, in memory.
+- `index.html` - student devices: buzz, answer, pick a clue.
+- `clues.js` - parses a pasted clue set. `node clues.test.js` checks it.
+- `demo.js` - a localStorage stand-in for Firebase, see below.
+- `sample-clues.tsv` - a working clue set, and the template to copy.
 - `firebase-config.js` - the only file you need to edit by hand
 - `database.rules.json` - deployed by the CLI, not pasted into the console
+
+## Looking at it with no Firebase project
+
+Add `?demo=1` to any screen. `demo.js` swaps in an in-memory database kept in localStorage,
+seeded with a room `DEMO` and four teams. Two tabs of the same browser share it, so
+`control.html?room=DEMO&demo=1` really does drive `board.html?room=DEMO&demo=1`.
+
+It is same-browser only and is not an emulator: it exists so the screens can be judged, and
+tested, without waiting on a project.
+
+## Writing a clue set
+
+Copy `sample-clues.tsv` into a spreadsheet and edit it. One clue per row; the first row is the
+header and the column order does not matter. A blank `value` derives from row order, `dd`
+marks a Daily Double with an `x`, and `round` is `1`, `2` or `final`. Round 2 is the same
+sheet with the round column changed.
+
+Clue and answer text may carry `$...$` maths, rendered by KaTeX on the board and the control
+screen. About twelve commands cover the year: `\frac`, `^`, `_`, `\sqrt`, `\times`, `\div`,
+`\pm`, `\le`, `\ge`, `\ne`, `\pi`, `\angle`. Category names stay plain text on purpose, so
+the player screen needs no KaTeX at all.
+
+To load a set, paste it into the box on `control.html`. It is kept on that device, and never
+sent anywhere.
 
 ## Its own Firebase project, always
 

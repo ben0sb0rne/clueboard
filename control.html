@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clueboard - Control</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="board.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+</head>
+<body class="host control">
+
+<main id="setup">
+  <h1>Clueboard</h1>
+
+  <div id="importBox">
+    <p class="sub">Paste your clue set below: select the rows in your spreadsheet and copy.
+      The first row has to be the header.</p>
+    <textarea id="tsv" spellcheck="false"
+      placeholder="round&#9;category&#9;value&#9;clue&#9;image&#9;answer&#9;dd"></textarea>
+    <p id="importErr" class="err"></p>
+    <button id="importBtn">Load clue set</button>
+    <button id="sampleBtn" class="minor">Use the sample set</button>
+  </div>
+
+  <div id="ready" hidden>
+    <p class="sub" id="setSummary"></p>
+    <ul id="setWarnings" class="warnings"></ul>
+    <button id="createBtn">Create room</button>
+    <button id="reimportBtn" class="minor">Load a different set</button>
+  </div>
+</main>
+
+<main id="dash" hidden>
+  <div id="idlebar" class="idlebar" hidden>
+    <span>Nobody has touched this game for a while. It ends in <b id="idleLeft">5:00</b>.</span>
+    <button id="keepAlive">Keep game open</button>
+  </div>
+
+  <div class="bar">
+    <div class="roomcode" id="roomCode"></div>
+    <div class="joinlink">Join at <a id="joinLink" href="#"></a></div>
+    <button id="openBoard">Open board</button>
+    <button id="cog" aria-label="Settings" aria-expanded="false" title="Settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" aria-hidden="true" focusable="false">
+        <circle cx="12" cy="12" r="8"></circle>
+        <circle cx="12" cy="12" r="3"></circle>
+        <path d="M20 12h2.5M1.5 12H4M12 4V1.5M12 20v2.5M17.66 6.34l1.76-1.76M4.58 19.42l1.76-1.76M17.66 17.66l1.76 1.76M4.58 4.58l1.76 1.76"></path>
+      </svg>
+    </button>
+  </div>
+
+  <div id="panel" class="panel" hidden>
+    <label class="opt"><input type="checkbox" id="mute"> Mute buzzer on this device</label>
+    <button id="roundBtn">Go to round 2</button>
+    <button id="endGame">End game</button>
+    <span class="note">Tap a team's name to rename it, or its score to correct it. Remove a team
+      with the &times; beside its row. A game left open ends by itself an hour after this
+      screen is closed.</span>
+    <span id="rulesHint" class="note warn" hidden>Auto-cleanup is off: deploy the latest database.rules.json.</span>
+  </div>
+
+  <div id="stage">
+    <section id="gridState">
+      <p class="turnline">
+        <span id="turnLine"></span>
+        <span class="hintline">Click any cell to pick for them. Overriding does not change whose turn it is.</span>
+      </p>
+      <div id="ctlGrid" class="ctlgrid"></div>
+      <p class="empty" id="roundDone" hidden>Every clue in this round is spent.</p>
+    </section>
+
+    <section id="clueState" hidden>
+      <div class="cluebar">
+        <span id="clueWhere"></span>
+        <button id="revealBtn">Reveal answer</button>
+        <button id="dismissBtn">Back to board</button>
+      </div>
+      <div class="ctlclue">
+        <div id="ctlClueText"></div>
+        <div class="ctlanswer">
+          <span class="lbl">Answer</span>
+          <div id="ctlAnswerText"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div id="teamsWrap">
+    <table>
+      <thead>
+        <tr>
+          <th class="num">#</th>
+          <th class="name">Team</th>
+          <th class="score">Score</th>
+          <th class="answer">Answer</th>
+          <th class="mark"></th>
+          <th class="rm"></th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <p class="empty" id="empty">Waiting for teams to join...</p>
+  </div>
+</main>
+
+<script src="https://www.gstatic.com/firebasejs/12.0.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.0.0/firebase-database-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="firebase-config.js"></script>
+<script src="demo.js"></script>
+<script src="common.js"></script>
+<script src="clues.js"></script>
+<script>
+const $ = (s) => document.querySelector(s);
+const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ";   // no I or O: they read as 1 and 0 on a projector
+const MUTE_KEY = "clueboard-muted";
+const LAST_ROOM = "clueboard-host-room";
+const SET_KEY = "clueboard-set";           // the raw paste, re-parsed on load
+const STILL_BEATING = 3 * 60 * 1000;
+
+let roomCode = null;
+let teamsRef = null;
+let gameRef = null;
+let beatTimer = null;
+let clueSet = null;
+let game = {};              // last snapshot of rooms/<code>/game
+let teams = [];
+let buzzedIds = null;       // null until the first snapshot, so reopening a room does not beep
+let muted = localStorage.getItem(MUTE_KEY) === "1";
+
+const IDLE_WARN = 55 * 60 * 1000;
+const IDLE_GRACE = 5 * 60 * 1000;
+let lastActivity = Date.now();
+let idleTimer = null;
+
+$("#mute").checked = muted;
+$("#importBtn").addEventListener("click", importSet);
+$("#sampleBtn").addEventListener("click", loadSample);
+$("#reimportBtn").addEventListener("click", () => showSetup(true));
+$("#createBtn").addEventListener("click", () => openRoom(newCode()));
+$("#openBoard").addEventListener("click", openBoardWindow);
+$("#cog").addEventListener("click", togglePanel);
+$("#mute").addEventListener("change", setMute);
+$("#roundBtn").addEventListener("click", toggleRound);
+$("#endGame").addEventListener("click", armEndGame);
+$("#keepAlive").addEventListener("click", markActive);
+$("#revealBtn").addEventListener("click", revealAnswer);
+$("#dismissBtn").addEventListener("click", dismissClue);
+addEventListener("pointerdown", markActive);
+addEventListener("keydown", markActive);
+
+const fromUrl = (new URL(location).searchParams.get("room") || "")
+  .toUpperCase().replace(/[^A-Z]/g, "").slice(0, 4);
+
+const leftover = localStorage.getItem(LAST_ROOM);
+if (leftover && leftover !== fromUrl) wipeIfDead(leftover);
+
+loadStoredSet();
+if (clueSet && /^[A-Z]{4}$/.test(fromUrl)) openRoom(fromUrl);
+
+/* ---------- the clue set ---------- */
+
+// The raw paste is what gets stored, not the parsed tree: it is barely larger, and a fix to
+// the parser then applies to a set that is already loaded instead of needing a re-import.
+function loadStoredSet() {
+  const raw = localStorage.getItem(SET_KEY);
+  if (!raw) { showSetup(true); return; }
+  clueSet = parseClueSet(raw);
+  if (!clueSet.rounds[1]) { clueSet = null; showSetup(true); return; }
+  showSetup(false);
+}
+
+function importSet() {
+  const raw = $("#tsv").value;
+  const parsed = parseClueSet(raw);
+  if (!parsed.rounds[1]) {
+    $("#importErr").textContent = parsed.errors[0] || "No round 1 clues in that paste.";
+    return;
+  }
+  $("#importErr").textContent = "";
+  localStorage.setItem(SET_KEY, raw);
+  clueSet = parsed;
+  showSetup(false);
+}
+
+function loadSample() {
+  fetch("sample-clues.tsv")
+    .then((r) => { if (!r.ok) throw new Error("Could not read sample-clues.tsv"); return r.text(); })
+    .then((text) => { $("#tsv").value = text; importSet(); })
+    .catch((err) => { $("#importErr").textContent = err.message; });
+}
+
+function showSetup(importing) {
+  $("#importBox").hidden = !importing;
+  $("#ready").hidden = importing;
+  if (importing || !clueSet) return;
+
+  const counts = [1, 2].filter((r) => clueSet.rounds[r])
+    .map((r) => clueCount(clueSet, r, {}) + " in round " + r);
+  if (clueSet.final.length) counts.push(clueSet.final.length + " final");
+  $("#setSummary").textContent = "Clue set loaded: " + counts.join(", ") + ".";
+
+  const list = $("#setWarnings");
+  list.textContent = "";
+  clueSet.errors.slice(0, 8).forEach((e) => {
+    const li = document.createElement("li");
+    li.textContent = e;
+    list.appendChild(li);
+  });
+  if (clueSet.errors.length > 8) {
+    const li = document.createElement("li");
+    li.textContent = "and " + (clueSet.errors.length - 8) + " more.";
+    list.appendChild(li);
+  }
+}
+
+/* ---------- the room ---------- */
+
+function newCode() {
+  let code = "";
+  for (let i = 0; i < 4; i++) code += ALPHABET[Math.floor(Math.random() * ALPHABET.length)];
+  return code;
+}
+
+function openRoom(code) {
+  try { history.replaceState(null, "", "?room=" + code + (window.DEMO ? "&demo=1" : "")); } catch (e) {}
+
+  const link = new URL("./", location.href);
+  const shown = link.href.replace(/^https?:\/\//, "").replace(/\/$/, "");
+  link.search = "?room=" + code;
+  $("#roomCode").textContent = code;
+  $("#joinLink").textContent = shown;
+  $("#joinLink").href = link.href;
+  $("#setup").hidden = true;
+  $("#dash").hidden = false;
+
+  roomCode = code;
+  localStorage.setItem(LAST_ROOM, code);
+  teamsRef = db.ref("rooms/" + code + "/teams");
+  gameRef = db.ref("rooms/" + code + "/game");
+
+  // Publishing the grid is what makes a board possible: category names and cell values only,
+  // never clue text and never an answer.
+  gameRef.update({
+    round: 1,
+    grid: roundGrid(clueSet, 1),
+    clue: null,
+    reveal: false,
+    pick: null
+  }).catch((err) => { alert("Could not start the game: " + err.message); });
+
+  teamsRef.on("value", renderTeams);
+  gameRef.on("value", renderGame);
+  startHeartbeat();
+  markActive();
+  clearInterval(idleTimer);
+  idleTimer = setInterval(tickIdle, 1000);
+}
+
+// A window rather than a tab: a tab cannot be dragged onto an extended display and a popup
+// can. It carries the room in its URL, so it also just opens on a second device.
+function openBoardWindow() {
+  const url = "board.html?room=" + roomCode + (window.DEMO ? "&demo=1" : "");
+  const win = window.open(url, "clueboard-board", "width=1280,height=800");
+  if (!win) alert("The board was blocked by a popup blocker. Open " + url + " yourself.");
+}
+
+function markActive() {
+  lastActivity = Date.now();
+  $("#idlebar").hidden = true;
+}
+
+function tickIdle() {
+  if (!teamsRef) return;
+  const idle = Date.now() - lastActivity;
+  if (idle < IDLE_WARN) { $("#idlebar").hidden = true; return; }
+  const left = IDLE_WARN + IDLE_GRACE - idle;
+  if (left <= 0) { endGame(); return; }
+  $("#idlebar").hidden = false;
+  const mins = Math.floor(left / 60000);
+  const secs = Math.floor((left % 60000) / 1000);
+  $("#idleLeft").textContent = mins + ":" + String(secs).padStart(2, "0");
+}
+
+function startHeartbeat() {
+  const ref = db.ref("rooms/" + roomCode + "/hostSeen");
+  const beat = () => ref.set(SERVER_TIME).catch(() => { $("#rulesHint").hidden = false; });
+  beat();
+  clearInterval(beatTimer);
+  beatTimer = setInterval(beat, 60000);
+}
+
+/* ---------- the game ---------- */
+
+function renderGame(snap) {
+  game = snap.val() || {};
+  const clue = game.clue || null;
+
+  // A team picked on their own device. Only the control screen knows the clue text, so the
+  // pick is a coordinate and this is what turns it into a clue.
+  const pick = game.pick;
+  if (pick && !clue) {
+    gameRef.child("pick").remove().catch(() => {});
+    if (pick.team === game.turn) selectCell(pick.cat, pick.row);
+    return;
+  }
+
+  document.body.classList.toggle("inclue", !!clue);
+  $("#gridState").hidden = !!clue;
+  $("#clueState").hidden = !clue;
+  $("#roundBtn").textContent = "Go to round " + (Number(game.round) === 2 ? 1 : 2);
+
+  if (clue) {
+    $("#clueWhere").textContent =
+      (clue.category || "") + " - " + money(clue.value) + (clue.dd ? " - DAILY DOUBLE" : "");
+    mathText($("#ctlClueText"), clue.text);
+    mathText($("#ctlAnswerText"), clue.answer || lookupAnswer(clue));
+    $("#revealBtn").disabled = !!game.reveal;
+    $("#revealBtn").textContent = game.reveal ? "Answer is on the board" : "Reveal answer";
+  } else {
+    renderGrid();
+  }
+  renderTeamRows();
+}
+
+// The answer is held here, never published until the teacher reveals it. game/clue carries
+// one only after that, so this is the lookup the control screen uses in the meantime.
+function lookupAnswer(clue) {
+  const found = clueAt(clueSet, Number(game.round) || 1, clue.cat, clue.row);
+  return found ? found.answer : "";
+}
+
+function renderGrid() {
+  const round = Number(game.round) || 1;
+  const grid = roundGrid(clueSet, round);
+  const wrap = $("#ctlGrid");
+  wrap.textContent = "";
+  if (!grid) {
+    $("#roundDone").hidden = false;
+    $("#roundDone").textContent = "No round " + round + " clues in this set.";
+    return;
+  }
+
+  grid.cats.forEach((name, c) => {
+    const head = document.createElement("div");
+    head.className = "ctlcat";
+    head.textContent = name;
+    head.style.gridColumn = c + 1;
+    wrap.appendChild(head);
+  });
+
+  grid.cats.forEach((name, c) => {
+    grid.values[c].forEach((value, r) => {
+      const cell = document.createElement("button");
+      const spent = !value || (game.used || {})[cellKey(c, r)];
+      cell.className = "ctlcell" + (spent ? " spent" : "");
+      cell.style.gridColumn = c + 1;
+      cell.style.gridRow = r + 2;
+      cell.textContent = value ? money(value) : "";
+      cell.disabled = !!spent;
+      if (!spent) cell.addEventListener("click", () => selectCell(c, r));
+      wrap.appendChild(cell);
+    });
+  });
+
+  const left = clueCount(clueSet, round, game.used);
+  $("#roundDone").hidden = left > 0;
+  $("#roundDone").textContent = "Every clue in round " + round + " is spent.";
+  $("#turnLine").textContent = game.turn
+    ? "Picking: " + (teamName(game.turn) || "a team that has left")
+    : "Nobody is picking yet.";
+}
+
+// Publishes the clue text, which is about to be on the projector anyway, and marks the cell
+// spent in the same write so the board never shows a cell that is already being played.
+// shortcut: spending the cell here means a mis-click burns that clue, with no undo. Add
+// `used[key] = null` behind a long-press if that ever costs a lesson.
+function selectCell(cat, row) {
+  const round = Number(game.round) || 1;
+  const clue = clueAt(clueSet, round, cat, row);
+  if (!clue || (game.used || {})[cellKey(cat, row)]) return;
+
+  const update = {
+    clue: {
+      cat: cat, row: row, category: clue.category, value: clue.value,
+      text: clue.text, image: clue.image || "", dd: !!clue.dd
+    },
+    reveal: false,
+    pick: null
+  };
+  update["used/" + cellKey(cat, row)] = true;
+  gameRef.update(update)
+    .then(resetBuzzers)
+    .catch((err) => { alert("Could not open that clue: " + err.message); });
+}
+
+function revealAnswer() {
+  const clue = game.clue;
+  if (!clue) return;
+  const answer = lookupAnswer(clue);
+  // The answer reaches the database here and nowhere else: at this point it is going on the
+  // projector, so a student reading it out of devtools gains nothing.
+  gameRef.update({ "clue/answer": answer, reveal: true })
+    .catch((err) => { alert("Could not reveal: " + err.message); });
+}
+
+function dismissClue() {
+  gameRef.update({ clue: null, reveal: false, pick: null })
+    .then(resetBuzzers)
+    .catch((err) => { alert("Could not close that clue: " + err.message); });
+}
+
+function toggleRound() {
+  const next = Number(game.round) === 2 ? 1 : 2;
+  if (!clueSet.rounds[next]) { alert("This clue set has no round " + next + "."); return; }
+  gameRef.update({ round: next, grid: roundGrid(clueSet, next), clue: null, reveal: false, pick: null })
+    .then(resetBuzzers)
+    .catch((err) => { alert("Could not change round: " + err.message); });
+}
+
+/* ---------- teams ---------- */
+
+function teamName(id) {
+  const found = teams.filter((t) => t.id === id)[0];
+  return found ? found.name : "";
+}
+
+function renderTeams(snap) {
+  teams = [];
+  snap.forEach((child) => {
+    const t = child.val() || {};
+    teams.push({
+      id: child.key,
+      name: t.name || "",
+      members: t.members || "",
+      answer: t.answer || "",
+      score: Number(t.score) || 0,
+      buzzedAt: t.buzzedAt || 0
+    });
+  });
+
+  teams.sort((a, b) =>
+    (a.buzzedAt ? 0 : 1) - (b.buzzedAt ? 0 : 1) ||
+    a.buzzedAt - b.buzzedAt ||
+    a.id.localeCompare(b.id)
+  );
+
+  const nowBuzzed = teams.filter((t) => t.buzzedAt).map((t) => t.id);
+  if (buzzedIds && nowBuzzed.some((id) => buzzedIds.indexOf(id) === -1)) {
+    markActive();
+    if (!muted) beep();
+  }
+  buzzedIds = nowBuzzed;
+
+  // Someone has to pick first and nothing has happened yet to decide it, so pick at random.
+  // After this, turn only ever moves to whichever team the teacher last awarded.
+  if (gameRef && teams.length && !game.turn) {
+    gameRef.child("turn").set(teams[Math.floor(Math.random() * teams.length)].id)
+      .catch(() => {});
+  }
+
+  renderTeamRows();
+  if (!document.body.classList.contains("inclue")) $("#turnLine").textContent = game.turn
+    ? "Picking: " + (teamName(game.turn) || "a team that has left")
+    : "Nobody is picking yet.";
+}
+
+function renderTeamRows() {
+  const body = $("#rows");
+  const clue = game.clue || null;
+  body.textContent = "";
+
+  teams.forEach((t, i) => {
+    const tr = body.insertRow();
+    if (t.buzzedAt) tr.className = "buzzed";
+    if (t.id === game.turn) tr.className += " turn";
+
+    cell(tr, t.buzzedAt ? String(i + 1) : "", "num");
+
+    const nameCell = cell(tr, t.name, "name", true);
+    nameCell.title = "Rename this team";
+    nameCell.addEventListener("click", () => renameTeam(t.id, t.name));
+
+    const scoreCell = cell(tr, money(t.score), "score");
+    scoreCell.title = "Correct this score";
+    if (t.score < 0) scoreCell.classList.add("neg");
+    scoreCell.addEventListener("click", () => editScore(t.id, t.score));
+
+    // Student-typed: textContent, never mathText and never innerHTML.
+    cell(tr, t.buzzedAt ? t.answer : "", "answer");
+
+    const mark = tr.insertCell();
+    mark.className = "mark";
+    [["+", 1], ["−", -1]].forEach(([label, sign]) => {
+      const b = document.createElement("button");
+      b.className = sign > 0 ? "plus" : "minus";
+      b.textContent = label;
+      b.disabled = !clue;
+      b.title = clue ? (sign > 0 ? "Award " : "Deduct ") + money(clue.value) : "Open a clue first";
+      b.addEventListener("click", () => score(t, sign));
+      mark.appendChild(b);
+    });
+
+    const td = tr.insertCell();
+    td.className = "rm";
+    const x = document.createElement("button");
+    x.className = "rmbtn";
+    x.textContent = "×";
+    x.title = "Remove this team";
+    x.setAttribute("aria-label", "Remove team");
+    x.addEventListener("click", () => removeTeam(t.id));
+    td.appendChild(x);
+  });
+
+  $("#empty").hidden = teams.length > 0;
+}
+
+// Manual, always. No automatic marking and no first-correct rule: several teams can be right,
+// or none, and the teacher reads what they typed and decides.
+function score(team, sign) {
+  const clue = game.clue;
+  if (!clue) return;
+  const updates = {};
+  updates["rooms/" + roomCode + "/teams/" + team.id + "/score"] =
+    team.score + sign * (Number(clue.value) || 0);
+  // The pick follows the award, as on the show. An override by the teacher does not move it,
+  // which is what makes a Daily Double belong to the right team later.
+  if (sign > 0) updates["rooms/" + roomCode + "/game/turn"] = team.id;
+  db.ref().update(updates).catch((err) => { alert("Could not score that: " + err.message); });
+}
+
+function editScore(id, current) {
+  const raw = prompt("Score:", String(current));
+  if (raw === null) return;
+  const next = Number(String(raw).replace(/[^0-9.\-]/g, ""));
+  if (!isFinite(next)) return;
+  teamsRef.child(id).update({ score: next })
+    .catch((err) => { alert("Could not set that score: " + err.message); });
+}
+
+function cell(tr, text, cls, clamp) {
+  const td = tr.insertCell();
+  td.className = cls;
+  if (clamp) {
+    const span = document.createElement("span");
+    span.className = "clamp";
+    span.textContent = text;
+    td.appendChild(span);
+  } else {
+    td.textContent = text;
+  }
+  return td;
+}
+
+function resetBuzzers() {
+  if (!teamsRef) return Promise.resolve();
+  return teamsRef.once("value").then((snap) => {
+    const updates = {};
+    snap.forEach((child) => {
+      updates[child.key + "/answer"] = "";
+      updates[child.key + "/buzzedAt"] = null;
+      updates[child.key + "/locked"] = false;
+    });
+    if (Object.keys(updates).length) return teamsRef.update(updates);
+  });
+}
+
+function renameTeam(id, current) {
+  if (!teamsRef) return;
+  const next = (prompt("Team name:", current) || "").trim().slice(0, 40);
+  if (!next || next === current) return;
+  teamsRef.child(id).update({ name: next })
+    .catch((err) => { alert("Rename failed: " + err.message); });
+}
+
+function removeTeam(id) {
+  if (!teamsRef) return;
+  teamsRef.child(id).remove().catch((err) => { alert("Remove failed: " + err.message); });
+}
+
+/* ---------- settings, and ending ---------- */
+
+function togglePanel() {
+  const open = $("#panel").hidden;
+  $("#panel").hidden = !open;
+  $("#cog").setAttribute("aria-expanded", String(open));
+  document.body.classList.toggle("editing", open);
+}
+
+function setMute() {
+  muted = $("#mute").checked;
+  localStorage.setItem(MUTE_KEY, muted ? "1" : "0");
+  if (!muted) beep();
+}
+
+let endArmed = false;
+let endTimer = null;
+function armEndGame() {
+  const btn = $("#endGame");
+  if (!endArmed) {
+    endArmed = true;
+    btn.textContent = "Tap again to end";
+    btn.classList.add("danger");
+    endTimer = setTimeout(disarmEndGame, 4000);
+    return;
+  }
+  clearTimeout(endTimer);
+  disarmEndGame();
+  endGame();
+}
+function disarmEndGame() {
+  endArmed = false;
+  $("#endGame").textContent = "End game";
+  $("#endGame").classList.remove("danger");
+}
+
+function wipeRoom(code) {
+  const ref = db.ref("rooms/" + code + "/teams");
+  return ref.once("value").then((snap) => {
+    const updates = {};
+    snap.forEach((child) => { updates[child.key] = null; });
+    if (Object.keys(updates).length) return ref.update(updates);
+  })
+    .then(() => db.ref("rooms/" + code + "/game").remove().catch(() => {}))
+    .then(() => db.ref("rooms/" + code + "/hostSeen").remove().catch(() => {}));
+}
+
+function wipeIfDead(code) {
+  return hostSeenAge(code).then((age) => {
+    if (code === roomCode) return;
+    if (age !== null && age < STILL_BEATING) return;
+    return wipeRoom(code);
+  }).catch(() => {});
+}
+
+function endGame() {
+  if (!teamsRef) return;
+  const tRef = teamsRef;
+  const gRef = gameRef;
+  const code = roomCode;
+  clearInterval(beatTimer);
+  clearInterval(idleTimer);
+  beatTimer = null;
+  idleTimer = null;
+  $("#idlebar").hidden = true;
+  wipeRoom(code).then(() => {
+    tRef.off();
+    gRef.off();
+    localStorage.removeItem(LAST_ROOM);
+    teamsRef = null;
+    gameRef = null;
+    roomCode = null;
+    buzzedIds = null;
+    teams = [];
+    game = {};
+    $("#rows").textContent = "";
+    $("#panel").hidden = true;
+    $("#cog").setAttribute("aria-expanded", "false");
+    document.body.classList.remove("editing", "inclue");
+    $("#dash").hidden = true;
+    $("#setup").hidden = false;
+    showSetup(false);
+    try { history.replaceState(null, "", location.pathname + (window.DEMO ? "?demo=1" : "")); } catch (e) {}
+  }).catch((err) => { alert("Could not end the game: " + err.message); });
+}
+</script>
+</body>
+</html>

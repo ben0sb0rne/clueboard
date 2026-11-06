@@ -3,13 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Buzzer</title>
+<title>Clueboard</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body class="student">
 
+<!-- No KaTeX here, on purpose. Category names are plain text and the clue itself is on the
+     projector, so the player screen stays dependency-free. -->
+
 <main id="join" class="screen">
-  <h1>Classroom Buzzer</h1>
+  <h1>Clueboard</h1>
 
   <div class="field">
     <label for="code">Room code</label>
@@ -50,18 +53,41 @@
   <button id="lock">Lock Answer</button>
 </main>
 
+<main id="pick" class="screen" hidden>
+  <div class="who">
+    <span id="pickWho"></span>
+    <span id="pickScore" class="score"></span>
+  </div>
+  <h2 class="picktitle">Your pick</h2>
+  <div id="pickList" class="picklist"></div>
+  <p id="pickErr" class="err"></p>
+</main>
+
+<main id="wait" class="screen" hidden>
+  <div class="who">
+    <span id="waitWho"></span>
+    <span id="waitScore" class="score"></span>
+  </div>
+  <p class="waitmsg" id="waitMsg">Waiting for the next clue...</p>
+</main>
+
 <script src="https://www.gstatic.com/firebasejs/12.0.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.0.0/firebase-database-compat.js"></script>
 <script src="firebase-config.js"></script>
+<script src="demo.js"></script>
 <script src="common.js"></script>
 <script>
 const $ = (s) => document.querySelector(s);
-const STORE = "buzzer-team";
-const HOST_GONE = 60 * 60 * 1000;   // dashboard shut this long: the game is over
+const STORE = "clueboard-team";
+const HOST_GONE = 60 * 60 * 1000;   // control screen shut this long: the game is over
 const urlCode = (new URL(location).searchParams.get("room") || "")
   .toUpperCase().replace(/[^A-Z]/g, "").slice(0, 4);
 
 let teamRef = null;
+let gameRef = null;
+let myId = null;
+let team = null;
+let game = {};
 let wasLocked = false;
 
 const saved = loadSaved();
@@ -89,15 +115,11 @@ $("#lock").addEventListener("click", lockIn);
 $("#answer").addEventListener("keydown", (e) => { if (e.key === "Enter") lockIn(); });
 
 function show(which) {
-  $("#boot").hidden = which !== "boot";
-  $("#join").hidden = which !== "join";
-  $("#play").hidden = which !== "play";
+  ["boot", "join", "play", "pick", "wait"].forEach((id) => {
+    $("#" + id).hidden = id !== which;
+  });
 }
 
-// The dashboard stamps rooms/<code>/hostSeen once a minute while it is open. "unknown"
-// (no stamp, or the read was refused) counts as live, so a project whose rules have not been
-// updated yet keeps working exactly as before: a device holding a team in a room that has
-// since been emptied gets released by attach() instead.
 function roomState(code) {
   return hostSeenAge(code).then((age) =>
     age === null ? "unknown" : age > HOST_GONE ? "over" : "live");
@@ -106,13 +128,9 @@ function roomState(code) {
 function dropDeadRoom(code, teamId) {
   localStorage.removeItem(STORE);
   $("#code").value = urlCode || "";
-  // The stale stamp stays put: it is the gravestone that tells every *other* device in the
-  // class that the game is over. Clearing it would read as a live room to all of them.
   db.ref("rooms/" + code + "/teams/" + teamId).remove().catch(() => {});
 }
 
-// No expiry clock of its own, so there is only ever one answer to "is this game over": the
-// hour in HOST_GONE, decided on the server's clock. A device keeps its team until it is told.
 function loadSaved() {
   let raw = null;
   try { raw = JSON.parse(localStorage.getItem(STORE) || "null"); } catch (e) {}
@@ -132,6 +150,8 @@ function join() {
     .then((state) => {
       if (state === "over") throw new Error("That game has ended. Ask for the new code.");
       const ref = db.ref("rooms/" + code + "/teams").push();
+      // score is left off: database.rules.json requires only the four the buzzer required,
+      // and a missing score reads as 0 everywhere, so joining stays one write.
       return ref.set({ name: name, members: members, answer: "", locked: false }).then(() => {
         localStorage.setItem(STORE, JSON.stringify({ code: code, teamId: ref.key }));
         attach(code, ref.key);
@@ -142,21 +162,90 @@ function join() {
 }
 
 function attach(code, teamId) {
+  myId = teamId;
   teamRef = db.ref("rooms/" + code + "/teams/" + teamId);
+  gameRef = db.ref("rooms/" + code + "/game");
+
   teamRef.on("value", (snap) => {
-    const team = snap.val();
-    if (!team) {                       // team gone (teacher ended the game) - back to the join screen
+    team = snap.val();
+    if (!team) {                       // team gone (teacher ended the game)
       toJoinScreen();
       return;
     }
     $("#whoTeam").textContent = team.name;
     $("#whoCode").textContent = code;
-    show("play");
+    $("#pickWho").textContent = team.name;
+    $("#waitWho").textContent = team.name;
+    const s = money(team.score);
+    $("#pickScore").textContent = s;
+    $("#waitScore").textContent = s;
     setLocked(!!team.locked, team.answer || "");
+    route();
+  });
+
+  gameRef.on("value", (snap) => { game = snap.val() || {}; route(); });
+}
+
+// Three things a student device can be doing, and the room decides which: answering an open
+// clue, picking the next one, or waiting. No buttons for the student to get wrong.
+function route() {
+  if (!team) { show("join"); return; }
+  if (game.clue) { show("play"); return; }
+  if (game.turn === myId) { renderPick(); show("pick"); return; }
+  const picker = game.turn ? "another team" : "the teacher";
+  $("#waitMsg").textContent = game.turn
+    ? "Waiting for " + picker + " to pick..."
+    : "Waiting for the next clue...";
+  show("wait");
+}
+
+// A list, not a replica of the board. The board is already on the screen at the front of the
+// room, and a 6x5 grid on a phone is worse at the one job this has: tapping the right value.
+function renderPick() {
+  const grid = game.grid;
+  const wrap = $("#pickList");
+  wrap.textContent = "";
+  if (!grid || !grid.cats) {
+    wrap.textContent = "";
+    $("#pickErr").textContent = "Waiting for the board...";
+    return;
+  }
+  $("#pickErr").textContent = "";
+
+  grid.cats.forEach((name, c) => {
+    const row = document.createElement("div");
+    row.className = "pickrow";
+
+    const label = document.createElement("div");
+    label.className = "pickcat";
+    label.textContent = name;            // plain text by design: no maths in a category
+    row.appendChild(label);
+
+    const vals = document.createElement("div");
+    vals.className = "pickvals";
+    (grid.values[c] || []).forEach((value, r) => {
+      const spent = !value || (game.used || {})[c + "-" + r];
+      const b = document.createElement("button");
+      b.className = "pickval" + (spent ? " spent" : "");
+      b.textContent = value ? money(value) : "—";
+      b.disabled = !!spent;
+      if (!spent) b.addEventListener("click", () => sendPick(c, r));
+      vals.appendChild(b);
+    });
+    row.appendChild(vals);
+    wrap.appendChild(row);
   });
 }
 
-// Two taps, so a stray touch on a locked answer screen cannot drop the team.
+// Only a coordinate goes up. The control screen is the only thing that knows what the clue
+// says, which is what keeps the answers off the network.
+function sendPick(cat, row) {
+  if (!gameRef) return;
+  $("#pickErr").textContent = "";
+  gameRef.child("pick").set({ team: myId, cat: cat, row: row })
+    .catch((err) => { $("#pickErr").textContent = err.message; });
+}
+
 let leaveArmed = false;
 let leaveTimer = null;
 function armLeave() {
@@ -180,11 +269,15 @@ function disarmLeave() {
   $("#leave").classList.remove("arm");
 }
 
-// Leaves the team in the database on purpose: the teacher keeps the row (and any locked
-// answer) and can drop it with the x in the settings panel.
+// Leaves the team in the database on purpose: the teacher keeps the row, the score and any
+// locked answer, and can drop it with the x beside its row.
 function toJoinScreen() {
   if (teamRef) { teamRef.off(); teamRef = null; }
+  if (gameRef) { gameRef.off(); gameRef = null; }
   localStorage.removeItem(STORE);
+  myId = null;
+  team = null;
+  game = {};
   wasLocked = false;
   $("#answer").disabled = false;
   $("#answer").value = "";

@@ -1,0 +1,465 @@
+/* The board (projector) and the game half of the control screen. style.css still carries
+   everything inherited from the buzzer. */
+
+/* board.html does not load style.css, so it needs this here too: every rule below sets an
+   explicit display, which otherwise beats the hidden attribute and leaves the clue panel
+   covering the whole screen. */
+[hidden] { display: none !important; }
+
+:root {
+  /* UNVERIFIED, and the only place a board colour is written down - change them here.
+     #060CE9 is the blue everyone repeats and it is close. The gold is a judgement call: no
+     source publishes it, and the honest way to get it is to eyedrop a screenshot of a recent
+     episode. Do that before this is shown to a class. */
+  --board-blue: #060ce9;
+  --board-blue-lit: #1b22f5;
+  --gap-ink: #04051c;
+  --surround: #090a26;
+  --value-gold: #d9a441;
+  --clue-white: #fff;
+
+  /* The board font is Swiss 911 Ultra Compressed, which is licensed and cannot be used.
+     shortcut: a condensed system stack stands in. Commit one Oswald or Anton WOFF2 to the
+     repo and name it here - a Google Fonts link would add a third-party request, which the
+     no-build-step rule is meant to avoid. */
+  --board-font: "Arial Narrow", "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+/* ---------- the board ---------- */
+
+body.board {
+  margin: 0;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--surround);
+  color: var(--clue-white);
+  font-family: var(--board-font);
+  -webkit-font-smoothing: antialiased;
+}
+
+.board #stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Welcome, while teams arrive. It gets out of the way on its own when the first clue is
+   picked, because nobody is allowed to click this screen. */
+.board #welcome {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  text-align: center;
+  padding: 2vh 3vw;
+}
+.board .wlabel {
+  margin: 0;
+  font-size: clamp(16px, 2.2vw, 30px);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: #8f93c8;
+}
+.board .wcode {
+  font-size: clamp(90px, 24vw, 340px);
+  font-weight: 700;
+  line-height: 0.95;
+  letter-spacing: 0.06em;
+  color: var(--value-gold);
+  text-shadow: 0 0.06em 0 rgba(0, 0, 0, 0.45);
+}
+.board .wjoin { margin: 0; font-size: clamp(20px, 3vw, 44px); color: #fff; }
+.board .wjoin span { color: var(--value-gold); }
+.board .wteams {
+  margin: 1.5rem 0 0;
+  max-width: 80vw;
+  font-size: clamp(16px, 2vw, 30px);
+  line-height: 1.5;
+  color: #b9bce6;
+}
+
+/* The grid: 6 categories across, 5 values down, near-black gaps. The section has to be a
+   flex column in its own right or the grid inside it collapses to its content height and
+   leaves the bottom half of the screen empty. */
+.board #boardState {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.board .turnbanner {
+  margin: 0;
+  padding: 0.5vh 0 1vh;
+  text-align: center;
+  font-size: clamp(14px, 1.8vw, 26px);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #9fa3d8;
+  min-height: 1.2em;
+}
+.board .grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  grid-template-rows: 0.85fr repeat(5, 1fr);
+  gap: clamp(3px, 0.5vw, 9px);
+  padding: 0 clamp(4px, 0.6vw, 12px) clamp(4px, 0.6vw, 12px);
+  background: var(--gap-ink);
+}
+.board .cat,
+.board .cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--board-blue);
+  text-align: center;
+  overflow: hidden;
+}
+.board .cat {
+  padding: 0.3em 0.4em;
+  font-size: clamp(11px, 1.45vw, 26px);
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.4);
+}
+.board .cell span {
+  font-size: clamp(20px, 3.6vw, 68px);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--value-gold);
+  text-shadow: 0 0.05em 0 rgba(0, 0, 0, 0.5);
+}
+/* Spent cells go dark rather than disappearing: the grid has to keep its shape, because the
+   clue animation is measured against these cells. */
+.board .cell.spent { background: #070826; }
+.board .cell.spent span { visibility: hidden; }
+
+/* The clue, full screen. position: fixed and transform-only, so the expand out of a cell
+   stays on the compositor. */
+/* Absolute inside #stage, not fixed to the viewport: the podiums stay on screen through the
+   clue, which is where each team's answer lands when the teacher reveals. */
+.board #cluePanel {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2.5vh;
+  padding: 4vh 5vw;
+  background: var(--board-blue);
+  will-change: transform;
+}
+.board #cluePanel .cluehead,
+.board #cluePanel .cluebody { opacity: 0; transition: opacity 130ms linear; }
+.board #cluePanel.settled .cluehead,
+.board #cluePanel.settled .cluebody { opacity: 1; }
+
+.board .cluehead {
+  font-size: clamp(14px, 1.8vw, 28px);
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--value-gold);
+  text-align: center;
+}
+.board .cluebody {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3vh;
+  max-width: 100%;
+}
+.board .cluetext {
+  font-size: clamp(26px, 4.6vw, 86px);
+  font-weight: 700;
+  line-height: 1.18;
+  text-align: center;
+  text-transform: uppercase;
+  text-shadow: 0 3px 0 rgba(0, 0, 0, 0.4);
+}
+.board #clueImage {
+  max-width: min(60vw, 100%);
+  max-height: 38vh;
+  object-fit: contain;
+  background: #fff;
+  border-radius: 6px;
+}
+.board .clueanswer {
+  padding: 0.3em 0.9em;
+  font-size: clamp(22px, 3.6vw, 64px);
+  font-weight: 700;
+  color: var(--value-gold);
+  border-top: 4px solid rgba(255, 255, 255, 0.35);
+  text-align: center;
+}
+
+/* Podiums along the bottom, as on the show. */
+.board #podiums {
+  flex: 0 0 auto;
+  display: flex;
+  gap: clamp(3px, 0.5vw, 9px);
+  padding: clamp(3px, 0.5vw, 9px);
+  background: var(--gap-ink);
+}
+.board .podium {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0.7vh 0.5vw 1vh;
+  text-align: center;
+  background: #13154a;
+  border-bottom: clamp(3px, 0.4vw, 7px) solid transparent;
+}
+.board .podium.picking { border-bottom-color: var(--value-gold); }
+.board .podium.buzzed { background: #1d2070; }
+.board .pname {
+  font-size: clamp(11px, 1.25vw, 22px);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #c9ccf2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.board .pscore {
+  font-size: clamp(20px, 2.6vw, 48px);
+  font-weight: 700;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+.board .pscore.neg { color: #ff6a6a; }
+.board .panswer {
+  margin-top: 0.3em;
+  font-size: clamp(11px, 1.15vw, 20px);
+  line-height: 1.25;
+  color: var(--value-gold);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* The room code stays reachable for a latecomer once the welcome card has gone. */
+.board .cornercode {
+  position: fixed;
+  top: 0.6vh;
+  right: 0.8vw;
+  z-index: 20;
+  font-size: clamp(10px, 1.1vw, 18px);
+  letter-spacing: 0.18em;
+  color: #6f74b4;
+  pointer-events: none;
+}
+
+/* ---------- the control screen's game half ---------- */
+
+.control #tsv {
+  width: min(100%, 70ch);
+  height: 34vh;
+  padding: 0.7em;
+  font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  resize: vertical;
+  white-space: pre;
+  overflow-wrap: normal;
+  overflow-x: auto;
+}
+.control button.minor {
+  padding: 0.5em 1em;
+  margin-left: 0.6em;
+  font-size: clamp(14px, 1.5vw, 18px);
+  font-weight: 600;
+  color: var(--muted);
+  background: #fff;
+  box-shadow: inset 0 0 0 2px var(--line);
+}
+.control #importBtn,
+.control #createBtn {
+  padding: 0.7em 1.4em;
+  font-size: clamp(18px, 2.2vw, 26px);
+  font-weight: 700;
+  color: #fff;
+  background: var(--ink);
+}
+.control .warnings {
+  margin: 0 0 1.2em;
+  padding-left: 1.2em;
+  max-width: 80ch;
+  color: #a3161c;
+  font-size: clamp(13px, 1.4vw, 16px);
+  line-height: 1.5;
+}
+
+.control #dash {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.4vh 1.6vw;
+  align-content: start;
+}
+.control #dash > .bar,
+.control #dash > .panel,
+.control #dash > .idlebar { grid-column: 1 / -1; }
+/* Clue on the left, teams on the right, as soon as a clue is open. Same DOM either way. */
+.control.inclue #dash { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); }
+
+.control #openBoard {
+  margin-left: auto;
+  padding: 0.6em 1.2em;
+  font-size: clamp(16px, 1.9vw, 24px);
+  font-weight: 700;
+  color: #fff;
+  background: var(--ink);
+}
+.control #roundBtn {
+  padding: 0.5em 1em;
+  font-size: inherit;
+  font-weight: 700;
+  color: var(--ink);
+  background: #fff;
+  box-shadow: inset 0 0 0 2px var(--line);
+  border-radius: 10px;
+}
+
+.control .turnline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4em 1em;
+  margin: 0;
+  font-size: clamp(15px, 1.7vw, 21px);
+  font-weight: 700;
+}
+.control .hintline { font-weight: 400; font-size: 0.78em; color: var(--muted); }
+
+/* A small, dense mirror of the board: this one is for clicking, not for reading from the
+   back of the room. */
+.control .ctlgrid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  background: var(--gap-ink);
+  border-radius: 8px;
+}
+.control .ctlcat {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5em 0.3em;
+  text-align: center;
+  font-size: clamp(9px, 0.85vw, 13px);
+  font-weight: 700;
+  line-height: 1.1;
+  text-transform: uppercase;
+  color: #fff;
+  background: var(--board-blue);
+  overflow: hidden;
+}
+.control .ctlcell {
+  padding: 0.75em 0.2em;
+  font-size: clamp(13px, 1.4vw, 20px);
+  font-weight: 700;
+  color: var(--value-gold);
+  background: var(--board-blue);
+  border-radius: 0;
+}
+.control .ctlcell:hover:not(:disabled) { background: var(--board-blue-lit); }
+.control .ctlcell.spent { background: #0b0c2c; color: transparent; }
+
+.control .cluebar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6em 1em;
+  margin-bottom: 1vh;
+}
+.control #clueWhere {
+  flex: 1 1 14ch;
+  font-size: clamp(13px, 1.4vw, 17px);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.control #revealBtn,
+.control #dismissBtn {
+  padding: 0.6em 1.1em;
+  font-size: clamp(14px, 1.6vw, 19px);
+  font-weight: 700;
+  color: #fff;
+  background: var(--ink);
+}
+.control #revealBtn:disabled {
+  color: var(--muted);
+  background: #fff;
+  box-shadow: inset 0 0 0 2px var(--line);
+}
+.control .ctlclue {
+  padding: 1em 1.1em;
+  background: var(--faint);
+  border-radius: 12px;
+}
+.control #ctlClueText {
+  font-size: clamp(17px, 2.1vw, 28px);
+  font-weight: 600;
+  line-height: 1.3;
+}
+.control .ctlanswer {
+  margin-top: 0.9em;
+  padding-top: 0.8em;
+  border-top: 2px solid var(--line);
+}
+.control .ctlanswer .lbl {
+  display: block;
+  margin-bottom: 0.2em;
+  font-size: 0.72em;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.control #ctlAnswerText {
+  font-size: clamp(18px, 2.2vw, 30px);
+  font-weight: 800;
+  color: #0a7d28;
+  line-height: 1.25;
+}
+
+.control td.score {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.control td.score.neg { color: var(--red); }
+.control tr.turn td.name { box-shadow: inset 4px 0 0 var(--value-gold); }
+.control .mark { width: 1%; white-space: nowrap; }
+.control .mark button {
+  width: 2.1em;
+  padding: 0.25em 0;
+  margin-left: 0.3em;
+  font-size: clamp(16px, 1.8vw, 24px);
+  font-weight: 800;
+  line-height: 1.2;
+  border-radius: 8px;
+}
+.control .mark .plus { color: #fff; background: #0a7d28; }
+.control .mark .minus { color: #fff; background: var(--red); }
+.control .mark button:disabled { color: var(--muted); background: #fff; box-shadow: inset 0 0 0 2px var(--line); }
+
+/* The control screen is read at arm's length on a second monitor, not from the back of the
+   room, so it keeps one size and scrolls. The board is the thing that has to be legible. */
+.control td { font-size: clamp(14px, 1.5vw, 20px); }
+.control th { font-size: clamp(11px, 1vw, 14px); }

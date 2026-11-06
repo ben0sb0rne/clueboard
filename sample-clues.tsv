@@ -1,0 +1,32 @@
+round	category	value	clue	image	answer	dd
+1	SLOPE & INTERCEPT		The slope of the line y = 3x - 7		3	
+1	SLOPE & INTERCEPT		The y-intercept of y = -2x + 5		5	
+1	SLOPE & INTERCEPT		The slope of a line through (1, 2) and (3, 8)		3	
+1	SLOPE & INTERCEPT		Rewrite 2y = 6x + 10 in slope-intercept form		y = 3x + 5	
+1	SLOPE & INTERCEPT		The slope of any line parallel to y = -4x + 1		-4	
+1	SOLVE FOR X		x + 9 = 17		8	
+1	SOLVE FOR X		5x = -45		-9	
+1	SOLVE FOR X		3x - 4 = 20		8	
+1	SOLVE FOR X		2(x + 3) = 4x - 6		6	x
+1	SOLVE FOR X		$\frac{x}{4} + 2 = 9$		28	
+1	PYTHAGORAS		The hypotenuse of a right triangle with legs 3 and 4		5	
+1	PYTHAGORAS		The hypotenuse of a right triangle with legs 6 and 8		10	
+1	PYTHAGORAS		A leg, if the hypotenuse is 13 and the other leg is 5		12	
+1	PYTHAGORAS		The exact hypotenuse of a right triangle with legs 1 and 1		$\sqrt{2}$	
+1	PYTHAGORAS		Do sides 8, 15 and 17 make a right triangle?		Yes	
+1	EXPONENT RULES		Simplify $2^3 \times 2^4$		$2^7$, or 128	
+1	EXPONENT RULES		Simplify $x^9 \div x^4$		$x^5$	
+1	EXPONENT RULES		Evaluate $5^0$		1	
+1	EXPONENT RULES		Write $3^{-2}$ as a fraction		$\frac{1}{9}$	
+1	EXPONENT RULES		Simplify $(x^2)^5$		$x^{10}$	
+1	ROOTS & RADICALS		$\sqrt{64}$		8	
+1	ROOTS & RADICALS		$\sqrt[3]{27}$		3	
+1	ROOTS & RADICALS		Between which two whole numbers does $\sqrt{50}$ fall?		7 and 8	
+1	ROOTS & RADICALS		Simplify $\sqrt{72}$		$6\sqrt{2}$	
+1	ROOTS & RADICALS		Is $\sqrt{9}$ rational or irrational?		Rational	
+1	ANGLES		The angles in any triangle add to this		$180^\circ$	
+1	ANGLES		The complement of a $35^\circ$ angle		$55^\circ$	
+1	ANGLES		Two angles that add to $180^\circ$ are called this		Supplementary	
+1	ANGLES		The exterior angle of a triangle with remote interior angles $40^\circ$ and $70^\circ$		$110^\circ$	
+1	ANGLES		The sum of the interior angles of a pentagon		$540^\circ$	
+final	ONE LAST THING		The only number that is neither prime nor composite		1	

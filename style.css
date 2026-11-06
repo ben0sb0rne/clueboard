@@ -338,3 +338,68 @@ body.editing .rm { display: table-cell; }
   background: var(--red);
   border-radius: 10px;
 }
+
+/* ---------- player: picking a clue, and waiting ---------- */
+
+.who .score {
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  color: var(--ink);
+  flex: none;
+}
+
+.picktitle {
+  margin: 0;
+  font-size: clamp(17px, 4.4vw, 24px);
+  font-weight: 700;
+  color: var(--muted);
+}
+
+/* The list scrolls rather than squeezing: six categories of five values will not fit a phone,
+   and a value too small to hit reliably is worse than a scroll. */
+.picklist {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1dvh;
+}
+.pickrow { display: flex; flex-direction: column; gap: 0.4em; }
+.pickcat {
+  font-size: clamp(12px, 3.2vw, 15px);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.pickvals { display: flex; gap: 0.4em; }
+.pickval {
+  flex: 1 1 0;
+  min-width: 0;
+  /* 48px floor: this is the one thing a student has to hit accurately on a Chromebook. */
+  min-height: 48px;
+  padding: 0.5em 0.1em;
+  font-size: clamp(14px, 3.8vw, 19px);
+  font-weight: 800;
+  color: #fff;
+  background: var(--ink);
+  border-radius: 10px;
+}
+.pickval:active { background: var(--muted); }
+.pickval.spent,
+.pickval:disabled {
+  color: var(--line);
+  background: #fff;
+  box-shadow: inset 0 0 0 2px var(--faint);
+}
+
+.waitmsg {
+  margin: auto;
+  padding: 0 1em;
+  text-align: center;
+  font-size: clamp(18px, 5vw, 26px);
+  font-weight: 600;
+  color: var(--muted);
+}

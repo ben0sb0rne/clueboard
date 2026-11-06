@@ -11,3 +11,11 @@ graphify-out/
 .DS_Store
 ._*
 desktop.ini
+
+# firebase CLI noise
+firebase-debug.log
+*-debug.log
+.firebase/
+
+# design-hook config
+.impeccable/

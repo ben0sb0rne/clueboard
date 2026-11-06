@@ -54,3 +54,34 @@ function beep() {
 // dashboard may sit untouched for a while, so arm it on the first touch of the page.
 addEventListener("pointerdown", audio, { once: true });
 addEventListener("keydown", audio, { once: true });
+
+// Clue and answer text may carry $...$ maths, because 8th grade algebra needs stacked
+// fractions and multi-term radicals that Unicode cannot do. KaTeX renders it on the two
+// screens that load KaTeX - the board and the control screen. Everywhere else, and if the CDN
+// is blocked, the raw text shows through: wrong-looking, but never blank mid-question.
+//
+// Only ever called on text from the teacher's own spreadsheet. Student-typed text goes
+// through textContent and nothing else, here as in the buzzer.
+//
+// shortcut: KaTeX comes off a CDN, as Firebase already does. Commit its dist folder to the
+// repo before the first real lesson, so a blocked CDN cannot flatten the board mid-question.
+function mathText(el, text) {
+  el.textContent = "";
+  String(text == null ? "" : text).split(/(\$[^$]*\$)/).forEach(function (bit) {
+    if (!bit) return;
+    const span = document.createElement("span");
+    if (window.katex && bit.length > 2 && bit[0] === "$" && bit[bit.length - 1] === "$") {
+      // throwOnError: false so a typo in a clue shows as red text rather than blowing up the
+      // projector in front of the class.
+      katex.render(bit.slice(1, -1), span, { throwOnError: false, displayMode: false });
+    } else {
+      span.textContent = bit;
+    }
+    el.appendChild(span);
+  });
+}
+
+function money(n) {
+  const v = Number(n) || 0;
+  return (v < 0 ? "-$" : "$") + Math.abs(v).toLocaleString("en-US");
+}

@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clueboard</title>
+<link rel="stylesheet" href="board.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+</head>
+<body class="board">
+
+<!-- Student-facing, on the projector. Nothing here is ever clicked: no cogs, no buttons, no
+     settings. It reads the room and renders it. -->
+
+<main id="stage">
+  <section id="welcome">
+    <p class="wlabel">Room code</p>
+    <div class="wcode" id="wCode">----</div>
+    <p class="wjoin">Join at <span id="wLink"></span></p>
+    <p class="wteams" id="wTeams">Waiting for teams...</p>
+  </section>
+
+  <section id="boardState" hidden>
+    <p class="turnbanner" id="turnBanner"></p>
+    <div class="grid" id="grid"></div>
+  </section>
+
+  <section id="cluePanel" hidden aria-live="polite">
+    <div class="cluehead" id="clueHead"></div>
+    <div class="cluebody">
+      <div class="cluetext" id="clueText"></div>
+      <img id="clueImage" alt="" hidden>
+      <div class="clueanswer" id="clueAnswer" hidden></div>
+    </div>
+  </section>
+</main>
+
+<footer id="podiums"></footer>
+
+<div class="cornercode" id="cornerCode"></div>
+
+<script src="https://www.gstatic.com/firebasejs/12.0.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.0.0/firebase-database-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="firebase-config.js"></script>
+<script src="demo.js"></script>
+<script src="common.js"></script>
+<script>
+const $ = (s) => document.querySelector(s);
+const code = (new URL(location).searchParams.get("room") || "")
+  .toUpperCase().replace(/[^A-Z]/g, "").slice(0, 4);
+
+let game = {};
+let teams = [];
+let cellEls = [];        // cellEls[cat][row], so a clue can expand out of its own cell
+let shownKey = null;     // which cell the open clue came from, for the shrink back
+let gridSig = "";        // rebuild the grid only when its shape actually changes
+
+const joinHere = new URL("./", location.href).href
+  .replace(/^https?:\/\//, "").replace(/\/$/, "");
+$("#wLink").textContent = joinHere;
+$("#wCode").textContent = code || "----";
+$("#cornerCode").textContent = code ? code + "  ·  " + joinHere : "";
+
+if (!code) {
+  $("#wTeams").textContent = "Open this board from the control screen.";
+} else {
+  db.ref("rooms/" + code + "/game").on("value", (snap) => {
+    game = snap.val() || {};
+    render();
+  });
+  db.ref("rooms/" + code + "/teams").on("value", (snap) => {
+    teams = [];
+    snap.forEach((child) => {
+      const t = child.val() || {};
+      teams.push({
+        id: child.key,
+        name: t.name || "",
+        answer: t.answer || "",
+        score: Number(t.score) || 0,
+        buzzedAt: t.buzzedAt || 0
+      });
+    });
+    render();
+  });
+}
+
+function render() {
+  const clue = game.clue || null;
+  const played = game.used && Object.keys(game.used).length;
+
+  // The welcome card holds until the first clue is picked, so it needs nothing from the
+  // teacher to get out of the way. After that the code lives in the corner instead.
+  const welcoming = !played && !clue;
+  $("#welcome").hidden = !welcoming;
+  $("#cornerCode").hidden = welcoming;
+  $("#wTeams").textContent = teams.length
+    ? teams.map((t) => t.name).join("  ·  ")
+    : "Waiting for teams...";
+
+  $("#boardState").hidden = welcoming;
+  if (!welcoming) renderGrid();
+
+  renderPodiums();
+  renderClue(clue);
+}
+
+function renderGrid() {
+  const grid = game.grid;
+  if (!grid || !grid.cats) return;
+
+  // Rebuilding on every snapshot would throw away the elements a running expand animation is
+  // measured against, so only the shape rebuilds; spent cells are a class change.
+  const sig = JSON.stringify([grid.cats, grid.values]);
+  if (sig !== gridSig) {
+    gridSig = sig;
+    const wrap = $("#grid");
+    wrap.textContent = "";
+    cellEls = [];
+    grid.cats.forEach((name, c) => {
+      const head = document.createElement("div");
+      head.className = "cat";
+      head.style.gridColumn = c + 1;
+      head.style.gridRow = 1;
+      head.textContent = name;
+      wrap.appendChild(head);
+      cellEls[c] = [];
+      (grid.values[c] || []).forEach((value, r) => {
+        const cell = document.createElement("div");
+        cell.className = "cell";
+        cell.style.gridColumn = c + 1;
+        cell.style.gridRow = r + 2;
+        const v = document.createElement("span");
+        v.textContent = value ? money(value) : "";
+        cell.appendChild(v);
+        wrap.appendChild(cell);
+        cellEls[c][r] = cell;
+      });
+    });
+  }
+
+  grid.cats.forEach((name, c) => {
+    (grid.values[c] || []).forEach((value, r) => {
+      const el = cellEls[c] && cellEls[c][r];
+      if (!el) return;
+      const spent = !value || (game.used || {})[c + "-" + r];
+      el.classList.toggle("spent", !!spent);
+    });
+  });
+
+  const turn = teams.filter((t) => t.id === game.turn)[0];
+  $("#turnBanner").textContent = turn ? turn.name + " to pick" : "";
+}
+
+function renderPodiums() {
+  const wrap = $("#podiums");
+  const order = teams.slice().sort((a, b) => a.id.localeCompare(b.id));
+  wrap.textContent = "";
+  order.forEach((t) => {
+    const box = document.createElement("div");
+    box.className = "podium" + (t.id === game.turn ? " picking" : "") + (t.buzzedAt ? " buzzed" : "");
+
+    const name = document.createElement("div");
+    name.className = "pname";
+    name.textContent = t.name;
+
+    const score = document.createElement("div");
+    score.className = "pscore" + (t.score < 0 ? " neg" : "");
+    score.textContent = money(t.score);
+
+    box.appendChild(name);
+    box.appendChild(score);
+
+    // Their answer goes up only once the teacher has revealed, so the board never spoils a
+    // question for the teams still thinking. Student-typed: textContent, never mathText.
+    if (game.reveal && t.answer) {
+      const ans = document.createElement("div");
+      ans.className = "panswer";
+      ans.textContent = t.answer;
+      box.appendChild(ans);
+    }
+    wrap.appendChild(box);
+  });
+  wrap.hidden = !order.length;
+}
+
+function renderClue(clue) {
+  const panel = $("#cluePanel");
+
+  if (!clue) {
+    if (!panel.hidden) shrinkBack(panel);
+    shownKey = null;
+    return;
+  }
+
+  const key = clue.cat + "-" + clue.row;
+  const fresh = key !== shownKey;
+  shownKey = key;
+
+  $("#clueHead").textContent =
+    (clue.category || "") + "   " + money(clue.value) + (clue.dd ? "   DAILY DOUBLE" : "");
+  mathText($("#clueText"), clue.text);
+
+  const img = $("#clueImage");
+  if (clue.image) {
+    // Images are public by design: a clue image goes on the projector, so it is not a secret
+    // and has no reason to be local. The cell holds a filename or any URL.
+    img.src = /^https?:/.test(clue.image) ? clue.image : "clues/images/" + clue.image;
+    img.hidden = false;
+  } else {
+    img.hidden = true;
+    img.removeAttribute("src");
+  }
+
+  const ansEl = $("#clueAnswer");
+  if (game.reveal && clue.answer) {
+    mathText(ansEl, clue.answer);
+    ansEl.hidden = false;
+  } else {
+    ansEl.hidden = true;
+    ansEl.textContent = "";
+  }
+
+  if (fresh || panel.hidden) expandFrom(panel, clue.cat, clue.row);
+}
+
+// The signature move: the cell grows to fill the screen. A FLIP off the cell's own rect, so
+// it is one transform and nothing is measured twice. Transform only - no width or height - so
+// it stays on the compositor and holds its frame rate on a school laptop driving a projector.
+function expandFrom(panel, cat, row) {
+  const cell = cellEls[cat] && cellEls[cat][row];
+  panel.hidden = false;
+  panel.classList.remove("settled");
+
+  if (!cell || !cell.getBoundingClientRect) { panel.classList.add("settled"); return; }
+  const r = cell.getBoundingClientRect();
+  // Measured against the panel's own containing block, not the viewport, because the panel
+  // covers the stage rather than the whole page.
+  const base = panel.parentElement.getBoundingClientRect();
+  if (!r.width || !r.height || !base.width || !base.height) { panel.classList.add("settled"); return; }
+
+  panel.style.transition = "none";
+  panel.style.transformOrigin = "0 0";
+  panel.style.transform = boxTransform(r, base);
+  panel.style.opacity = "1";
+
+  requestAnimationFrame(() => {
+    panel.style.transition = "transform 260ms cubic-bezier(.22,.61,.36,1)";
+    panel.style.transform = "translate(0,0) scale(1,1)";
+    // The text fades in behind the growing panel rather than being scaled with it, which
+    // would squash it on the way out of the cell.
+    setTimeout(() => panel.classList.add("settled"), 170);
+  });
+}
+
+function boxTransform(r, base) {
+  return "translate(" + (r.left - base.left) + "px," + (r.top - base.top) + "px)" +
+    " scale(" + (r.width / base.width) + "," + (r.height / base.height) + ")";
+}
+
+function shrinkBack(panel) {
+  const parts = (shownKey || "").split("-");
+  const cell = cellEls[parts[0]] && cellEls[parts[0]][parts[1]];
+  panel.classList.remove("settled");
+  if (!cell) { panel.hidden = true; panel.style.transform = ""; return; }
+
+  const r = cell.getBoundingClientRect();
+  const base = panel.parentElement.getBoundingClientRect();
+  panel.style.transition = "transform 200ms cubic-bezier(.4,0,.7,.4), opacity 200ms linear";
+  panel.style.transform = boxTransform(r, base);
+  panel.style.opacity = "0";
+  setTimeout(() => {
+    panel.hidden = true;
+    panel.style.transition = "none";
+    panel.style.transform = "";
+    panel.style.opacity = "1";
+  }, 210);
+}
+
+// A projector's size does not change mid-lesson, but a window dragged onto one does, and the
+// grid is the thing the expand is measured against.
+addEventListener("resize", () => { gridSig = ""; render(); });
+</script>
+</body>
+</html>
