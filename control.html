@@ -54,6 +54,10 @@
   <header class="bar">
     <div class="roomcode" id="roomCode"></div>
     <div class="joinlink">Join at <a id="joinLink" href="#"></a></div>
+    <!-- Up here with the room's own details rather than in the action strip: it is pressed
+         once at the start and belongs to the room, not to the state of the game, and in the
+         strip it was the one button that moved every time another appeared beside it. -->
+    <button id="openBoard" class="quiet">Open projector</button>
     <button id="cog" aria-label="Settings" aria-expanded="false" title="Settings">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
            stroke-linecap="round" aria-hidden="true" focusable="false">
@@ -65,7 +69,7 @@
   </header>
 
   <div id="panel" class="panel" hidden>
-    <label class="opt"><input type="checkbox" id="mute"> Mute buzzer on this device</label>
+    <label class="opt"><input type="checkbox" id="mute"> Mute every buzzer</label>
     <label class="opt"><input type="checkbox" id="teamsPick"> Teams pick their own clues</label>
     <label class="opt"><input type="checkbox" id="showCode"> Show the room code on the board</label>
     <div class="acts">
@@ -76,21 +80,19 @@
     <span id="rulesHint" class="note warn" hidden>Auto-cleanup is off: deploy the latest database.rules.json.</span>
   </div>
 
-  <!-- Where the game is, on the left, and every button it has, on the right. A button never
-       moves between states: it appears and disappears in its own place, and the one to press
-       is always the last of them, in the same corner. -->
+  <!-- Where the game is, on the left, and every button it has, on the right. The gold one
+       is always the last of them - CSS orders it there, so the markup never has to - which
+       puts the button to press in the same corner in every state of the game.
+       Back to grid is gold only once the answer is up: until then it is the mis-tap that
+       costs the most, so it is never the easy one to hit. -->
   <div class="strip">
     <p class="state" id="stateLine"></p>
     <div class="acts">
-      <button id="openBoard" class="quiet">Open projector</button>
-      <button id="introBtn" class="quiet" hidden>Start intro</button>
-      <button id="startBtn" class="act" hidden>Start game</button>
+      <button id="startBtn" class="quiet" hidden>Start game</button>
+      <button id="introBtn" class="act" hidden>Start intro</button>
       <button id="introNext" class="act" hidden>Next</button>
       <button id="showClueBtn" class="quiet" hidden>Show the clue</button>
       <button id="timerBtn" class="quiet" hidden>Start the timer</button>
-      <!-- Reveal is the gold one and Back to grid is not, until the answer is up and they
-           trade places. Back to grid on an unrevealed clue is the mis-tap that costs the
-           most, so it is never the easy one to hit. -->
       <button id="revealBtn" class="act" hidden>Reveal answer</button>
       <button id="dismissBtn" class="quiet" hidden>Back to grid</button>
     </div>
@@ -103,7 +105,6 @@
     </section>
 
     <section id="clueState" hidden>
-      <p class="wagerline" id="wagerLine" hidden></p>
       <div class="ctlclue">
         <div id="ctlClueText"></div>
       </div>
@@ -421,7 +422,7 @@ function openRoom(code) {
     // than blanking the card the board opens on.
     if (!gameTitle && was.title) gameTitle = was.title;
     return gameRef.update({ round: round, grid: roundGrid(clueSet, round), pick: null,
-                            teamsPick: teamsPick || null, picker: null,
+                            teamsPick: teamsPick || null, picker: null, muted: muted || null,
                             showCode: showCode || null, title: gameTitle || null });
   }).catch((err) => { alert("Could not start the game: " + err.message); });
 
@@ -523,8 +524,6 @@ function renderGame(snap) {
     $("#timerBtn").textContent = game.timerEnds && game.timerEnds > serverNow()
       ? "Restart the timer"
       : "Start the timer";
-    $("#wagerLine").hidden = !wagering;
-    if (wagering) $("#wagerLine").textContent = wagerStatus(clue);
     $("#revealBtn").disabled = !!game.reveal || wagering;
     $("#revealBtn").textContent = game.reveal ? "Answer is showing" : "Reveal answer";
     // Exactly one gold button, and it is whatever comes next: show the clue once the wagers
@@ -562,10 +561,11 @@ function stateText() {
   const clue = game.clue || null;
   const intro = Number.isInteger(game.intro) ? game.intro : null;
   if (clue) {
-    return clue.final
+    const where = clue.final
       ? "Final Jeopardy \u00b7 " + (clue.category || "")
       : (clue.category || "") + " \u00b7 " + money(clue.value) +
         (clue.dd ? " \u00b7 Daily Double" : "");
+    return game.wagering ? where + " \u00b7 " + wagerStatus(clue) : where;
   }
   if (intro !== null) {
     const stops = introStops(((game.grid || {}).cats) || []);
@@ -589,17 +589,15 @@ function owing(clue) {
 
 function hasWagered(t) { return t.wager !== undefined && t.wager !== null; }
 
+// Short enough to ride on the state line rather than a line of its own. That line is always
+// there, so folding this into it is one fewer thing appearing above the teams and shoving
+// every row down the screen mid-question.
 function wagerStatus(clue) {
   const who = owing(clue);
-  if (!who.length) return "Nobody can wager on this clue. Show it to play it as a normal clue.";
-  if (clue.final) {
-    const inN = who.filter(hasWagered).length;
-    return inN + " of " + who.length + " wagers in.";
-  }
+  if (!who.length) return "nobody can wager";
+  if (clue.final) return who.filter(hasWagered).length + " of " + who.length + " wagers in";
   const t = who[0];
-  return hasWagered(t)
-    ? t.name + " wagered " + money(t.wager) + "."
-    : "Waiting for " + t.name + " to wager.";
+  return hasWagered(t) ? t.name + " wagered " + money(t.wager) : "waiting for " + t.name;
 }
 
 // Advances by itself once every wager is in, so the usual case needs no tap. The button is
@@ -805,9 +803,8 @@ function renderTeams(snap) {
   // A team joining or being renamed changes the line, and this listener fires on its own.
   $("#stateLine").textContent = stateText();
 
-  // A wager is a write to teams, not to game, so the wager line and the auto-advance have to
-  // be driven from here as well as from renderGame.
-  if (game.clue && game.wagering) $("#wagerLine").textContent = wagerStatus(game.clue);
+  // A wager is a write to teams, not to game, so the auto-advance has to be driven from
+  // here as well as from renderGame. The state line above already redraws on this listener.
   maybeShowClue();
 }
 
@@ -875,6 +872,15 @@ function renderTeamRows() {
     const nameCell = cell(tr, t.name, "name", true);
     nameCell.title = "Rename this team";
     nameCell.addEventListener("click", () => renameTeam(t.id, t.name));
+    // Who is actually in the team. Collected on the join screen since the buzzer and shown
+    // nowhere until now, which made the field look like a question nobody read. It wraps
+    // onto as many lines as it needs: a cut-off list of names is no use for calling on one.
+    if (t.members) {
+      const who = document.createElement("span");
+      who.className = "members";
+      who.textContent = t.members;         // student-typed: textContent, never innerHTML
+      nameCell.appendChild(who);
+    }
 
     const scoreCell = cell(tr, money(t.score), "score");
     scoreCell.title = "Correct this score";
@@ -1034,9 +1040,13 @@ function togglePanel() {
   document.body.classList.toggle("editing", open);
 }
 
+// The room's setting, not this device's: one tick silences thirty Chromebooks as well as
+// the dashboard, which is the only version of it that is any use in a lesson. Remembered
+// locally too, so the next game starts however the last one ended.
 function setMute() {
   muted = $("#mute").checked;
   localStorage.setItem(MUTE_KEY, muted ? "1" : "0");
+  if (gameRef) gameRef.update({ muted: muted || null }).catch(() => {});
   if (!muted) beep();
 }
 

@@ -298,21 +298,32 @@ function renderWager(clue) {
 }
 
 // Clamped here and read back from the snapshot, so what the student sees is what was stored.
+// A box that is not a whole number is refused rather than coerced: a Chromebook shows a real
+// keyboard whatever inputmode says, and "five hundred" used to lock in as $0 without a word.
 function sendWager() {
   if (!teamRef || !team) return;
   const cap = wagerCap(team.score, game.grid);
-  const raw = $("#wagerBox").value.trim();
-  if (!raw) { $("#wagerErr").textContent = "Enter a wager, or 0."; return; }
-  const bet = clampWager(raw, cap);
-  $("#wagerErr").textContent = bet < Number(String(raw).replace(/[^0-9]/g, ""))
+  const typed = readWager($("#wagerBox").value);
+  if (typed === null) {
+    $("#wagerErr").textContent = $("#wagerBox").value.trim()
+      ? "A wager is a whole number of dollars, like 500."
+      : "Enter a wager, or 0.";
+    return;
+  }
+  const bet = Math.min(typed, cap);
+  // Kept rather than written once: the write's own handler clears this box to take an
+  // offline notice back down, and it was taking the only explanation of why the wager is
+  // not the number they typed with it.
+  const clamped = bet < typed
     ? "That is over your limit, so it was set to " + money(bet) + "."
     : "";
+  $("#wagerErr").textContent = clamped;
   sending = "wager";
   renderWager(clueOf());
   teamRef.update({ wager: bet })
     .then(() => {
       sending = null;
-      $("#wagerErr").textContent = "";     // an offline notice has no other way out
+      $("#wagerErr").textContent = clamped;   // an offline notice has no other way out
       if (team && game.clue) renderWager(game.clue);
     })
     .catch((err) => { sending = null; $("#wagerErr").textContent = err.message; });
@@ -438,7 +449,10 @@ function lockIn() {
   if (!teamRef || sending) return;
   const answer = $("#answer").value.trim();
   if (!answer) return;                 // empty box does nothing
-  beep();                              // confirms the tap, not the delivery
+  // Muting is the room's, not the device's: the teacher turns it off once and thirty
+  // Chromebooks go quiet, which is the only version of this setting that is any use in a
+  // lesson. It still beeps for the tap, not for the delivery.
+  if (!game.muted) beep();
   sending = "answer";
   setLocked(true, answer);
   teamRef.update({ answer: answer, buzzedAt: SERVER_TIME, locked: true })

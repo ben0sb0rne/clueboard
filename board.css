@@ -100,8 +100,14 @@ body.board {
 
 /* Welcome, while teams arrive. It gets out of the way on its own when the first clue is
    picked, because nobody is allowed to click this screen. */
+/* Over the stage rather than in it, so it can fade out while the board dissolves in
+   underneath: a cut between the two was the one hard edit left on a screen where everything
+   else eases. Under the clue and intro panels, which are 10 and 12. */
 .board #welcome {
-  flex: 1;
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  transition: opacity var(--slow) linear;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -110,6 +116,7 @@ body.board {
   text-align: center;
   padding: 2vh 3vw;
 }
+.board #welcome.going { opacity: 0; }
 .board .wtitle {
   margin: 0 0 0.4em;
   max-width: 88vw;
@@ -273,7 +280,10 @@ body.board {
 .board #introPanel.up { opacity: 1; }
 .board .introstrip {
   --itw: 84vw;
-  --itg: 1.6vw;
+  /* Whatever is left over, not a number of its own: this is exactly the dark border either
+     side of the tile, so the neighbours sit just off screen and the borders are equal. A
+     peek of the next category gave the pan a direction and told the room what was coming. */
+  --itg: calc((100vw - var(--itw)) / 2 + 4px);
   --i: 0;
   position: absolute;
   top: 7%;
@@ -354,6 +364,7 @@ body.board {
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
+.board .panswer.blank { color: #8c90c6; }
 
 /* The room code stays reachable for a latecomer once the welcome card has gone. */
 .board .cornercode {
@@ -436,7 +447,9 @@ body.board {
   box-shadow: inset 0 0 0 2px var(--line);
 }
 /* One row of buttons, right-aligned wherever it appears, so the last of them is always in
-   the same corner. */
+   the same corner - and the gold one is ordered there whatever the markup says. Between them
+   that puts the button to press in the same place in every state of the game. */
+.control .acts button.act { order: 1; }
 .control .acts {
   display: flex;
   flex-wrap: wrap;
@@ -640,7 +653,7 @@ body.board {
 
 /* The answer and its buttons sit a third of the screen apart, which is where a tired eye
    slips a row. Lighting the whole row is the cheap half of that fix. */
-.control tbody tr:not(.keyrow):hover td { background: var(--faint); }
+.control tbody tr:not(.keyrow):hover td:not(.onboard) { background: var(--faint); }
 
 .control td.score {
   font-weight: 800;
@@ -719,13 +732,6 @@ body.board {
   font-variant-numeric: tabular-nums;
 }
 
-.control .wagerline {
-  margin: 0.7em 0 0;
-  font-size: clamp(14px, 1.6vw, 20px);
-  font-weight: 700;
-  color: var(--muted);
-}
-
 /* During Final the answer cell is the reveal switch, so it has to read as one - and it must
    not use green, which on this screen already means "correct" and "award". Blue is the
    projector, which is what this state actually is. */
@@ -744,13 +750,16 @@ body.board {
   text-transform: uppercase;
   color: var(--muted);
 }
+/* The board's own colours, because that is what this cell is reporting: this answer is on
+   the projector right now. It was left over from the light theme - near-white fill, board
+   blue text - which on the dark dashboard was dark on dark and unreadable. */
 .control td.answer.onboard {
-  background: #eef1ff;
-  box-shadow: inset 0 0 0 2px var(--board-blue);
+  background: var(--board-blue);
+  box-shadow: inset 0 0 0 2px var(--value-gold);
 }
 .control td.answer.onboard::after {
   content: "on the projector";
-  color: var(--board-blue);
+  color: var(--value-gold);
 }
 
 /* The wager, said in words - "($1,500)" reads as a negative to anyone who uses spreadsheets. */

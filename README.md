@@ -15,7 +15,14 @@ shown, and the clue is then worth that wager instead of the cell value. The cap 
 larger of the team's score and the top value on the board**, so a team on zero or in the red
 can still play. A Daily Double belongs to the team whose turn it is - whoever picked it - and
 only that team can answer it. Final is everyone's: the category goes up, every team wagers,
-then the clue, then the teacher reveals the teams one at a time by tapping each answer.
+then the clue, then the teacher reveals the teams one at a time by tapping each answer. A
+team that wrote nothing still reveals, as "No answer" - the reveal is yours to make, so it
+has to do something visible whatever that team typed.
+
+**A wager is a whole number of dollars.** `$1,200` and ` 500 ` are the same wager; letters, a
+decimal point and a minus sign are refused outright and the student is told why. They used to
+be stripped down to a silent `$0`, which in Final is a team's whole game thrown away without
+a word to them.
 
 During Final there is a think timer: `Start the timer` puts a draining bar and a countdown on
 the board for 60 seconds. It is yours to start, because you read the clue out first and a timer
@@ -37,7 +44,9 @@ It heads the welcome card the class joins on, and it is the first card of the in
 **Two ways to open a game.** `Start game` drops the class straight onto the board.
 `Start intro` runs the show's opening instead: the board dissolves to a bare grid, the values
 appear five at a time in no order, then the game's title fills the screen, and then each
-category in turn with the dark edges of its neighbours still in frame. You press on; the
+category in turn, each one centred with an equal dark border either side and its neighbours
+just off screen - a peek of the next card gave the pan a direction and told the room what was
+coming. You press on; the
 board never moves on its own, because you are the one reading the categories out. Past the
 last one the button becomes `Start the game`, which is also the way out of an intro started
 by mistake. Round 2 has no intro.
@@ -46,8 +55,8 @@ by mistake. Round 2 has no intro.
 here overshoots or springs: one easing that leaves rest and arrives at rest, and one duration
 - a second and a half - for every move the room watches, so the board keeps a single tempo
 instead of five. It is `SLOW` in `board.html` and `--slow` in `board.css`; change both. The
-opening is three beats of it end to end, none of them overlapping: the board dissolves in
-bare, then the values fill it five at a time - the sweep ticks five times to the beat, each
+opening is three beats of it end to end, none of them overlapping: the welcome card fades
+out as the bare board dissolves in underneath it, then the values fill it five at a time - the sweep ticks five times to the beat, each
 value fading over a third of one - then the title card rises. The card is held off in CSS
 rather than fired by a timer, so it is on the same clock as the values and cannot drift from
 them. A clue expands out of its own cell, a
@@ -82,12 +91,17 @@ before their own stylesheet - a student picking a clue on a phone is picking off
 look like the ones on the wall. Gold is the thing to press; red only ever takes something
 away, which is a deduction, a negative score or ending a game.
 
-**One region for the buttons, and one gold button in it.** Every control the dashboard has
-lives in the strip above the stage, right-aligned, and a button never moves between states -
-it appears and disappears in its own place. Exactly one of them is gold, and it is whatever
-comes next: `Start game`, then `Next`, then `Show the clue` once the wagers are in, then
-`Reveal answer`, then `Back to grid`. **`Back to grid` is deliberately not the easy one to
-hit** until the answer is up, because an accidental press there is the one that costs a clue.
+**One region for the buttons, and one gold button in it.** Every control the game has lives
+in the strip above the stage, right-aligned. Exactly one of them is gold, it is whatever comes
+next - `Start intro`, then `Next`, then `Show the clue` once the wagers are in, then `Reveal
+answer`, then `Back to grid` - and **it is always the last button in the row**, so the one to
+press is in the same corner in every state of the game. CSS orders it there rather than the
+markup, which is what lets a button keep its place in the source and still end up under your
+thumb. **`Back to grid` is deliberately not the easy one to hit** until the answer is up,
+because an accidental press there is the one that costs a clue.
+
+`Open projector` is not in that strip: it belongs to the room rather than to the state of the
+game, so it sits up in the header beside the cog, where it never moves.
 
 The control screen is built around checking answers, which is most of what you do with it.
 The clue runs full width across the top, and the correct answer sits at the head of the same
@@ -96,7 +110,10 @@ column the teams' submissions are in, so marking is one glance down a column.
 Things worth knowing that the screen does not say, because a dashboard used during a lesson
 is no place for a paragraph of instructions:
 
-- Tap a team's name to rename it, or its score to correct it.
+- Tap a team's name to rename it, or its score to correct it. Who is in the team is listed
+  under its name, wrapping onto as many lines as it needs.
+- `Mute every buzzer` in the cog silences the whole room, student devices included, not just
+  the dashboard. It is remembered between games.
 - During Final, tap a team's answer to put it on the board.
 - Open the cog to remove a team, with the `x` beside its row.
 - A game ends by itself an hour after you last touch the control screen, or an hour after it

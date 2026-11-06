@@ -220,15 +220,16 @@ tests["wagerCap survives a missing or empty grid"] = function () {
   assert.strictEqual(C.wagerCap(-50, null), 0, "a cap is never negative");
 };
 
-tests["clampWager keeps what a student types inside the cap"] = function () {
-  assert.strictEqual(C.clampWager("600", 1000), 600);
-  assert.strictEqual(C.clampWager("$1,200", 1000), 1000, "over the cap is pulled to the cap");
-  assert.strictEqual(C.clampWager("-300", 1000), 0, "a negative wager is not a way to gain");
-  assert.strictEqual(C.clampWager("", 1000), 0);
-  assert.strictEqual(C.clampWager(null, 1000), 0);
-  assert.strictEqual(C.clampWager("lots", 1000), 0, "unparseable is 0, never NaN");
-  assert.strictEqual(C.clampWager("12.9", 1000), 12, "whole dollars only");
-  assert.strictEqual(C.clampWager("500", 0), 0, "a zero cap allows only zero");
+tests["readWager takes a whole number of dollars, and refuses anything else"] = function () {
+  assert.strictEqual(C.readWager("600"), 600);
+  assert.strictEqual(C.readWager("$1,200"), 1200, "written the way the board writes it back");
+  assert.strictEqual(C.readWager(" 500 "), 500);
+  assert.strictEqual(C.readWager("0"), 0, "zero is a legal wager");
+  assert.strictEqual(C.readWager("lots"), null, "letters are not a quiet $0");
+  assert.strictEqual(C.readWager("12.9"), null, "whole dollars only");
+  assert.strictEqual(C.readWager("-300"), null, "a negative wager is not a way to gain");
+  assert.strictEqual(C.readWager(""), null);
+  assert.strictEqual(C.readWager(null), null);
 };
 
 // stake() is the only function that moves a score, so it is the one worth pinning hardest.

@@ -101,6 +101,8 @@ const INTRO_FADE = SLOW;
 let introAt = null;      // the intro stop on screen, null when there is no intro
 let introStripSig = "";
 let introHide = null;
+let welcomeWas = null;   // null until the first snapshot: see setWelcome
+let welcomeHide = null;
 
 let game = {};
 let teams = [];
@@ -153,7 +155,7 @@ function render() {
   // The welcome card holds until the first clue is picked, so it needs nothing from the
   // teacher to get out of the way. After that the code lives in the corner instead.
   const welcoming = !game.started && !played && !clue;
-  $("#welcome").hidden = !welcoming;
+  setWelcome(welcoming);
   // The one place a game that skips the category intro still shows its own name.
   $("#wTitle").textContent = game.title || "";
   $("#wTitle").hidden = !game.title;
@@ -171,6 +173,27 @@ function render() {
   renderPodiums();
   renderClue(clue);
   renderThink();
+}
+
+// The welcome card leaves by fading out over the beat the board takes to dissolve in under
+// it, rather than being cut away - it is the first move of the game and the room is watching
+// it. welcomeWas starts null so a board opened mid-lesson hides the card outright instead of
+// fading one that was never on screen.
+function setWelcome(on) {
+  const el = $("#welcome");
+  if (on === welcomeWas) return;
+  const first = welcomeWas === null;
+  welcomeWas = on;
+  clearTimeout(welcomeHide);
+  if (on) {
+    el.hidden = false;
+    el.classList.remove("going");
+  } else if (first) {
+    el.hidden = true;
+  } else {
+    el.classList.add("going");
+    welcomeHide = setTimeout(() => { el.hidden = true; }, SLOW);
+  }
 }
 
 // Visual only. It tells the room how long is left and nothing else - no answer is locked when
@@ -320,6 +343,12 @@ function renderPodiums() {
     }
     if (open && t.answer) {
       els.extra.appendChild(podiumLine("panswer", t.answer));    // student-typed: textContent
+    } else if (open && isFinal) {
+      // A Final reveal is one team, chosen by the teacher, so it has to show something even
+      // when that team wrote nothing - otherwise tapping the answer on the dashboard looks
+      // like a control that does not work. On an ordinary clue it stays silent: five podiums
+      // saying "No answer" is noise, not a result.
+      els.extra.appendChild(podiumLine("panswer blank", "No answer"));
     }
     if (isFinal && open && t.wager !== null) {
       els.extra.appendChild(podiumLine("pbet", "Wagered " + money(t.wager)));

@@ -169,6 +169,9 @@ body.student { height: 100dvh; overflow: hidden; }
   color: var(--value-gold);
 }
 .joinlink { font-size: clamp(15px, 1.8vw, 24px); color: var(--muted); }
+/* The auto margin is here rather than on the cog: it pushes the pair to the far edge as one,
+   so the cog keeps the corner and Open projector keeps the fixed width beside it. */
+.bar #openBoard { margin-left: auto; }
 .joinlink a { color: var(--value-gold); }
 table { width: 100%; border-collapse: collapse; }
 th {
@@ -187,8 +190,13 @@ td {
 }
 tr.buzzed { background: var(--faint); }
 tr.buzzed .name { font-weight: 800; }
-/* Everything shrinks to its content except the answer, which takes the rest. */
-.num, .name, .rm { width: 1%; white-space: nowrap; }
+/* Everything shrinks to its content except the answer, which takes the rest. The name is
+   not in the nowrap list: it holds the team and its members, and both have to wrap. */
+.num, .rm { width: 1%; white-space: nowrap; }
+/* A set width rather than shrink-to-fit, because this cell now wraps: the name and the list
+   of members under it both run to as many lines as they need, and a column sized to its
+   content would be a different width on every row and on every rename. */
+.name { width: 14ch; }
 .answer { width: auto; }
 /* The first and last columns sit flush with the grid above them. */
 th:first-child, td:first-child { padding-left: 0; }
@@ -201,16 +209,28 @@ td.num {
   color: var(--muted);
   padding-right: 0.7em;
 }
-/* Inner box, so one wordy team cannot starve the answer column. */
+/* Inner box, so one wordy team cannot starve the answer column. It wraps rather than
+   cutting off: a name or a list of members that ends in an ellipsis is no use for calling on
+   anybody, and the column is narrow enough that it would do it often. */
 .clamp {
   display: inline-block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  max-width: 100%;
+  /* break-word, not anywhere: anywhere lets a cell shrink to one character wide, which is
+     what it did - "The Quadratics" came out four letters to a line. */
+  overflow-wrap: break-word;
   vertical-align: bottom;
 }
 td.name { cursor: pointer; }
-td.name .clamp { max-width: 20ch; }
+/* Who is in the team, stacked under its name and wrapping as far as it needs. */
+td.name .members {
+  display: block;
+  margin-top: 0.15em;
+  font-size: 0.55em;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--muted);
+  overflow-wrap: break-word;
+}
 td.answer { font-weight: 600; }
 .empty { color: var(--muted); font-size: clamp(18px, 2.2vw, 28px); padding: 1.5em 0; }
 
@@ -226,9 +246,7 @@ td.answer { font-weight: 600; }
 #cog {
   display: flex;
   padding: 0;
-  /* Pushed to the far edge, so the bar is the room code at one end and the settings at the
-     other with nothing in between competing for the middle. */
-  margin-left: auto;
+  margin-left: 0.6em;
   font-size: clamp(20px, 2.4vw, 30px);
   line-height: 1;
   color: #4b4f8c;

@@ -163,12 +163,14 @@ function wagerCap(score, grid) {
   return Math.max(Number(score) || 0, top);
 }
 
-// What a team typed, made safe to write: a whole number of dollars, never negative, never
-// over the cap. A blank or unparseable box is 0, which is a legal wager.
-function clampWager(raw, cap) {
-  var n = Math.floor(Number(String(raw == null ? "" : raw).replace(/[^0-9.\-]/g, "")));
-  if (!isFinite(n) || n < 0) n = 0;
-  return Math.min(n, Math.max(0, Number(cap) || 0));
+// What a team typed, or null if it is not a wager at all. A wager is a whole number of
+// dollars: "$1,500" and " 500 " are the same one, and the money() the board shows back is in
+// that form, so both are accepted. Everything else is refused rather than coerced - the old
+// strip-and-floor turned "abc", "12.5" and "-100" alike into a silent $0, which in Final is
+// a team's whole game thrown away without a word to them.
+function readWager(raw) {
+  var s = String(raw == null ? "" : raw).replace(/[$,\s]/g, "");
+  return /^[0-9]+$/.test(s) ? Number(s) : null;
 }
 
 // How many clues are still on the board, so the control screen can say when a round is spent.
@@ -188,6 +190,6 @@ if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     parseClueSet: parseClueSet, roundGrid: roundGrid, cellKey: cellKey,
     clueAt: clueAt, clueCount: clueCount, ROUND_VALUES: ROUND_VALUES,
-    wagerCap: wagerCap, clampWager: clampWager, stake: stake
+    wagerCap: wagerCap, readWager: readWager, stake: stake
   };
 }
