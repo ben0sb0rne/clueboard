@@ -213,6 +213,8 @@ body.board {
   max-width: 100%;
 }
 .board .cluetext {
+  /* Balances the lines instead of stranding the last short word on its own. */
+  text-wrap: balance;
   font-size: clamp(26px, 4.6vw, 86px);
   font-weight: 700;
   line-height: 1.18;
@@ -356,7 +358,8 @@ body.board {
   color: #fff;
   background: var(--ink);
 }
-.control #roundBtn {
+.control #roundBtn,
+.control #finalBtn {
   padding: 0.5em 1em;
   font-size: inherit;
   font-weight: 700;
@@ -447,6 +450,7 @@ body.board {
   border-radius: 12px;
 }
 .control #ctlClueText {
+  text-wrap: balance;
   font-size: clamp(21px, 3.1vw, 44px);
   font-weight: 600;
   line-height: 1.25;
@@ -454,6 +458,11 @@ body.board {
 
 /* The answer, at the head of the column the submissions are in. */
 .control tr.keyrow td {
+  /* Sticks to the top so the answer stays on screen with eight teams below it; the whole
+     point of this row is being visible while you read down the column. */
+  position: sticky;
+  top: 0;
+  z-index: 5;
   padding-top: 0.5em;
   padding-bottom: 0.5em;
   background: #f1f8f2;
@@ -502,6 +511,10 @@ body.board {
   box-shadow: none;
 }
 
+/* The answer and its buttons sit a third of the screen apart, which is where a tired eye
+   slips a row. Lighting the whole row is the cheap half of that fix. */
+.control tbody tr:not(.keyrow):hover td { background: var(--faint); }
+
 .control td.score {
   font-weight: 800;
   font-variant-numeric: tabular-nums;
@@ -512,7 +525,8 @@ body.board {
 .control tr.turn td.name { box-shadow: inset 4px 0 0 var(--value-gold); }
 .control .mark { width: 1%; white-space: nowrap; }
 .control .mark button {
-  width: 2.1em;
+  width: 2.3em;
+  min-height: 44px;
   padding: 0.25em 0;
   margin-left: 0.3em;
   font-size: clamp(16px, 1.8vw, 24px);
@@ -553,6 +567,7 @@ body.board {
 
 /* Final shows the category alone while every team wagers. */
 .board .finalcat {
+  text-wrap: balance;
   font-size: clamp(28px, 6.2vw, 116px);
   font-weight: 800;
   line-height: 1.1;
@@ -586,19 +601,39 @@ body.board {
   color: var(--muted);
 }
 
-/* During Final the answer cell is the reveal switch, so it has to read as one. */
+/* During Final the answer cell is the reveal switch, so it has to read as one - and it must
+   not use green, which on this screen already means "correct" and "award". Blue is the
+   projector, which is what this state actually is. */
 .control td.answer.tap {
   cursor: pointer;
   border-radius: 8px;
   box-shadow: inset 0 0 0 2px var(--line);
 }
-.control td.answer.onboard {
-  color: #0a7d28;
+.control td.answer.tap:hover { background: var(--faint); box-shadow: inset 0 0 0 2px var(--ink); }
+.control td.answer.tap::after {
+  content: "show";
+  margin-left: 0.6em;
+  font-size: 0.6em;
   font-weight: 700;
-  box-shadow: inset 0 0 0 2px #0a7d28;
-}
-.control td.answer.staked::after {
-  content: " (" attr(data-bet) ")";
-  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
   color: var(--muted);
+}
+.control td.answer.onboard {
+  background: #eef1ff;
+  box-shadow: inset 0 0 0 2px var(--board-blue);
+}
+.control td.answer.onboard::after {
+  content: "on the projector";
+  color: var(--board-blue);
+}
+
+/* The wager, said in words - "($1,500)" reads as a negative to anyone who uses spreadsheets. */
+.control .bet {
+  margin-left: 0.6em;
+  font-size: 0.6em;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  white-space: nowrap;
 }

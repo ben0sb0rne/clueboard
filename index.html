@@ -73,7 +73,8 @@
 
   <div class="field">
     <label for="wagerBox">Your wager, up to <span id="wagerMax"></span></label>
-    <input id="wagerBox" inputmode="numeric" autocomplete="off" enterkeyhint="done" maxlength="7">
+    <div class="money"><span class="cur" aria-hidden="true">$</span><input id="wagerBox"
+      inputmode="numeric" autocomplete="off" enterkeyhint="done" maxlength="7"></div>
   </div>
 
   <p id="wagerErr" class="err"></p>
@@ -110,6 +111,8 @@ let team = null;
 let game = {};
 let wasLocked = false;
 let wagerRound = null;      // which clue the wager box is currently for
+let sending = null;         // "answer" | "wager" while a write is still in flight
+let online = true;
 
 const saved = loadSaved();
 $("#code").value = urlCode || (saved ? saved.code : "");
@@ -136,6 +139,15 @@ $("#lock").addEventListener("click", lockIn);
 $("#answer").addEventListener("keydown", (e) => { if (e.key === "Enter") lockIn(); });
 $("#wagerBtn").addEventListener("click", sendWager);
 $("#wagerBox").addEventListener("keydown", (e) => { if (e.key === "Enter") sendWager(); });
+
+// .info/connected is answered by the client itself, so the rules do not gate it. Without
+// this a stuck write just sits on "Sending..." with no reason given.
+db.ref(".info/connected").on("value", (snap) => {
+  online = snap.val() === true;
+  if (!sending) return;
+  const box = sending === "wager" ? "#wagerErr" : "#playErr";
+  $(box).textContent = online ? "" : "Offline - not sent yet. It will go when you reconnect.";
+});
 
 function show(which) {
   ["boot", "join", "play", "pick", "wager", "wait"].forEach((id) => {
@@ -199,9 +211,11 @@ function attach(code, teamId) {
     $("#whoCode").textContent = code;
     $("#pickWho").textContent = team.name;
     $("#waitWho").textContent = team.name;
+    $("#wagerWho").textContent = team.name;
     const s = money(team.score);
     $("#pickScore").textContent = s;
     $("#waitScore").textContent = s;
+    $("#wagerScore").textContent = s;     // the screen that needs the score most
     setLocked(!!team.locked, team.answer || "");
     route();
   });
@@ -272,9 +286,11 @@ function renderWager(clue) {
   const box = $("#wagerBox");
   const btn = $("#wagerBtn");
   if (already) box.value = String(team.wager);
-  box.disabled = already;
-  btn.disabled = already;
-  btn.textContent = already ? "Wager locked: " + money(team.wager) : "Lock Wager";
+  box.disabled = already || sending === "wager";
+  btn.disabled = box.disabled;
+  btn.textContent = sending === "wager" ? "Sending..."
+    : already ? "Wager locked: " + money(team.wager)
+    : "Lock Wager";
 }
 
 // Clamped here and read back from the snapshot, so what the student sees is what was stored.
@@ -287,9 +303,17 @@ function sendWager() {
   $("#wagerErr").textContent = bet < Number(String(raw).replace(/[^0-9]/g, ""))
     ? "That is over your limit, so it was set to " + money(bet) + "."
     : "";
+  sending = "wager";
+  renderWager(clueOf());
   teamRef.update({ wager: bet })
-    .catch((err) => { $("#wagerErr").textContent = err.message; });
+    .then(() => {
+      sending = null;
+      if (team && game.clue) renderWager(game.clue);
+    })
+    .catch((err) => { sending = null; $("#wagerErr").textContent = err.message; });
 }
+
+function clueOf() { return game.clue || {}; }
 
 // A list, not a replica of the board. The board is already on the screen at the front of the
 // room, and a 6x5 grid on a phone is worse at the one job this has: tapping the right value.
@@ -397,16 +421,28 @@ function setLocked(locked, answer) {
   wasLocked = locked;
   box.disabled = locked;
   btn.disabled = locked;
-  btn.textContent = locked ? "Locked in" : "Lock Answer";
+  btn.textContent = !locked ? "Lock Answer"
+    : sending === "answer" ? "Sending..."
+    : "Locked in";
 }
 
+// Firebase applies a write locally and fires listeners before the server has seen it, so a
+// snapshot alone cannot tell a student their answer arrived. On a school network that is the
+// difference between "Locked in" and the teacher marking the round without them.
 function lockIn() {
-  if (!teamRef) return;
+  if (!teamRef || sending) return;
   const answer = $("#answer").value.trim();
   if (!answer) return;                 // empty box does nothing
-  beep();
+  beep();                              // confirms the tap, not the delivery
+  sending = "answer";
+  setLocked(true, answer);
   teamRef.update({ answer: answer, buzzedAt: SERVER_TIME, locked: true })
-    .catch((err) => { $("#playErr").textContent = err.message; });
+    .then(() => {
+      sending = null;
+      $("#playErr").textContent = "";
+      if (team) setLocked(!!team.locked, team.answer || "");
+    })
+    .catch((err) => { sending = null; $("#playErr").textContent = err.message; });
 }
 </script>
 </body>

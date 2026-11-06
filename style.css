@@ -126,8 +126,10 @@ body.student { height: 100dvh; overflow: hidden; }
 }
 .answerbox input:placeholder-shown:not(:disabled) + .hint { display: flex; }
 
-#lock {
-  flex: 0 0 24dvh;
+/* Locking a wager commits a team exactly as hard as locking an answer, so it is the same
+   control. It had no rule at all before, and fell through to the bare button reset. */
+#lock,
+#wagerBtn {
   min-height: 86px;
   font-size: clamp(24px, 7.5vw, 46px);
   font-weight: 800;
@@ -136,8 +138,12 @@ body.student { height: 100dvh; overflow: hidden; }
   background: var(--red);
   box-shadow: 0 5px 0 var(--red-dark);
 }
-#lock:active { background: var(--red-dark); box-shadow: none; transform: translateY(5px); }
-#lock:disabled {
+#lock { flex: 0 0 24dvh; }
+#wagerBtn { width: 100%; }
+#lock:active,
+#wagerBtn:active { background: var(--red-dark); box-shadow: none; transform: translateY(5px); }
+#lock:disabled,
+#wagerBtn:disabled {
   background: var(--faint);
   color: var(--muted);
   box-shadow: none;
@@ -218,7 +224,8 @@ tr.buzzed .name { font-weight: 800; }
 td.num {
   font-weight: 800;
   font-variant-numeric: tabular-nums;
-  color: var(--red);
+  /* Not red: red is already the deduct button and a negative score on this screen. */
+  color: var(--muted);
   padding-right: 0.7em;
 }
 td.members { font-size: calc(clamp(14px, 1.5vw, 21px) * var(--fit, 1)); color: var(--muted); }
@@ -403,6 +410,18 @@ body.editing .rm { display: table-cell; }
   font-weight: 600;
   color: var(--muted);
 }
+
+/* A dollar sign in the field, so a number typed into an empty box is unambiguous. */
+.money { position: relative; display: flex; align-items: center; }
+.money .cur {
+  position: absolute;
+  left: 0.55em;
+  font-size: clamp(17px, 4.6vw, 22px);
+  font-weight: 800;
+  color: var(--muted);
+  pointer-events: none;
+}
+.student .money input { padding-left: 1.7em; }
 
 /* The category is all a student gets before wagering - the clue is on the board, and they
    have to commit without it. */
