@@ -26,6 +26,12 @@ An icon sits beside whoever is up next: tap it to hand them the board for one pi
 comes back on its own the moment the clue opens. If you want a whole game where teams choose,
 `Teams pick their own clues` in the cog restores that, and is remembered between games.
 
+**Only the board moves.** Categories drop in one at a time when a round opens, a clue expands
+out of its own cell, a Daily Double punches onto the screen, and a score counts up with the
+podium flashing which way it went. The player screen stays deliberately still - a student
+should be looking up, not down - and the control screen is a working surface. Anyone whose
+system asks for reduced motion gets the same board with none of it.
+
 The control screen is built around checking answers, which is most of what you do with it.
 The clue runs full width across the top, and the correct answer sits at the head of the same
 column the teams' submissions are in, so marking is one glance down a column.

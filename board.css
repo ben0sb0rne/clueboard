@@ -637,3 +637,64 @@ body.board {
   color: var(--muted);
   white-space: nowrap;
 }
+
+/* ---------- motion ----------
+
+   Only the board moves. The player screen is deliberately calm - the dots animation was taken
+   out of the buzzer for exactly that reason - and the control screen is a working surface.
+   The board is the show, so the opposite rule applies here and nowhere else. */
+
+/* Categories drop in one at a time, then the values wipe across. Transform and opacity only,
+   so it stays on the compositor and holds its frame rate on a school laptop. */
+@keyframes catDrop {
+  from { opacity: 0; transform: translateY(-115%); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes cellRise {
+  from { opacity: 0; transform: translateY(14%) scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+.board .grid.intro .cat  { animation: catDrop 380ms cubic-bezier(.2,.75,.3,1) backwards; }
+.board .grid.intro .cell { animation: cellRise 300ms cubic-bezier(.2,.75,.3,1) backwards; }
+
+/* The Daily Double is the one moment the board shouts. */
+@keyframes ddPunch {
+  0%   { opacity: 0; transform: scale(0.35); }
+  55%  { opacity: 1; transform: scale(1.08); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.board .splash.punch .splashtitle { animation: ddPunch 460ms cubic-bezier(.2,.8,.3,1) both; }
+.board .splash.punch .splashwho   { animation: ddPunch 420ms cubic-bezier(.2,.8,.3,1) 160ms both; }
+
+/* A score changing is the result of the clue, so it gets the beat. The fill is an inset
+   shadow because the podium's own background and its border are already spoken for by
+   .buzzed and .picking, and a keyframe on either would fight them. */
+@keyframes flashUp {
+  from { box-shadow: inset 0 0 0 99px rgba(52, 188, 104, 0.55); }
+  to   { box-shadow: inset 0 0 0 99px rgba(52, 188, 104, 0); }
+}
+@keyframes flashDown {
+  from { box-shadow: inset 0 0 0 99px rgba(226, 72, 82, 0.55); }
+  to   { box-shadow: inset 0 0 0 99px rgba(226, 72, 82, 0); }
+}
+@keyframes scorePop {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+.board .podium.up   { animation: flashUp 620ms ease-out; }
+.board .podium.down { animation: flashDown 620ms ease-out; }
+.board .podium.up .pscore,
+.board .podium.down .pscore { animation: scorePop 520ms cubic-bezier(.2,.8,.3,1); }
+
+/* Someone who asked their system not to animate gets the same board, instantly. The counting
+   score is switched off in board.html, which reads the same query. */
+@media (prefers-reduced-motion: reduce) {
+  .board *,
+  .board *::before,
+  .board *::after {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 1ms !important;
+  }
+}

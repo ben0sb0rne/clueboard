@@ -60,6 +60,11 @@ let teams = [];
 let cellEls = [];        // cellEls[cat][row], so a clue can expand out of its own cell
 let shownKey = null;     // which cell the open clue came from, for the shrink back
 let gridSig = "";        // rebuild the grid only when its shape actually changes
+let introSig = "";       // which grid has already had its intro, so a resize does not replay it
+let podiumSig = "";      // rebuild the podiums only when the teams change, never mid-tick
+let podiumEls = {};      // teamId -> { box, score, extra }
+let shownScores = {};    // what each podium currently reads, so a change can count up to it
+const reduced = matchMedia("(prefers-reduced-motion: reduce)");
 
 const joinHere = new URL("./", location.href).href
   .replace(/^https?:\/\//, "").replace(/\/$/, "");
@@ -121,6 +126,11 @@ function renderGrid() {
   if (sig !== gridSig) {
     gridSig = sig;
     const wrap = $("#grid");
+    // A resize rebuilds the same grid, and replaying the intro then would be a flourish in the
+    // middle of a lesson. Only a grid we have not introduced before gets one.
+    const intro = sig !== introSig;
+    if (intro) introSig = sig;
+    wrap.classList.toggle("intro", intro);
     wrap.textContent = "";
     cellEls = [];
     grid.cats.forEach((name, c) => {
@@ -129,6 +139,7 @@ function renderGrid() {
       head.style.gridColumn = c + 1;
       head.style.gridRow = 1;
       head.textContent = name;
+      if (intro) head.style.animationDelay = (c * 90) + "ms";
       wrap.appendChild(head);
       cellEls[c] = [];
       (grid.values[c] || []).forEach((value, r) => {
@@ -139,6 +150,9 @@ function renderGrid() {
         const v = document.createElement("span");
         v.textContent = value ? money(value) : "";
         cell.appendChild(v);
+        // Column by column, starting once the last category has landed: a wipe across the
+        // board rather than thirty cells arriving at once.
+        if (intro) cell.style.animationDelay = (grid.cats.length * 90 + c * 55) + "ms";
         wrap.appendChild(cell);
         cellEls[c][r] = cell;
       });
@@ -160,60 +174,100 @@ function renderGrid() {
     : turn.name + " up next";
 }
 
+// Rebuilt only when the teams themselves change. Wiping the row on every snapshot would cut
+// every counting score short, because a snapshot arrives the moment a score is written.
 function renderPodiums() {
   const wrap = $("#podiums");
   const order = teams.slice().sort((a, b) => a.id.localeCompare(b.id));
   const clue = game.clue || null;
   const isFinal = !!(clue && clue.final);
-  wrap.textContent = "";
+
+  const sig = JSON.stringify(order.map((t) => [t.id, t.name]));
+  if (sig !== podiumSig) {
+    podiumSig = sig;
+    wrap.textContent = "";
+    podiumEls = {};
+    order.forEach((t) => {
+      const box = document.createElement("div");
+      box.className = "podium";
+      const name = document.createElement("div");
+      name.className = "pname";
+      name.textContent = t.name;
+      const score = document.createElement("div");
+      score.className = "pscore";
+      const extra = document.createElement("div");
+      extra.className = "pextra";
+      box.append(name, score, extra);
+      wrap.appendChild(box);
+      podiumEls[t.id] = { box: box, score: score, extra: extra };
+    });
+    Object.keys(shownScores).forEach((id) => {
+      if (!podiumEls[id]) delete shownScores[id];
+    });
+  }
+
   order.forEach((t) => {
+    const els = podiumEls[t.id];
+    if (!els) return;
+
     const open = isFinal ? !!(game.shown || {})[t.id] : !!game.reveal;
 
     // The lit podium means "this team answered". During Final that is a result, not a status:
     // it would show the room who left it blank before the reveal reached them.
     const lit = t.buzzedAt && (!isFinal || open);
 
-    const box = document.createElement("div");
-    box.className = "podium" + (t.id === game.turn ? " picking" : "") + (lit ? " buzzed" : "");
-
-    const name = document.createElement("div");
-    name.className = "pname";
-    name.textContent = t.name;
-
-    const score = document.createElement("div");
-    score.className = "pscore" + (t.score < 0 ? " neg" : "");
-    score.textContent = money(t.score);
-
-    box.appendChild(name);
-    box.appendChild(score);
+    els.box.classList.toggle("picking", t.id === game.turn);
+    els.box.classList.toggle("buzzed", !!lit);
+    setScore(els, t.id, t.score);
 
     // Answers go up only once the teacher has revealed, so the board never spoils a question
     // for the teams still thinking. Final is revealed team by team instead, reading `shown`
     // and ignoring `reveal` - otherwise revealing the answer would put every response up at
     // once and throw away the one-at-a-time reveal.
+    els.extra.textContent = "";
     if (isFinal && game.wagering && t.wager !== null) {
-      const ready = document.createElement("div");
-      ready.className = "pready";
-      ready.textContent = "Wager in";          // who is ready, never how much
-      box.appendChild(ready);
+      els.extra.appendChild(podiumLine("pready", "Wager in"));   // who is ready, never how much
     }
-
-    // Student-typed: textContent, never mathText.
     if (open && t.answer) {
-      const ans = document.createElement("div");
-      ans.className = "panswer";
-      ans.textContent = t.answer;
-      box.appendChild(ans);
+      els.extra.appendChild(podiumLine("panswer", t.answer));    // student-typed: textContent
     }
     if (isFinal && open && t.wager !== null) {
-      const bet = document.createElement("div");
-      bet.className = "pbet";
-      bet.textContent = "Wagered " + money(t.wager);
-      box.appendChild(bet);
+      els.extra.appendChild(podiumLine("pbet", "Wagered " + money(t.wager)));
     }
-    wrap.appendChild(box);
   });
   wrap.hidden = !order.length;
+}
+
+function podiumLine(cls, text) {
+  const el = document.createElement("div");
+  el.className = cls;
+  el.textContent = text;
+  return el;
+}
+
+// A score changing is the result of the clue, so it counts rather than jumps and the podium
+// flashes which way it went. A team seen for the first time simply appears at its score -
+// there is nothing to count from, and an intro should not look like six teams scoring at once.
+function setScore(els, id, to) {
+  const from = shownScores[id];
+  shownScores[id] = to;
+  els.score.classList.toggle("neg", to < 0);
+  if (from === undefined || from === to || reduced.matches) {
+    els.score.textContent = money(to);
+    return;
+  }
+
+  els.box.classList.remove("up", "down");
+  void els.box.offsetWidth;                  // so the flash restarts on a second change
+  els.box.classList.add(to > from ? "up" : "down");
+
+  const started = performance.now();
+  (function step(now) {
+    const p = Math.min(1, (now - started) / 520);
+    const eased = 1 - Math.pow(1 - p, 3);
+    els.score.textContent = money(Math.round(from + (to - from) * eased));
+    if (p < 1) requestAnimationFrame(step);
+  })(started);
 }
 
 function renderClue(clue) {
@@ -236,8 +290,18 @@ function renderClue(clue) {
   const catOnly = !!(clue.final && wagering);
   const hideClue = splash || catOnly;
 
-  $("#ddSplash").hidden = !splash;
+  const splashEl = $("#ddSplash");
+  splashEl.hidden = !splash;
   $("#ddWho").textContent = splash ? (clue.ownerName || "") : "";
+  // Restarted by hand: the element is reused, and a CSS animation only runs again if it is
+  // taken off and put back with a reflow in between.
+  if (splash && fresh) {
+    splashEl.classList.remove("punch");
+    void splashEl.offsetWidth;
+    splashEl.classList.add("punch");
+  } else if (!splash) {
+    splashEl.classList.remove("punch");
+  }
   $("#finalCat").hidden = !catOnly;
   if (catOnly) $("#finalCat").textContent = clue.category || "";
 
