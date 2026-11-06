@@ -26,6 +26,10 @@
   <div id="ready" hidden>
     <p class="sub" id="setSummary"></p>
     <ul id="setWarnings" class="warnings"></ul>
+    <details id="check" class="check">
+      <summary id="checkSum">Check the clues</summary>
+      <div id="checkList"></div>
+    </details>
     <button id="createBtn">Create room</button>
     <button id="reimportBtn" class="minor">Load a different set</button>
   </div>
@@ -229,6 +233,94 @@ function showSetup(importing) {
     li.textContent = "and " + (clueSet.errors.length - 8) + " more.";
     list.appendChild(li);
   }
+
+  buildCheck();
+}
+
+// The whole set, read before the lesson rather than discovered during it. It renders with the
+// same mathText the board uses, so a broken $...$ is red here in the staffroom instead of red
+// on the projector, and the image is a real <img> rather than a probe - one element both
+// proves the file is there and shows what the class will see.
+//
+// The parser's own warnings stay in the list above; this counts only what it cannot know,
+// which is whether the maths parses and whether the pictures exist.
+function buildCheck() {
+  const list = $("#checkList");
+  list.textContent = "";
+  let problems = 0;
+
+  const clues = [];
+  [1, 2].forEach((r) => {
+    const round = clueSet.rounds[r];
+    if (!round) return;
+    round.cells.forEach((column) => column.forEach((clue) => { if (clue) clues.push(clue); }));
+  });
+  clueSet.final.slice(0, 1).forEach((f) => clues.push(f));   // only the first is ever played
+
+  function say() {
+    $("#checkSum").textContent = "Check the clues - " + clues.length + " clue" +
+      (clues.length === 1 ? "" : "s") + ", " +
+      (problems ? problems + (problems === 1 ? " problem" : " problems") : "nothing broken");
+    $("#check").classList.toggle("bad", problems > 0);
+  }
+
+  function note(row, text) {
+    problems++;
+    const p = document.createElement("p");
+    p.className = "cherr";
+    p.textContent = text;
+    row.appendChild(p);
+    say();
+  }
+
+  clues.forEach((clue) => {
+    const row = document.createElement("div");
+    row.className = "chrow";
+
+    const tag = document.createElement("p");
+    tag.className = "chtag";
+    tag.textContent = [
+      clue.round === "final" ? "Final" : money(clue.value),
+      clue.category,
+      clue.dd ? "Daily Double" : ""
+    ].filter(Boolean).join("  \u00b7  ");
+    row.appendChild(tag);
+
+    const q = document.createElement("p");
+    q.className = "chq";
+    mathText(q, clue.text);
+    row.appendChild(q);
+
+    const a = document.createElement("p");
+    a.className = "cha";
+    mathText(a, clue.answer);
+    row.appendChild(a);
+
+    if (clue.image) {
+      const img = document.createElement("img");
+      img.alt = "";
+      img.addEventListener("error", () => {
+        // A 404, or a file that is there but is not a picture - both are equally no use in a
+        // lesson. isConnected because this arrives late: without it, a failure from the set
+        // the teacher just replaced would still be counted against the new one.
+        if (!row.isConnected) return;
+        const src = img.getAttribute("src");
+        img.remove();
+        note(row, "No image at " + src + ".");
+      });
+      img.src = /^https?:/.test(clue.image) ? clue.image : "clues/images/" + clue.image;
+      row.appendChild(img);
+    }
+
+    mathErrors(clue.text).concat(mathErrors(clue.answer)).forEach((msg) => {
+      note(row, msg);
+    });
+
+    list.appendChild(row);
+  });
+
+  say();
+  $("#check").open = problems > 0;
 }
 
 /* ---------- the room ---------- */

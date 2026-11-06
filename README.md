@@ -77,6 +77,12 @@ the player screen needs no KaTeX at all.
 To load a set, paste it into the box on `control.html`. It is kept on that device, and never
 sent anywhere.
 
+Before the room opens, `Check the clues` lays the whole set out the way the board will show
+it: every clue and answer in order, with its value, its Daily Double mark and its picture. It
+flags maths KaTeX cannot read and images that are not there, and puts the count in the summary
+line, so a broken set is visible without opening it. A typo found in the staffroom costs
+nothing; the same typo found on the projector costs the room.
+
 ## Its own Firebase project, always
 
 Clueboard must have a **separate Firebase project** from the buzzer. This is not tidiness:
