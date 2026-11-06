@@ -354,6 +354,11 @@ function renderPodiums() {
       els.extra.appendChild(podiumLine("pbet", "Wagered " + money(t.wager)));
     }
   });
+  // Who is in and who is still thinking, only while there is something to be in on. With no
+  // clue open there is nothing to ring in to, and a board of dimmed podiums would be the
+  // normal state of the screen rather than a signal. Final is left out on purpose: nobody is
+  // lit there until the teacher reveals them, so dimming would give away who answered.
+  wrap.classList.toggle("live", !!clue && !isFinal && !game.wagering);
   wrap.hidden = !order.length;
 }
 

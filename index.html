@@ -60,7 +60,7 @@
     <span id="pickScore" class="score"></span>
   </div>
   <h2 class="picktitle">Your pick</h2>
-  <div id="pickList" class="picklist"></div>
+  <div id="pickGrid" class="pickgrid"></div>
   <p id="pickErr" class="err"></p>
 </main>
 
@@ -331,41 +331,39 @@ function sendWager() {
 
 function clueOf() { return game.clue || {}; }
 
-// A list, not a replica of the board. The board is already on the screen at the front of the
-// room, and a 6x5 grid on a phone is worse at the one job this has: tapping the right value.
+// The board itself, in the shape the room is looking at: same six columns, same five rows,
+// same spent cells. It used to be a list, one row per category, which asked a student to
+// find on their phone a thing they could already see on the wall - and read as a different
+// game from the one being played. The cells are laid out exactly as board.html lays them.
 function renderPick() {
   const grid = game.grid;
-  const wrap = $("#pickList");
+  const wrap = $("#pickGrid");
   wrap.textContent = "";
   if (!grid || !grid.cats) {
-    wrap.textContent = "";
     $("#pickErr").textContent = "Waiting for the board...";
     return;
   }
   $("#pickErr").textContent = "";
 
   grid.cats.forEach((name, c) => {
-    const row = document.createElement("div");
-    row.className = "pickrow";
+    const head = document.createElement("div");
+    head.className = "pickcat";
+    head.style.gridColumn = c + 1;
+    head.style.gridRow = 1;
+    head.textContent = name;             // plain text by design: no maths in a category
+    wrap.appendChild(head);
 
-    const label = document.createElement("div");
-    label.className = "pickcat";
-    label.textContent = name;            // plain text by design: no maths in a category
-    row.appendChild(label);
-
-    const vals = document.createElement("div");
-    vals.className = "pickvals";
     (grid.values[c] || []).forEach((value, r) => {
       const spent = !value || (game.used || {})[(game.round || 1) + "-" + c + "-" + r];
       const b = document.createElement("button");
       b.className = "pickval" + (spent ? " spent" : "");
-      b.textContent = value ? money(value) : "—";
+      b.style.gridColumn = c + 1;
+      b.style.gridRow = r + 2;
+      b.textContent = value ? money(value) : "";
       b.disabled = !!spent;
       if (!spent) b.addEventListener("click", () => sendPick(c, r));
-      vals.appendChild(b);
+      wrap.appendChild(b);
     });
-    row.appendChild(vals);
-    wrap.appendChild(row);
   });
 }
 

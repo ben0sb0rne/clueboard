@@ -56,26 +56,35 @@
     <div class="joinlink">Join at <a id="joinLink" href="#"></a></div>
     <!-- Up here with the room's own details rather than in the action strip: it is pressed
          once at the start and belongs to the room, not to the state of the game, and in the
-         strip it was the one button that moved every time another appeared beside it. -->
-    <button id="openBoard" class="quiet">Open projector</button>
-    <button id="cog" aria-label="Settings" aria-expanded="false" title="Settings">
+         strip it was the one button that moved every time another appeared beside it.
+         The cog goes to its left, not into the corner, so that this button and the gold one
+         in the strip below share one right edge - two rows, one line down the side.
+         Lucide's own gear, pasted from icons/settings.svg: it has to be inline to take its
+         colour from the button, and an <img> cannot. icons/ holds the files and the ISC
+         licence; copy the next one in the same way. -->
+    <button id="cog" class="quiet" aria-label="Settings" aria-expanded="false" title="Settings">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-           stroke-linecap="round" aria-hidden="true" focusable="false">
-        <circle cx="12" cy="12" r="8"></circle>
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+        <path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"></path>
         <circle cx="12" cy="12" r="3"></circle>
-        <path d="M20 12h2.5M1.5 12H4M12 4V1.5M12 20v2.5M17.66 6.34l1.76-1.76M4.58 19.42l1.76-1.76M17.66 17.66l1.76 1.76M4.58 4.58l1.76 1.76"></path>
       </svg>
     </button>
+    <button id="openBoard" class="quiet">Open projector</button>
   </header>
 
+  <!-- Two kinds of thing, kept apart rather than run together in one wrapping row: what is
+       true for the whole game, then the three ways out of where it is now. End the game is
+       the one that cannot be undone, so it sits on its own at the far end. -->
   <div id="panel" class="panel" hidden>
-    <label class="opt"><input type="checkbox" id="mute"> Mute every buzzer</label>
-    <label class="opt"><input type="checkbox" id="teamsPick"> Teams pick their own clues</label>
-    <label class="opt"><input type="checkbox" id="showCode"> Show the room code on the board</label>
+    <div class="opts">
+      <label class="opt"><input type="checkbox" id="mute"> Mute all buzzers</label>
+      <label class="opt"><input type="checkbox" id="teamsPick"> Let teams pick their own clues</label>
+      <label class="opt"><input type="checkbox" id="showCode"> Show the room code on the board</label>
+    </div>
     <div class="acts">
       <button id="roundBtn" class="quiet">Go to round 2</button>
-      <button id="finalBtn" class="quiet">Final Jeopardy</button>
-      <button id="endGame" class="quiet">End game</button>
+      <button id="finalBtn" class="quiet">Go to Final Jeopardy</button>
+      <button id="endGame" class="quiet">End the game</button>
     </div>
     <span id="rulesHint" class="note warn" hidden>Auto-cleanup is off: deploy the latest database.rules.json.</span>
   </div>
@@ -98,13 +107,17 @@
     </div>
   </div>
 
+  <!-- Both states live in the same grid cell and only one of them is visible, so the stage
+       is always as tall as the grid and the teams below it never move. They are switched
+       with a class rather than the hidden attribute: hidden takes an element out of the
+       layout, which is the whole thing this is avoiding. -->
   <div id="stage">
     <section id="gridState">
       <div id="ctlGrid" class="ctlgrid"></div>
       <p class="empty" id="roundDone" hidden>Every clue in this round is spent.</p>
     </section>
 
-    <section id="clueState" hidden>
+    <section id="clueState" class="off">
       <div class="ctlclue">
         <div id="ctlClueText"></div>
       </div>
@@ -495,8 +508,9 @@ function renderGame(snap) {
   const round = Number(game.round) || 1;
 
   document.body.classList.toggle("inclue", !!clue);
-  $("#gridState").hidden = !!clue || pre || introing;
-  $("#clueState").hidden = !clue;
+  $("#stage").classList.toggle("shut", pre || introing);
+  $("#gridState").classList.toggle("off", !!clue || pre || introing);
+  $("#clueState").classList.toggle("off", !clue);
 
   // Every button lives in the strip and keeps its place there. Only which of them are on
   // screen changes, so the one to press is always the last and always the same corner.
@@ -532,9 +546,12 @@ function renderGame(snap) {
     setAct($("#showClueBtn"), wagering);
     setAct($("#revealBtn"), !wagering && !game.reveal);
     setAct($("#dismissBtn"), !!game.reveal);
-  } else {
-    renderGrid();
   }
+
+  // Built even while a clue is open and the grid is not on screen. The stage is as tall as
+  // the grid, so a dashboard refreshed mid-clue would otherwise have nothing holding that
+  // height and the whole table would jump the moment the clue was dismissed.
+  renderGrid();
 
   $("#stateLine").textContent = stateText();
   renderTeamRows();
@@ -808,7 +825,9 @@ function renderTeams(snap) {
   maybeShowClue();
 }
 
-// A small grid glyph, so it reads as "the board" rather than as another score control.
+// A grid glyph, so it reads as "the board" rather than as another score control. Lucide's
+// layout-grid, built from icons/layout-grid.svg: same four rects, stroked at the set's own
+// weight rather than filled, which is what makes it a sibling of the cog in the header.
 function boardButton(t, has) {
   const b = document.createElement("button");
   b.className = "give" + (has ? " has" : "");
@@ -819,12 +838,17 @@ function boardButton(t, has) {
   const NS = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(NS, "svg");
   svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "2");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
   svg.setAttribute("aria-hidden", "true");
   svg.setAttribute("focusable", "false");
-  [[3, 3], [13, 3], [3, 13], [13, 13]].forEach(([x, y]) => {
+  [[3, 3], [14, 3], [14, 14], [3, 14]].forEach(([x, y]) => {
     const r = document.createElementNS(NS, "rect");
     r.setAttribute("x", x); r.setAttribute("y", y);
-    r.setAttribute("width", 8); r.setAttribute("height", 8); r.setAttribute("rx", 1.5);
+    r.setAttribute("width", 7); r.setAttribute("height", 7); r.setAttribute("rx", 1);
     svg.appendChild(r);
   });
   b.appendChild(svg);
@@ -841,20 +865,26 @@ function renderTeamRows() {
   // Checking answers is most of what this screen is for, so the answer being marked against
   // heads the same column the submissions are in. Same table, so they line up on their own
   // and the eye runs straight down instead of back and forth across the screen.
-  if (clue && !wagering) {
-    const kr = body.insertRow();
-    kr.className = "keyrow";
-    cell(kr, "", "num");
-    cell(kr, "", "name");
-    // The label sits in the column to the left, so the answer itself starts on exactly the
-    // same edge as every submission under it.
-    cell(kr, "Correct answer", "score keylbl");
-    const ka = kr.insertCell();
-    ka.className = "answer keyans";
-    mathText(ka, clue.answer || lookupAnswer(clue));
-    kr.insertCell().className = "mark";
-    kr.insertCell().className = "rm";
-  }
+  //
+  // Always there, hidden rather than left out when there is nothing to show: a row that
+  // comes and goes pushes every team down the screen each time a clue opens, which is the
+  // same jump the stage above was just fixed for. The space costs one empty row.
+  const showing = !!clue && !wagering;
+  const kr = body.insertRow();
+  kr.className = showing ? "keyrow" : "keyrow off";
+  cell(kr, "", "num");
+  cell(kr, "", "name");
+  // The label sits in the column to the left, so the answer itself starts on exactly the
+  // same edge as every submission under it.
+  cell(kr, "Correct answer", "score keylbl");
+  const ka = kr.insertCell();
+  ka.className = "answer keyans";
+  // A space, not nothing: an empty cell is no height at all, and the row would collapse to
+  // a line and take the gap it is holding open with it.
+  if (showing) mathText(ka, clue.answer || lookupAnswer(clue));
+  else ka.textContent = " ";
+  kr.insertCell().className = "mark";
+  kr.insertCell().className = "rm";
 
   teams.forEach((t, i) => {
     const tr = body.insertRow();
@@ -1090,7 +1120,7 @@ function armEndGame() {
 }
 function disarmEndGame() {
   endArmed = false;
-  $("#endGame").textContent = "End game";
+  $("#endGame").textContent = "End the game";
   $("#endGame").classList.remove("danger");
 }
 

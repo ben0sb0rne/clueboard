@@ -90,6 +90,33 @@ body.board {
   --edge-stroke: 0.028em;
 }
 
+/* Maths is the exception, and needs its own edge for two reasons. KaTeX sets its own type
+   at 1.21em, so an em-based offset lands 21% further out than on the words around it; and
+   it sets it in a thin serif, where an offset tuned to Anton's slab of a stem clears the
+   stroke entirely and reads as a shadow floating free of the digit. Smaller on both counts,
+   and inherited from here, so every span KaTeX nests inside this takes the same one. */
+.board .katex {
+  --edge: 0.038em;
+  --edge-stroke: 0.015em;
+}
+/* A fraction bar is a border and a radical is an SVG path. Neither is a glyph, so neither
+   text-shadow nor text-stroke reaches them, and both were coming out flat against the blue
+   while every character beside them carried an edge. The box-shadow is the same two moves
+   the type gets: the offset black, then a ring of it round the whole bar. */
+.board .katex .frac-line,
+.board .katex .overline-line,
+.board .katex .underline-line,
+.board .katex .hline {
+  box-shadow: var(--edge) var(--edge) 0 #000, 0 0 0 var(--edge-stroke) #000;
+}
+/* drop-shadow, not text-shadow: it works off what the element actually paints, which for a
+   radical is the surd and its vinculum as one SVG shape. On .hide-tail rather than the svg
+   inside it, because that element clips its own overflow and would cut the shadow off. */
+.board .katex .hide-tail,
+.board .katex .stretchy {
+  filter: drop-shadow(var(--edge) var(--edge) 0 #000);
+}
+
 .board #stage {
   position: relative;
   flex: 1;
@@ -335,8 +362,19 @@ body.board {
   background: #13154a;
   border-bottom: clamp(3px, 0.4vw, 7px) solid transparent;
 }
+/* The one gold line in the game, and the only thing that says whose pick it is. It is on the
+   board and nowhere else: the dashboard already says so in words on the state line, and had
+   a second gold mark of its own down the side of the team's row. */
 .board .podium.picking { border-bottom-color: var(--value-gold); }
 .board .podium.buzzed { background: #1d2070; }
+/* While a clue is open, a team that has rung in is at its ordinary strength and everyone
+   still thinking is pulled back - darker ground, and the type dimmed with it. Lighting the
+   background alone was not a difference anyone read from the back of a room. The opacity
+   takes the black edge down with the letter, which a colour change would leave at full
+   strength and turn into an outline. */
+.board #podiums.live .podium:not(.buzzed) { background: #0d0f33; }
+.board #podiums.live .podium:not(.buzzed) .pname,
+.board #podiums.live .podium:not(.buzzed) .pscore { opacity: 0.4; }
 .board .pname {
   font-size: clamp(11px, 1.25vw, 22px);
   font-weight: 700;
@@ -528,6 +566,25 @@ body.board {
    in one column - which means one column for the whole screen. The clue gets the width back
    as type size. */
 
+/* The grid and the open clue are stacked in one cell and only one of them is ever visible,
+   so the stage is always the height of the taller - the grid - and the teams below it stay
+   where they are from the first snapshot to the end of the game. They were being taken out
+   of the layout and put back, and the whole table jumped a third of a screen on every clue.
+   visibility rather than display, because display: none would collapse the cell again; it
+   also takes the hidden half out of the tab order, which is what the attribute did. */
+.control #stage { display: grid; }
+.control #stage > section { grid-area: 1 / 1; }
+.control #stage > section.off { visibility: hidden; }
+/* The clue takes the whole height the grid was holding rather than sitting on top of it
+   with a dead band underneath. It is what the teacher is reading while they mark, so the
+   space may as well be its. */
+.control #clueState { display: flex; }
+.control #clueState .ctlclue { flex: 1; display: flex; align-items: center; }
+/* Before the game and through the category intro there is no board yet, so the stage folds
+   away rather than holding a screen-deep hole open above the teams. The table moves once,
+   when the game starts; what it must not do is move on every clue. */
+.control #stage.shut > section { display: none; }
+
 /* Where the game is, and what can be done about it, on one line above the stage. A floor on
    the height, so nothing below it moves when the buttons change, and an auto margin rather
    than space-between: on a narrow screen the buttons wrap to their own line, and only the
@@ -625,6 +682,13 @@ body.board {
   line-height: 1.2;
   vertical-align: middle;
 }
+/* Holding its space with nothing in it, so that opening a clue does not push every team
+   down a row. The border goes too: a green rule under an empty gap is a thing on screen. */
+.control tr.keyrow.off td {
+  visibility: hidden;
+  background: none;
+  border-bottom-color: transparent;
+}
 
 /* What the teacher is reading, so it is the biggest thing in the table. */
 .control td.answer {
@@ -643,7 +707,8 @@ body.board {
   background: none;
   box-shadow: inset 0 0 0 2px var(--line);
 }
-.control button.give svg { display: block; width: 100%; height: 100%; fill: currentColor; }
+/* No fill here: the icon is stroked, and a CSS fill beats the svg's own fill="none". */
+.control button.give svg { display: block; width: 100%; height: 100%; }
 .control button.give:hover { color: var(--ink); box-shadow: inset 0 0 0 2px var(--muted); }
 .control button.give.has {
   color: var(--gap-ink);
@@ -662,7 +727,12 @@ body.board {
   white-space: nowrap;
 }
 .control td.score.neg { color: var(--red); }
-.control tr.turn td.name { box-shadow: inset 4px 0 0 var(--value-gold); }
+/* The same reading as the board's podiums, on the screen the teacher is marking from: while
+   a clue is open, a team that has not rung in is pulled back and the ones that have are at
+   full strength. Opacity rather than a colour, so each cell keeps its own on the way down -
+   a negative score stays red, just quieter. The scoring buttons are left alone: they are
+   not what is being read, and a team that stayed quiet can still be awarded the clue. */
+.control.inclue tbody tr:not(.keyrow):not(.buzzed) td:not(.mark):not(.rm) { opacity: 0.45; }
 .control .mark { width: 1%; white-space: nowrap; }
 .control .mark button {
   width: 2.3em;

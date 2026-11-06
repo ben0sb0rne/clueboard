@@ -36,7 +36,7 @@ full. It leaves spent cells alone, so dismissing it returns to the board as it w
 clue whenever it likes takes that away, so student devices cannot touch the board by default.
 An icon sits beside whoever is up next: tap it to hand them the board for one pick, and it
 comes back on its own the moment the clue opens. If you want a whole game where teams choose,
-`Teams pick their own clues` in the cog restores that, and is remembered between games.
+`Let teams pick their own clues` in the cog restores that, and is remembered between games.
 
 **Every game has a title**, asked for before the room is made and remembered between games.
 It heads the welcome card the class joins on, and it is the first card of the intro.
@@ -75,8 +75,13 @@ carries the show's hard black edge - a thin stroke and a sharp shadow thrown dow
 at 45 degrees, both in `em` so they hold their proportion from a podium to an 86px clue. The
 white type takes a deeper one than the gold does, because against white the black collapses
 into the stroke and the letter just looks outlined, which from the back of a room is no
-shadow at all. Nothing names whose turn
-it is either - the gold line under a podium already says that. `Show the room code on the
+shadow at all. **Maths is the exception and carries its own, smaller edge**: KaTeX sets type
+at 1.21em in a thin serif, where an offset tuned to Anton's slab of a stem clears the stroke
+entirely and reads as a shadow floating free of the digit. A fraction bar is a border and a
+radical is an SVG path, so neither `text-shadow` nor `text-stroke` reaches them at all; they
+get the same two moves from `box-shadow` and `drop-shadow` instead. Nothing names whose turn
+it is either - the gold line under a podium already says that, and it is the only one in the
+game: the dashboard says whose pick it is in words instead. `Show the room code on the
 board` in the cog puts the code and the join address back in the corner between clues; it is
 off, because a class that has already joined has no use for it.
 
@@ -87,8 +92,17 @@ empties the board.
 
 **One palette, three screens.** The board, the dashboard and a student's phone are the same
 show: board blue, near-black, and the value gold. It is `palette.css`, which all three load
-before their own stylesheet - a student picking a clue on a phone is picking off cells that
-look like the ones on the wall. Gold is the thing to press; red only ever takes something
+before their own stylesheet. **A student handed the board gets the board**: the same six
+columns, the same five rows, the same spent cells, rather than a list of categories that
+asked them to find on a phone a thing already on the wall in front of them. The type is set
+in the system font there, not Anton - a webfont on thirty phones for a screen that is up for
+five seconds is not a trade worth making.
+
+**While a clue is open, a team that has rung in is at full strength and everyone still
+thinking is pulled back** - on the podiums and on the dashboard's team list alike. Lighting
+the background alone was not a difference anyone read from the back of a room. It is only
+while a clue is open: with nothing to ring in to, a screen of dimmed podiums is the normal
+state of the screen rather than a signal. Gold is the thing to press; red only ever takes something
 away, which is a deduction, a negative score or ending a game.
 
 **One region for the buttons, and one gold button in it.** Every control the game has lives
@@ -101,18 +115,30 @@ thumb. **`Back to grid` is deliberately not the easy one to hit** until the answ
 because an accidental press there is the one that costs a clue.
 
 `Open projector` is not in that strip: it belongs to the room rather than to the state of the
-game, so it sits up in the header beside the cog, where it never moves.
+game, so it sits up in the header, where it never moves. The cog goes to its left rather than
+into the corner, so that `Open projector` and the gold button below it end on one line down
+the side of the screen.
+
+The cog holds two kinds of thing and keeps them apart: what is true for the whole game, then
+the three ways out of where it is now. `End the game` is the one that cannot be taken back,
+so it sits on its own at the far end of that row.
 
 The control screen is built around checking answers, which is most of what you do with it.
 The clue runs full width across the top, and the correct answer sits at the head of the same
 column the teams' submissions are in, so marking is one glance down a column.
+
+**Nothing in that table moves while the game runs.** The grid and the open clue share one
+cell of the layout and only one is ever visible, so the stage is always the height of the
+grid; the correct-answer row is always there and empty between clues; and the column the
+hand-over icon appears in is as wide as that icon whether or not one is in it. Each of those
+was shifting the whole team list a different amount at a different moment.
 
 Things worth knowing that the screen does not say, because a dashboard used during a lesson
 is no place for a paragraph of instructions:
 
 - Tap a team's name to rename it, or its score to correct it. Who is in the team is listed
   under its name, wrapping onto as many lines as it needs.
-- `Mute every buzzer` in the cog silences the whole room, student devices included, not just
+- `Mute all buzzers` in the cog silences the whole room, student devices included, not just
   the dashboard. It is remembered between games.
 - During Final, tap a team's answer to put it on the board.
 - Open the cog to remove a team, with the `x` beside its row.
@@ -128,6 +154,9 @@ is no place for a paragraph of instructions:
 - `sample-clues.tsv` - a working clue set, and the template to copy.
 - `katex/` - KaTeX, committed rather than loaded from a CDN. woff2 fonts only.
 - `fonts/` - Anton, the board font. Self-hosted, OFL licence alongside it.
+- `icons/` - the icons, from Lucide. ISC licence alongside them. They are pasted into the
+  page as inline SVG rather than linked, because an `<img>` cannot take its colour from the
+  button it sits in; copy the next one in the same way.
 - `firebase-config.js` - the only file you need to edit by hand
 - `database.rules.json` - deployed by the CLI, not pasted into the console
 
