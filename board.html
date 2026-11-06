@@ -36,6 +36,10 @@
       <div class="cluetext" id="clueText"></div>
       <img id="clueImage" alt="" hidden>
       <div class="clueanswer" id="clueAnswer" hidden></div>
+      <div class="think" id="think" hidden>
+        <div class="thinktrack"><div class="thinkfill" id="thinkFill"></div></div>
+        <div class="thinknum" id="thinkNum"></div>
+      </div>
     </div>
   </section>
 </main>
@@ -65,6 +69,9 @@ let podiumSig = "";      // rebuild the podiums only when the teams change, neve
 let podiumEls = {};      // teamId -> { box, score, extra }
 let shownScores = {};    // what each podium currently reads, so a change can count up to it
 const reduced = matchMedia("(prefers-reduced-motion: reduce)");
+let thinkEnds = 0;       // server ms when the think time is up, 0 when there is no timer
+let thinkTotal = 1;      // what the bar is drawn against, taken when the timer first appears
+let thinkRaf = null;
 
 const joinHere = new URL("./", location.href).href
   .replace(/^https?:\/\//, "").replace(/\/$/, "");
@@ -114,6 +121,40 @@ function render() {
 
   renderPodiums();
   renderClue(clue);
+  renderThink();
+}
+
+// Visual only. It tells the room how long is left and nothing else - no answer is locked when
+// it runs out, because this game is marked by hand and a slow device is not a wrong answer.
+function renderThink() {
+  const clue = game.clue;
+  const ends = Number(game.timerEnds) || 0;
+  const live = !!(clue && clue.final && !game.wagering && ends);
+
+  $("#think").hidden = !live;
+  if (!live) {
+    thinkEnds = 0;
+    if (thinkRaf) { cancelAnimationFrame(thinkRaf); thinkRaf = null; }
+    return;
+  }
+
+  // The full length is taken the first time a timer appears rather than published alongside
+  // it: one field in the room instead of two, and a board opened mid-countdown still draws a
+  // bar that drains to nothing at the right moment.
+  if (ends !== thinkEnds) {
+    thinkEnds = ends;
+    thinkTotal = Math.max(1, ends - serverNow());
+  }
+  if (!thinkRaf) thinkRaf = requestAnimationFrame(tickThink);
+}
+
+function tickThink() {
+  if (!thinkEnds) { thinkRaf = null; return; }
+  const left = Math.max(0, thinkEnds - serverNow());
+  $("#thinkFill").style.transform = "scaleX(" + (left / thinkTotal) + ")";
+  $("#thinkNum").textContent = left ? String(Math.ceil(left / 1000)) : "Time";
+  $("#think").classList.toggle("out", !left);
+  thinkRaf = left ? requestAnimationFrame(tickThink) : null;
 }
 
 function renderGrid() {

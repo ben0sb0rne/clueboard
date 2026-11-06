@@ -22,6 +22,15 @@ function hostSeenAge(code) {
     .catch(() => null);
 }
 
+// The server's clock, as this device sees it. The control screen writes when the think time
+// ends and the board decides when it is up, so the two have to agree even when they are
+// different machines - the same reason hostSeenAge measures against the server rather than
+// trusting a Chromebook's date. Until the first reading arrives this is the local clock,
+// which is close enough: nothing reads it in the first seconds after a page loads.
+let serverSkew = 0;
+db.ref(".info/serverTimeOffset").on("value", (s) => { serverSkew = s.val() || 0; });
+function serverNow() { return Date.now() + serverSkew; }
+
 // Short square-wave buzz. Saves hosting an audio file and needs no preloading. The sweep sits
 // at 400 Hz rather than down at 240: a tablet or Chromebook speaker is past its roll-off there,
 // so the fundamental never reaches the room and the buzz reads as thin rather than loud.

@@ -79,6 +79,7 @@
       <div class="cluebar">
         <span id="clueWhere"></span>
         <button id="showClueBtn" hidden>Show the clue</button>
+        <button id="timerBtn" hidden>Start the timer</button>
         <button id="revealBtn">Reveal answer</button>
         <button id="dismissBtn">Back to grid</button>
       </div>
@@ -122,6 +123,10 @@ const LAST_ROOM = "clueboard-host-room";
 const SET_KEY = "clueboard-set";           // the raw paste, re-parsed on load
 const PICK_KEY = "clueboard-teams-pick";   // host preference, remembered between games
 const STILL_BEATING = 3 * 60 * 1000;
+// The show gives 30 seconds. An 8th grade algebra problem needs longer, and a teacher who
+// wants a different length can say so out loud - the timer shows the room the same number
+// either way, and nothing is enforced by it.
+const THINK_MS = 60 * 1000;
 
 let roomCode = null;
 let teamsRef = null;
@@ -157,6 +162,7 @@ $("#revealBtn").addEventListener("click", revealAnswer);
 $("#dismissBtn").addEventListener("click", dismissClue);
 $("#showClueBtn").addEventListener("click", showClue);
 $("#finalBtn").addEventListener("click", startFinal);
+$("#timerBtn").addEventListener("click", startTimer);
 addEventListener("pointerdown", markActive);
 addEventListener("keydown", markActive);
 
@@ -334,6 +340,10 @@ function renderGame(snap) {
     // While wagers are being collected the clue is not on the board yet, so revealing the
     // answer would be revealing it to nobody.
     $("#showClueBtn").hidden = !wagering;
+    $("#timerBtn").hidden = !clue.final || wagering;
+    $("#timerBtn").textContent = game.timerEnds && game.timerEnds > serverNow()
+      ? "Restart the timer"
+      : "Start the timer";
     $("#wagerLine").hidden = !wagering;
     if (wagering) $("#wagerLine").textContent = wagerStatus(clue);
     $("#revealBtn").disabled = !!game.reveal || wagering;
@@ -386,6 +396,15 @@ function showClue() {
     .catch((err) => { alert("Could not show the clue: " + err.message); });
 }
 
+// Visual only, and started by hand rather than when the clue appears: the teacher reads it
+// out first, and a timer that began without them would already be running. Nothing is locked
+// when it expires - this room marks by hand, and a slow Chromebook is not a wrong answer.
+function startTimer() {
+  if (!gameRef) return;
+  gameRef.update({ timerEnds: serverNow() + THINK_MS })
+    .catch((err) => { alert("Could not start the timer: " + err.message); });
+}
+
 // The teacher can trigger Final at any point - the class is about to end and the board is
 // half full. It leaves `used` alone, so dismissing it returns to the board as it was.
 function startFinal() {
@@ -397,7 +416,7 @@ function startFinal() {
       final: true, category: f.category, value: 0,
       text: f.text, image: f.image || "", dd: false
     },
-    wagering: true, reveal: false, pick: null, shown: null
+    wagering: true, reveal: false, pick: null, shown: null, timerEnds: null
   })
     .then(resetBuzzers)
     .catch((err) => { alert("Could not start Final Jeopardy: " + err.message); });
@@ -476,7 +495,8 @@ function selectCell(cat, row) {
     reveal: false,
     pick: null,
     picker: null,
-    shown: null
+    shown: null,
+    timerEnds: null
   };
   update["used/" + cellKey(round, cat, row)] = true;
   gameRef.update(update)
@@ -495,7 +515,8 @@ function revealAnswer() {
 }
 
 function dismissClue() {
-  gameRef.update({ clue: null, reveal: false, pick: null, wagering: null, shown: null })
+  gameRef.update({ clue: null, reveal: false, pick: null, wagering: null, shown: null,
+                   timerEnds: null })
     .then(resetBuzzers)
     .catch((err) => { alert("Could not close that clue: " + err.message); });
 }
@@ -504,7 +525,7 @@ function toggleRound() {
   const next = Number(game.round) === 2 ? 1 : 2;
   if (!clueSet.rounds[next]) { alert("This clue set has no round " + next + "."); return; }
   gameRef.update({ round: next, grid: roundGrid(clueSet, next), clue: null, reveal: false,
-                   pick: null, picker: null, wagering: null, shown: null })
+                   pick: null, picker: null, wagering: null, shown: null, timerEnds: null })
     .then(resetBuzzers)
     .catch((err) => { alert("Could not change round: " + err.message); });
 }

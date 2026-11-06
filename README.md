@@ -17,6 +17,11 @@ can still play. A Daily Double belongs to the team whose turn it is - whoever pi
 only that team can answer it. Final is everyone's: the category goes up, every team wagers,
 then the clue, then the teacher reveals the teams one at a time by tapping each answer.
 
+During Final there is a think timer: `Start the timer` puts a draining bar and a countdown on
+the board for 60 seconds. It is yours to start, because you read the clue out first and a timer
+that began on its own would already be running. It locks nothing when it runs out - this game
+is marked by hand, and a slow Chromebook is not a wrong answer.
+
 Start Final from the cog, at any point - the class is about to end and the board is half
 full. It leaves spent cells alone, so dismissing it returns to the board as it was.
 

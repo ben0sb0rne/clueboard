@@ -431,6 +431,7 @@ body.board {
   color: var(--muted);
 }
 .control #showClueBtn,
+.control #timerBtn,
 .control #revealBtn,
 .control #dismissBtn {
   padding: 0.6em 1.1em;
@@ -697,4 +698,44 @@ body.board {
     animation-delay: 0ms !important;
     transition-duration: 1ms !important;
   }
+}
+
+/* The Final think timer. A bar that drains and a number, on the board only - the room should
+   be able to read how long is left from the back without anyone looking at a device. */
+.board .think {
+  display: flex;
+  align-items: center;
+  gap: 1.2vw;
+  width: min(64vw, 100%);
+  margin-top: 1vh;
+}
+.board .thinktrack {
+  flex: 1;
+  height: clamp(8px, 1.1vh, 16px);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  overflow: hidden;
+}
+.board .thinkfill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--value-gold);
+  transform-origin: left center;
+  /* Transform only, so draining the bar never costs a layout pass. */
+  will-change: transform;
+}
+.board .thinknum {
+  min-width: 2.6ch;
+  text-align: right;
+  font-size: clamp(20px, 3vw, 54px);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--value-gold);
+}
+.board .think.out .thinkfill { background: #ff6a6a; }
+.board .think.out .thinknum {
+  color: #ff6a6a;
+  font-size: clamp(16px, 2.2vw, 40px);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
