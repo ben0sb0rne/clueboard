@@ -32,15 +32,22 @@
 [hidden] { display: none !important; }
 
 :root {
-  /* UNVERIFIED, and the only place a board colour is written down - change them here.
-     #060CE9 is the blue everyone repeats and it is close. The gold is a judgement call: no
-     source publishes it, and the honest way to get it is to eyedrop a screenshot of a recent
-     episode. Do that before this is shown to a class. */
-  --board-blue: #060ce9;
-  --board-blue-lit: #1b22f5;
+  /* Sampled from a broadcast frame on 5 November 2026, rather than taken from a number
+     written down somewhere. The widely repeated #060CE9 is far brighter than what a camera
+     actually sees, and no source publishes the gold at all.
+
+     Method: locate the board by the density of saturated blue, then take the most common
+     colour inside it and average that bucket. Three passes - patches above the digits row
+     by row, a whole-board mode, and a glyph-core mode - agreed within a couple of points.
+     --board-blue-lit is the control grid's hover, derived from the blue, not picked.
+
+     shortcut: faithful to the frame, which is darker than the board looks in the room. If a
+     classroom projector washes these out, scale the blue up and keep the hue. */
+  --board-blue: #04106e;
+  --board-blue-lit: #071dc6;
   --gap-ink: #04051c;
   --surround: #090a26;
-  --value-gold: #d9a441;
+  --value-gold: #eca035;
   --clue-white: #fff;
 
   /* The board font is Swiss 911 Ultra Compressed, which is licensed and cannot be used.
