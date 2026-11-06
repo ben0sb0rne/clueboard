@@ -60,6 +60,10 @@
   --edge: 0.045em;
   --edge-stroke: 0.022em;
 
+  /* The show is low energy by design. One easing for everything that moves: it leaves rest
+     and arrives at rest, and nothing on this board overshoots or springs. */
+  --ease: cubic-bezier(.4, 0, .2, 1);
+
   /* The board font is Swiss 911 Ultra Compressed, which is licensed and cannot be used.
      Anton is the nearest free thing: self-hosted in fonts/, declared at the top of this file.
      One weight is all it has and all the board needs, since everything here is heavy. The
@@ -145,16 +149,6 @@ body.board {
   display: flex;
   flex-direction: column;
 }
-.board .turnbanner {
-  margin: 0;
-  padding: 0.5vh 0 1vh;
-  text-align: center;
-  font-size: clamp(14px, 1.8vw, 26px);
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: #9fa3d8;
-  min-height: 1.2em;
-}
 .board .grid {
   flex: 1;
   min-height: 0;
@@ -191,10 +185,10 @@ body.board {
 /* The opening sweep. The values carry a transition so the stagger is the browser's work, not
    a timer's; .sweeping is the bare board they start from, and .nocats holds the category
    names back until the intro reveals them one at a time. */
-.board .grid .cell span { transition: opacity 320ms linear; }
+.board .grid .cell span { transition: opacity 440ms linear; }
 .board .grid.sweeping .cell span { opacity: 0; transition: none; }
 .board .grid.nocats .cat { visibility: hidden; }
-.board #boardState.dissolve { animation: boardFade 600ms linear; }
+.board #boardState.dissolve { animation: boardFade 820ms linear; }
 @keyframes boardFade { from { opacity: 0; } to { opacity: 1; } }
 
 /* Spent cells go dark rather than disappearing: the grid has to keep its shape, because the
@@ -219,7 +213,7 @@ body.board {
   background: var(--board-blue);
   will-change: transform;
 }
-.board #cluePanel .cluebody { opacity: 0; transition: opacity 130ms linear; }
+.board #cluePanel .cluebody { opacity: 0; transition: opacity 340ms linear; }
 .board #cluePanel.settled .cluebody { opacity: 1; }
 .board .cluebody {
   display: flex;
@@ -269,7 +263,7 @@ body.board {
   overflow: hidden;
   background: var(--surround);
   opacity: 0;
-  transition: opacity 420ms linear;
+  transition: opacity 620ms linear;
 }
 .board #introPanel.up { opacity: 1; }
 .board .introstrip {
@@ -283,7 +277,7 @@ body.board {
   display: flex;
   gap: var(--itg);
   transform: translateX(calc(-1 * var(--i) * (var(--itw) + var(--itg))));
-  transition: transform 560ms cubic-bezier(.3, .72, .2, 1);
+  transition: transform 820ms var(--ease);
 }
 .board .introtile {
   /* board.html does not load style.css, so there is no border-box reset here and the padding
@@ -764,20 +758,20 @@ body.board {
   to   { opacity: 1; transform: none; }
 }
 @keyframes cellRise {
-  from { opacity: 0; transform: translateY(14%) scale(0.97); }
+  from { opacity: 0; transform: translateY(14%); }
   to   { opacity: 1; transform: none; }
 }
-.board .grid.intro .cat  { animation: catDrop 380ms cubic-bezier(.2,.75,.3,1) backwards; }
-.board .grid.intro .cell { animation: cellRise 300ms cubic-bezier(.2,.75,.3,1) backwards; }
+.board .grid.intro .cat  { animation: catDrop 520ms var(--ease) backwards; }
+.board .grid.intro .cell { animation: cellRise 440ms var(--ease) backwards; }
 
-/* The Daily Double is the one moment the board shouts. */
+/* The Daily Double is the one moment the board raises its voice - but it still does not
+   overshoot. A scale that settles rather than bounces reads as weight, not as a cartoon. */
 @keyframes ddPunch {
-  0%   { opacity: 0; transform: scale(0.35); }
-  55%  { opacity: 1; transform: scale(1.08); }
-  100% { opacity: 1; transform: scale(1); }
+  from { opacity: 0; transform: scale(0.72); }
+  to   { opacity: 1; transform: scale(1); }
 }
-.board .splash.punch .splashtitle { animation: ddPunch 460ms cubic-bezier(.2,.8,.3,1) both; }
-.board .splash.punch .splashwho   { animation: ddPunch 420ms cubic-bezier(.2,.8,.3,1) 160ms both; }
+.board .splash.punch .splashtitle { animation: ddPunch 620ms var(--ease) both; }
+.board .splash.punch .splashwho   { animation: ddPunch 560ms var(--ease) 220ms both; }
 
 /* A score changing is the result of the clue, so it gets the beat. The fill is an inset
    shadow because the podium's own background and its border are already spoken for by
@@ -792,13 +786,13 @@ body.board {
 }
 @keyframes scorePop {
   0%   { transform: scale(1); }
-  35%  { transform: scale(1.2); }
+  40%  { transform: scale(1.07); }
   100% { transform: scale(1); }
 }
-.board .podium.up   { animation: flashUp 620ms ease-out; }
-.board .podium.down { animation: flashDown 620ms ease-out; }
+.board .podium.up   { animation: flashUp 860ms var(--ease); }
+.board .podium.down { animation: flashDown 860ms var(--ease); }
 .board .podium.up .pscore,
-.board .podium.down .pscore { animation: scorePop 520ms cubic-bezier(.2,.8,.3,1); }
+.board .podium.down .pscore { animation: scorePop 760ms var(--ease); }
 
 /* Someone who asked their system not to animate gets the same board, instantly. The counting
    score is switched off in board.html, which reads the same query. */

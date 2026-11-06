@@ -58,13 +58,15 @@
   <div id="panel" class="panel" hidden>
     <label class="opt"><input type="checkbox" id="mute"> Mute buzzer on this device</label>
     <label class="opt"><input type="checkbox" id="teamsPick"> Teams pick their own clues</label>
+    <label class="opt"><input type="checkbox" id="showCode"> Show the room code on the board</label>
     <button id="roundBtn">Go to round 2</button>
     <button id="finalBtn">Final Jeopardy</button>
     <button id="endGame">End game</button>
     <span class="note">Tap a team's name to rename it, or its score to correct it. During Final,
       tap a team's answer to put it on the board. You pick the clues unless you hand the board
       over, with the icon beside whoever is up next. Remove a team
-      with the &times; beside its row. A game ends by itself an hour after you last touch this
+      with the &times; beside its row. Back to grid without revealing leaves the clue on the
+      board. A game ends by itself an hour after you last touch this
       screen, or an hour after it is closed; you get a warning five minutes before.</span>
     <span id="rulesHint" class="note warn" hidden>Auto-cleanup is off: deploy the latest database.rules.json.</span>
   </div>
@@ -143,6 +145,7 @@ const MUTE_KEY = "clueboard-muted";
 const LAST_ROOM = "clueboard-host-room";
 const SET_KEY = "clueboard-set";           // the raw paste, re-parsed on load
 const PICK_KEY = "clueboard-teams-pick";   // host preference, remembered between games
+const CODE_KEY = "clueboard-show-code";    // the same, for the code in the board's corner
 const STILL_BEATING = 3 * 60 * 1000;
 // The show gives 30 seconds. An 8th grade algebra problem needs longer, and a teacher who
 // wants a different length can say so out loud - the timer shows the room the same number
@@ -160,6 +163,9 @@ let teams = [];
 let buzzedIds = null;       // null until the first snapshot, so reopening a room does not beep
 let muted = localStorage.getItem(MUTE_KEY) === "1";
 let teamsPick = localStorage.getItem(PICK_KEY) === "1";
+// Off unless it has been turned on: a game screen carries the clue and nothing else, and a
+// class that has joined has no use for the code.
+let showCode = localStorage.getItem(CODE_KEY) === "1";
 
 const IDLE_WARN = 55 * 60 * 1000;
 const IDLE_GRACE = 5 * 60 * 1000;
@@ -168,6 +174,7 @@ let idleTimer = null;
 
 $("#mute").checked = muted;
 $("#teamsPick").checked = teamsPick;
+$("#showCode").checked = showCode;
 $("#importBtn").addEventListener("click", importSet);
 $("#sampleBtn").addEventListener("click", loadSample);
 $("#reimportBtn").addEventListener("click", () => showSetup(true));
@@ -176,6 +183,7 @@ $("#openBoard").addEventListener("click", openBoardWindow);
 $("#cog").addEventListener("click", togglePanel);
 $("#mute").addEventListener("change", setMute);
 $("#teamsPick").addEventListener("change", setTeamsPick);
+$("#showCode").addEventListener("change", setShowCode);
 $("#roundBtn").addEventListener("click", toggleRound);
 $("#endGame").addEventListener("click", armEndGame);
 $("#keepAlive").addEventListener("click", markActive);
@@ -395,7 +403,8 @@ function openRoom(code) {
   gameRef.once("value").then((snap) => {
     const round = Number((snap.val() || {}).round) || 1;
     return gameRef.update({ round: round, grid: roundGrid(clueSet, round), pick: null,
-                            teamsPick: teamsPick || null, picker: null });
+                            teamsPick: teamsPick || null, picker: null,
+                            showCode: showCode || null });
   }).catch((err) => { alert("Could not start the game: " + err.message); });
 
   teamsRef.on("value", renderTeams);
@@ -647,7 +656,6 @@ function selectCell(cat, row) {
     shown: null,
     timerEnds: null
   };
-  update["used/" + cellKey(round, cat, row)] = true;
   gameRef.update(update)
     .then(resetBuzzers)
     .catch((err) => { alert("Could not open that clue: " + err.message); });
@@ -659,7 +667,14 @@ function revealAnswer() {
   const answer = lookupAnswer(clue);
   // The answer reaches the database here and nowhere else: at this point it is going on the
   // projector, so a student reading it out of devtools gains nothing.
-  gameRef.update({ "clue/answer": answer, reveal: true })
+  const update = { "clue/answer": answer, reveal: true };
+  // The cell is spent here rather than when it was opened, so Back to grid on a clue that was
+  // never revealed - a mis-tap, or one held over - leaves it on the board. A teacher who reads
+  // answers out instead of revealing them never empties the board, which is the trade.
+  if (!clue.final) {
+    update["used/" + cellKey(Number(game.round) || 1, clue.cat, clue.row)] = true;
+  }
+  gameRef.update(update)
     .catch((err) => { alert("Could not reveal: " + err.message); });
 }
 
@@ -972,6 +987,12 @@ function setTeamsPick() {
   teamsPick = $("#teamsPick").checked;
   localStorage.setItem(PICK_KEY, teamsPick ? "1" : "0");
   if (gameRef) gameRef.update({ teamsPick: teamsPick || null, picker: null }).catch(() => {});
+}
+
+function setShowCode() {
+  showCode = $("#showCode").checked;
+  localStorage.setItem(CODE_KEY, showCode ? "1" : "0");
+  if (gameRef) gameRef.update({ showCode: showCode || null }).catch(() => {});
 }
 
 // One pick, handed to the team whose turn it is. It is deliberately not a mode: the board

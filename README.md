@@ -39,15 +39,28 @@ because you are the one reading the categories out. Past the last one the button
 `Start the game`, which is also the way out of an intro started by mistake. Round 2 has no
 intro.
 
-**Only the board moves.** A clue expands out of its own cell, a Daily Double punches onto the
-screen, and a score counts up with the podium flashing which way it went. The player screen
-stays deliberately still - a student should be looking up, not down - and the control screen
-is a working surface. Anyone whose system asks for reduced motion gets the same board with
-none of it.
+**Only the board moves, and it moves calmly.** The show is low energy by design, so nothing
+here overshoots or springs: one easing that leaves rest and arrives at rest, and durations
+long enough to read as a camera move rather than a cut. A clue expands out of its own cell, a
+Daily Double arrives with weight, and a score counts up with the podium flashing which way it
+went. The player screen stays deliberately still - a student should be looking up, not down -
+and the control screen is a working surface. Anyone whose system asks for reduced motion gets
+the same board with none of it.
+
+**The reveal is the one beat that takes its time.** The clue eases up out of the way while the
+answer and its rule fade in underneath, both over the same span, so they are fully there
+exactly as the clue comes to rest.
 
 **A clue screen is the words and nothing else**, as on the show: no value, no category, no
-room code in the corner, and the answer in white with the clue when you reveal it. The room
-code comes back with the grid, where a latecomer has time to read it.
+room code, and the answer in white with the clue when you reveal it. Nothing names whose turn
+it is either - the gold line under a podium already says that. `Show the room code on the
+board` in the cog puts the code and the join address back in the corner between clues; it is
+off, because a class that has already joined has no use for it.
+
+**Back to grid without revealing leaves the clue on the board.** A cell is spent when you
+reveal its answer, not when you open it, so a mis-tap costs nothing and a question can be held
+over. The trade is that a teacher who reads answers out instead of revealing them never
+empties the board.
 
 The control screen is built around checking answers, which is most of what you do with it.
 The clue runs full width across the top, and the correct answer sits at the head of the same
