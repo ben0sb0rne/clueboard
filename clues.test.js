@@ -204,14 +204,25 @@ tests["spent cells do not leak between rounds"] = function () {
   assert.notStrictEqual(C.cellKey(1, 0, 0), C.cellKey(2, 0, 0));
 };
 
-// The cap is the rule that keeps a losing team in the game, so it is worth pinning down.
-tests["a wager is capped by the top value on the board, not by the score"] = function () {
+// The cap is the rule that decides how much of a game a team can throw away, so it is worth
+// pinning down - and it is two different rules, which is exactly why.
+tests["a Daily Double wager is capped by the top value on the board, not by the score"] =
+function () {
   var set = C.parseClueSet(tsv(column(1, "ONE", "a")));
   var grid = C.roundGrid(set, 1);                 // top value 1000
   assert.strictEqual(C.wagerCap(0, grid), 1000, "a team on zero must still be able to play");
   assert.strictEqual(C.wagerCap(-400, grid), 1000, "a team in the red must still be able to play");
   assert.strictEqual(C.wagerCap(2500, grid), 2500, "a team ahead may wager everything it has");
   assert.strictEqual(C.wagerCap(1000, grid), 1000);
+};
+
+tests["a final wager is capped by the score alone"] = function () {
+  var set = C.parseClueSet(tsv(column(1, "ONE", "a")));
+  var grid = C.roundGrid(set, 1);                 // top value 1000
+  assert.strictEqual(C.wagerCap(600, grid, true), 600, "never more money than the team has");
+  assert.strictEqual(C.wagerCap(2500, grid, true), 2500);
+  assert.strictEqual(C.wagerCap(0, grid, true), 0, "nothing to bet, so nothing to lose");
+  assert.strictEqual(C.wagerCap(-400, grid, true), 0, "a cap is never negative");
 };
 
 tests["wagerCap survives a missing or empty grid"] = function () {

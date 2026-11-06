@@ -7,30 +7,54 @@ the teacher, and student devices that buzz and answer. Forked from
 No framework, no build step. Plain files served by GitHub Pages.
 
 **Status: playable prototype.** A whole game runs end to end: import a clue set, open a room,
-teams join, clues are picked and answered, Daily Doubles and Final Jeopardy are wagered, and
-the teacher scores by hand.
+teams join, clues are picked and answered, Daily Doubles and the final clue are wagered, the
+teacher scores by hand, and the game ends on a results screen.
+
+It is called **the final clue**, not Final Jeopardy. The format is the show's; the name is
+not ours to use on a site with other people's tools on it.
 
 Wagers work the same way in both: the team enters one on their device before the clue is
-shown, and the clue is then worth that wager instead of the cell value. The cap is **the
-larger of the team's score and the top value on the board**, so a team on zero or in the red
-can still play. A Daily Double belongs to the team whose turn it is - whoever picked it - and
-only that team can answer it. Final is everyone's: the category goes up, every team wagers,
-then the clue, then the teacher reveals the teams one at a time by tapping each answer. A
-team that wrote nothing still reveals, as "No answer" - the reveal is yours to make, so it
-has to do something visible whatever that team typed.
+shown, and the clue is then worth that wager instead of the cell value. **The two caps are
+different, and deliberately so.** A Daily Double is capped at the larger of the team's score
+and the top value on the board, so a team on zero or in the red can still play the clue for
+what it is worth. **The final clue is capped at the team's score alone** - a team cannot bet
+money it has never won, which also means a team on nothing has nothing to lose there.
 
-**A wager is a whole number of dollars.** `$1,200` and ` 500 ` are the same wager; letters, a
-decimal point and a minus sign are refused outright and the student is told why. They used to
-be stripped down to a silent `$0`, which in Final is a team's whole game thrown away without
-a word to them.
+A Daily Double belongs to the team whose turn it is - whoever picked it - and only that team
+can answer it. The final clue is everyone's: the category goes up, every team wagers, then
+the clue, then the teacher reveals the teams one at a time by tapping each answer. A team
+that wrote nothing still reveals, as "No answer" - the reveal is yours to make, so it has to
+do something visible whatever that team typed.
 
-During Final there is a think timer: `Start the timer` puts a draining bar and a countdown on
-the board for 60 seconds. It is yours to start, because you read the clue out first and a timer
-that began on its own would already be running. It locks nothing when it runs out - this game
-is marked by hand, and a slow Chromebook is not a wrong answer.
+**A wager is a whole number of dollars, and no more than the team has.** `$1,200` and ` 500 `
+are the same wager; letters, a decimal point, a minus sign and anything over the cap are all
+refused outright with a reason. Nothing is quietly corrected: "five hundred" used to lock in
+as `$0` and `900` used to lock in as `600`, both without a word, at the one moment of the
+game that is entirely about the number.
 
-Start Final from the cog, at any point - the class is about to end and the board is half
-full. It leaves spent cells alone, so dismissing it returns to the board as it was.
+**The wager screen is the answer screen.** One big box filling the device and the lock bar
+under it, the same shape and the same places to put a thumb. And the moment a wager is in,
+that team goes to the waiting screen rather than sitting on a dead gold button until the
+slowest team in the room has finished typing - which is what "sending a wager takes ages"
+actually was.
+
+During the final clue there is a think timer: `Start the timer` puts a draining bar and a
+countdown on the board for 60 seconds. It is yours to start, because you read the clue out
+first and a timer that began on its own would already be running. It locks nothing when it
+runs out - this game is marked by hand, and a slow Chromebook is not a wrong answer.
+
+Start the final clue from the cog, at any point - the class is about to end and the board is
+half full. It leaves spent cells alone, so dismissing it returns to the board as it was.
+
+**Ending the game is not closing the room.** `End the game` puts the scores on the board and
+leaves everything standing; it is offered in the cog at any time, and in the strip as the
+gold button the moment the final clue has been revealed, because that is what follows a final
+clue. `Close the room` is the separate step that wipes the teams and the scores and goes back
+to setup. Both take two taps.
+
+**The results come up last place first**, each place arriving a beat above the one before it,
+so the room finishes on the winner at the top of the screen. Each line is the place, the team,
+who was in it and the final score. Equal scores share a place and the next one down skips it.
 
 **You pick the clues.** Pacing the game is the teacher's job, and a class that can open a
 clue whenever it likes takes that away, so student devices cannot touch the board by default.
@@ -64,6 +88,15 @@ Daily Double arrives with weight, and a score counts up with the podium flashing
 went. The player screen stays deliberately still - a student should be looking up, not down -
 and the control screen is a working surface. Anyone whose system asks for reduced motion gets
 the same board with none of it.
+
+**A wager takes the score's place for a beat** as that team is revealed, in gold and at the
+score's own size. It was a ten-pixel line under the podium, which from the back of a room is
+not there at all - and the number is the whole point of a final clue.
+
+**A podium is a name and a number, at the same size.** The score is white and the name is the
+quieter blue; it is the colour that tells them apart, not a caption set half the size. A name
+too long for its sixth of the screen gives up its tail rather than wrapping, because six
+podiums have to stay one row deep.
 
 **The reveal is the one beat that takes its time.** The clue eases up out of the way while the
 answer and its rule fade in underneath, both over the same span, so they are fully there
@@ -140,7 +173,11 @@ is no place for a paragraph of instructions:
   under its name, wrapping onto as many lines as it needs.
 - `Mute all buzzers` in the cog silences the whole room, student devices included, not just
   the dashboard. It is remembered between games.
-- During Final, tap a team's answer to put it on the board.
+- On the final clue, tap a team's answer to put it on the board.
+- While wagers are coming in, the teams column says who is in, never how much. An amount
+  there is a number you can read and do nothing with - it cannot go on the board until the
+  clue is up - and the board's own rule is that a wager stays secret until its team is
+  revealed. The state line counts them in.
 - Open the cog to remove a team, with the `x` beside its row.
 - A game ends by itself an hour after you last touch the control screen, or an hour after it
   is closed. You get a warning five minutes before.
@@ -256,7 +293,8 @@ fields and `buzzedAt` must equal the server clock, so a student cannot fake an e
 A determined student with devtools could clear the board. That is the same exposure the buzzer
 already carries, where a student can delete another team. The one thing validated there is
 `pick`: a team can only pick a clue when `game/turn` names them, so a stray tap from the wrong
-team is rejected rather than stealing the pick.
+team is rejected rather than stealing the pick. Being open is also why a new field under
+`game` - `muted`, `over` - needs no rules change and nothing re-published by hand.
 
 **Clue answers are never written to the database.** The control screen holds the whole clue set
 in memory and publishes only the current clue, plus the answer at the moment the teacher reveals

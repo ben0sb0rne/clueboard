@@ -83,7 +83,7 @@
     </div>
     <div class="acts">
       <button id="roundBtn" class="quiet">Go to round 2</button>
-      <button id="finalBtn" class="quiet">Go to Final Jeopardy</button>
+      <button id="finalBtn" class="quiet">Go to the final clue</button>
       <button id="endGame" class="quiet">End the game</button>
     </div>
     <span id="rulesHint" class="note warn" hidden>Auto-cleanup is off: deploy the latest database.rules.json.</span>
@@ -104,6 +104,11 @@
       <button id="timerBtn" class="quiet" hidden>Start the timer</button>
       <button id="revealBtn" class="act" hidden>Reveal answer</button>
       <button id="dismissBtn" class="quiet" hidden>Back to grid</button>
+      <!-- The two ways a game finishes, each offered where it is actually wanted: ending
+           it once the final clue has been revealed, and closing the room once the results
+           are on the board. Both arm on the first tap. -->
+      <button id="endBtn" class="act" hidden>End the game</button>
+      <button id="closeBtn" class="act" hidden>Close the room</button>
     </div>
   </div>
 
@@ -200,12 +205,16 @@ $("#mute").addEventListener("change", setMute);
 $("#teamsPick").addEventListener("change", setTeamsPick);
 $("#showCode").addEventListener("change", setShowCode);
 $("#roundBtn").addEventListener("click", toggleRound);
-$("#endGame").addEventListener("click", armEndGame);
+$("#endGame").addEventListener("click",
+  () => arm($("#endGame"), "End the game", endGame));
 $("#keepAlive").addEventListener("click", markActive);
 $("#revealBtn").addEventListener("click", revealAnswer);
 $("#dismissBtn").addEventListener("click", dismissClue);
 $("#showClueBtn").addEventListener("click", showClue);
 $("#finalBtn").addEventListener("click", startFinal);
+$("#endBtn").addEventListener("click", () => arm($("#endBtn"), "End the game", endGame));
+$("#closeBtn").addEventListener("click",
+  () => arm($("#closeBtn"), "Close the room", closeRoom));
 $("#timerBtn").addEventListener("click", startTimer);
 $("#introBtn").addEventListener("click", () => startGame(0));
 $("#startBtn").addEventListener("click", () => startGame(null));
@@ -506,9 +515,12 @@ function renderGame(snap) {
 
   const wagering = !!(clue && game.wagering);
   const round = Number(game.round) || 1;
+  const over = !!game.over;
 
-  document.body.classList.toggle("inclue", !!clue);
-  $("#stage").classList.toggle("shut", pre || introing);
+  // Not while wagers are coming in: nobody has answered yet, so dimming the teams that have
+  // not rung in would dim every one of them and say nothing.
+  document.body.classList.toggle("inclue", !!clue && !wagering);
+  $("#stage").classList.toggle("shut", pre || introing || over);
   $("#gridState").classList.toggle("off", !!clue || pre || introing);
   $("#clueState").classList.toggle("off", !clue);
 
@@ -516,13 +528,17 @@ function renderGame(snap) {
   // screen changes, so the one to press is always the last and always the same corner.
   // While wagers are being collected the clue is not on the board yet, so revealing the
   // answer would be revealing it to nobody.
-  $("#introBtn").hidden = !pre;
-  $("#startBtn").hidden = !pre;
-  $("#introNext").hidden = !introing;
+  $("#introBtn").hidden = !pre || over;
+  $("#startBtn").hidden = !pre || over;
+  $("#introNext").hidden = !introing || over;
   $("#showClueBtn").hidden = !wagering;
   $("#timerBtn").hidden = !clue || !clue.final || wagering;
   $("#revealBtn").hidden = !clue;
   $("#dismissBtn").hidden = !clue;
+  // A final clue has no board to go back to, so this is what follows it.
+  $("#endBtn").hidden = !(clue && clue.final && game.reveal);
+  $("#closeBtn").hidden = !over;
+  $("#endGame").hidden = over;
   $("#roundBtn").textContent = "Go to round " + (round === 2 ? 1 : 2);
 
   if (introing) {
@@ -545,7 +561,9 @@ function renderGame(snap) {
     // because until then it is the mis-tap that costs the most.
     setAct($("#showClueBtn"), wagering);
     setAct($("#revealBtn"), !wagering && !game.reveal);
-    setAct($("#dismissBtn"), !!game.reveal);
+    // On a final clue the gold one is End the game beside it, not Back to grid: the board
+    // it would go back to is the one the game has just finished with.
+    setAct($("#dismissBtn"), !!game.reveal && !clue.final);
   }
 
   // Built even while a clue is open and the grid is not on screen. The stage is as tall as
@@ -577,9 +595,10 @@ function setAct(btn, primary) {
 function stateText() {
   const clue = game.clue || null;
   const intro = Number.isInteger(game.intro) ? game.intro : null;
+  if (game.over) return "Game over \u00b7 the scores are on the board";
   if (clue) {
     const where = clue.final
-      ? "Final Jeopardy \u00b7 " + (clue.category || "")
+      ? "Final Clue \u00b7 " + (clue.category || "")
       : (clue.category || "") + " \u00b7 " + money(clue.value) +
         (clue.dd ? " \u00b7 Daily Double" : "");
     return game.wagering ? where + " \u00b7 " + wagerStatus(clue) : where;
@@ -656,7 +675,7 @@ function startFinal() {
     wagering: true, reveal: false, pick: null, shown: null, timerEnds: null
   })
     .then(resetBuzzers)
-    .catch((err) => { alert("Could not start Final Jeopardy: " + err.message); });
+    .catch((err) => { alert("Could not start the final clue: " + err.message); });
 }
 
 // The answer is held here, never published until the teacher reveals it. game/clue carries
@@ -919,8 +938,12 @@ function renderTeamRows() {
 
     // Student-typed: textContent, never mathText and never innerHTML.
     const wagering = !!game.wagering;
+    // Who is in, never how much. A wager cannot go on the board until the clue is up, so an
+    // amount sitting here is a number the teacher can read and do nothing with - and the
+    // board's own rule is that a wager stays secret until its team is revealed. The state
+    // line already counts them in.
     const answerText = wagering
-      ? (hasWagered(t) ? "Wagered " + money(t.wager) : "")
+      ? (hasWagered(t) ? "Wager in" : "")
       : (t.buzzedAt ? t.answer : "");
     const answerCell = cell(tr, answerText, "answer");
     if (clue && (clue.final || clue.dd) && !wagering && hasWagered(t)) {
@@ -1103,25 +1126,25 @@ function giveBoard(id, has) {
     .catch((err) => { alert("Could not hand the board over: " + err.message); });
 }
 
-let endArmed = false;
-let endTimer = null;
-function armEndGame() {
-  const btn = $("#endGame");
-  if (!endArmed) {
-    endArmed = true;
-    btn.textContent = "Tap again to end";
+// Two taps, because each of these stops a lesson: the first arms the button and says so,
+// the second does it, and it disarms itself after four seconds. The same shape as leaving a
+// room on a student device, and now shared by the three buttons that need it.
+const armTimers = {};
+function arm(btn, label, run) {
+  if (!armTimers[btn.id]) {
+    armTimers[btn.id] = setTimeout(() => disarm(btn, label), 4000);
+    btn.textContent = "Tap again";
     btn.classList.add("danger");
-    endTimer = setTimeout(disarmEndGame, 4000);
     return;
   }
-  clearTimeout(endTimer);
-  disarmEndGame();
-  endGame();
+  disarm(btn, label);
+  run();
 }
-function disarmEndGame() {
-  endArmed = false;
-  $("#endGame").textContent = "End the game";
-  $("#endGame").classList.remove("danger");
+function disarm(btn, label) {
+  clearTimeout(armTimers[btn.id]);
+  armTimers[btn.id] = null;
+  btn.textContent = label;
+  btn.classList.remove("danger");
 }
 
 function wipeRoom(code) {
@@ -1143,7 +1166,20 @@ function wipeIfDead(code) {
   }).catch(() => {});
 }
 
+// Ending a game stops the play and puts the scores on the board. It destroys nothing: the
+// teams, their members and their scores are what the results screen is made of, and the room
+// stays up until the teacher closes it or the hour of silence sweeps it.
 function endGame() {
+  if (!gameRef) return;
+  gameRef.update({ over: true, clue: null, reveal: false, wagering: null, pick: null,
+                   picker: null, shown: null, timerEnds: null, intro: null })
+    .then(resetBuzzers)
+    .catch((err) => { alert("Could not end the game: " + err.message); });
+}
+
+// And this is the step that does destroy it, which is why it is a separate button with its
+// own two taps: the room, the teams and every score go, and the screen goes back to setup.
+function closeRoom() {
   if (!teamsRef) return;
   const tRef = teamsRef;
   const gRef = gameRef;
@@ -1168,11 +1204,12 @@ function endGame() {
     $("#panel").hidden = true;
     $("#cog").setAttribute("aria-expanded", "false");
     document.body.classList.remove("editing", "inclue");
+    disarm($("#endGame"), "End the game");
     $("#dash").hidden = true;
     $("#setup").hidden = false;
     showSetup(false);
     try { history.replaceState(null, "", location.pathname + (window.DEMO ? "?demo=1" : "")); } catch (e) {}
-  }).catch((err) => { alert("Could not end the game: " + err.message); });
+  }).catch((err) => { alert("Could not close the room: " + err.message); });
 }
 </script>
 </body>

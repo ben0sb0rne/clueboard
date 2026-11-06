@@ -85,7 +85,8 @@ body.board {
    Double line, the Final category, the podiums and the KaTeX spans inside any of them all
    take the same one by inheritance. */
 .board #cluePanel,
-.board #podiums {
+.board #podiums,
+.board #results {
   --edge: 0.075em;
   --edge-stroke: 0.028em;
 }
@@ -375,12 +376,17 @@ body.board {
 .board #podiums.live .podium:not(.buzzed) { background: #0d0f33; }
 .board #podiums.live .podium:not(.buzzed) .pname,
 .board #podiums.live .podium:not(.buzzed) .pscore { opacity: 0.4; }
+/* The team's name is set at the score's size, not a caption above it: a podium is a name
+   and a number, and on the show they carry the same weight. It is the colour that tells
+   them apart - the score in white, the name in the quieter blue. A long name gives up its
+   tail rather than wrapping, because six podiums have to stay one row deep. */
 .board .pname {
-  font-size: clamp(11px, 1.25vw, 22px);
+  font-size: clamp(20px, 2.6vw, 48px);
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
   text-transform: uppercase;
-  color: #c9ccf2;
+  color: #9aa0dd;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -392,6 +398,9 @@ body.board {
   font-variant-numeric: tabular-nums;
 }
 .board .pscore.neg { color: #ff6a6a; }
+/* The wager standing in for the score. Gold, because it is the thing at stake and not the
+   thing it replaces, and never red - a wager is a number you chose, not money you are down. */
+.board .pscore.wagered { color: var(--value-gold); }
 .board .panswer {
   margin-top: 0.3em;
   font-size: clamp(11px, 1.15vw, 20px);
@@ -403,6 +412,99 @@ body.board {
   -webkit-line-clamp: 2;
 }
 .board .panswer.blank { color: #8c90c6; }
+
+/* ---------- the results ---------- */
+
+/* Last place arrives at the bottom of the screen and each place above it a beat later, so
+   the game finishes on the winner at the top - the opposite way round from a league table,
+   because this is a reveal and not a reference. */
+.board #results {
+  position: absolute;
+  inset: 0;
+  z-index: 14;
+  display: flex;
+  flex-direction: column;
+  background: var(--surround);
+  padding: 2.5vh 3vw;
+}
+.board .rtitle {
+  margin: 0 0 2vh;
+  text-align: center;
+  font-size: clamp(16px, 2.2vw, 38px);
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: #8f93c8;
+}
+/* column-reverse, so the row built first - last place - is the one at the bottom. */
+.board .resultlist {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: flex-start;
+  gap: clamp(3px, 0.7vh, 10px);
+}
+.board .result {
+  /* Shares the screen with the others, but only up to a point: three teams should not each
+     get a third of a projector. Past the cap the list simply stops short of the title and
+     the places arrive into the space above it. */
+  flex: 1 1 0;
+  min-height: 0;
+  max-height: clamp(60px, 15vh, 190px);
+  display: flex;
+  align-items: center;
+  gap: 2vw;
+  padding: 0 2vw;
+  background: #13154a;
+  opacity: 0;
+  transform: translateY(35%);
+  transition: opacity var(--slow) linear, transform var(--slow) var(--ease);
+}
+.board #results.up .result { opacity: 1; transform: none; }
+.board .result.first {
+  background: var(--board-blue);
+  box-shadow: inset 0 0 0 clamp(2px, 0.3vw, 6px) var(--value-gold);
+}
+.board .rplace {
+  flex: 0 0 auto;
+  min-width: 2ch;
+  text-align: center;
+  font-size: clamp(22px, 3.4vw, 64px);
+  font-weight: 700;
+  color: #6f74b4;
+}
+.board .result.first .rplace { color: var(--value-gold); }
+.board .rwho { flex: 1; min-width: 0; }
+.board .rname {
+  font-size: clamp(18px, 2.8vw, 54px);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.board .rmembers {
+  margin-top: 0.2em;
+  font-size: clamp(11px, 1.3vw, 24px);
+  line-height: 1.25;
+  color: #b9bce6;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.board .rscore {
+  flex: 0 0 auto;
+  font-size: clamp(22px, 3.2vw, 60px);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+}
+.board .result.first .rscore { color: var(--value-gold); }
+.board .rscore.neg { color: #ff6a6a; }
 
 /* The room code stays reachable for a latecomer once the welcome card has gone. */
 .board .cornercode {
@@ -794,14 +896,6 @@ body.board {
   text-transform: uppercase;
   color: #8ad6a0;
 }
-.board .pbet {
-  margin-top: 0.15em;
-  font-size: clamp(10px, 1.05vw, 18px);
-  font-weight: 700;
-  color: #c9ccf2;
-  font-variant-numeric: tabular-nums;
-}
-
 /* During Final the answer cell is the reveal switch, so it has to read as one - and it must
    not use green, which on this screen already means "correct" and "award". Blue is the
    projector, which is what this state actually is. */

@@ -155,12 +155,18 @@ function stake(clue, team) {
 //
 // Read off the published grid rather than ROUND_VALUES, so a set with its own value ladder
 // caps against the board the students can actually see.
-function wagerCap(score, grid) {
+function wagerCap(score, grid, final) {
+  var s = Math.max(0, Number(score) || 0);
+  // The final clue is played for what you have and nothing more - a team cannot bet money
+  // it has never won. A Daily Double keeps the show's own rule, the larger of the score and
+  // the top value on the board, because a team on $200 that lands a $1,000 clue has to be
+  // able to play it for what it is worth.
+  if (final) return s;
   var top = 0;
   ((grid && grid.values) || []).forEach(function (column) {
     column.forEach(function (v) { if (Number(v) > top) top = Number(v); });
   });
-  return Math.max(Number(score) || 0, top);
+  return Math.max(s, top);
 }
 
 // What a team typed, or null if it is not a wager at all. A wager is a whole number of

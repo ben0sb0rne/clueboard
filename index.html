@@ -72,10 +72,14 @@
   <h2 class="picktitle" id="wagerTitle">Daily Double</h2>
   <p class="wagercat" id="wagerCat"></p>
 
-  <div class="field">
-    <label for="wagerBox">Your wager, up to <span id="wagerMax"></span></label>
-    <div class="money"><span class="cur" aria-hidden="true">$</span><input id="wagerBox"
-      inputmode="numeric" autocomplete="off" enterkeyhint="done" maxlength="7"></div>
+  <!-- The same shape as the answer screen above: one big box filling the screen and the
+       lock bar under it, so a student who has used one already knows this one. It was a
+       label, a short field and a button stacked at the top of an empty screen. -->
+  <div class="answerbox wagerbox">
+    <span class="cur" aria-hidden="true">$</span>
+    <input id="wagerBox" placeholder=" " inputmode="numeric" autocomplete="off"
+      enterkeyhint="done" maxlength="7" aria-label="Your wager">
+    <div class="hint" aria-hidden="true">Up to <span id="wagerMax"></span></div>
   </div>
 
   <p id="wagerErr" class="err"></p>
@@ -233,6 +237,15 @@ function route() {
   if (!team) { show("join"); return; }
   const clue = game.clue;
 
+  // The game is over and the results are on the board. Nothing left to do on a phone, so
+  // it says so rather than sitting on "Waiting for the next clue..." for the rest of break.
+  if (game.over) {
+    $("#waitMsg").textContent = "That is the game. " + money(team.score || 0)
+      + " - look up for the results.";
+    show("wait");
+    return;
+  }
+
   if (clue) {
     // A Daily Double belongs to one team. Everyone else watches, and says so rather than
     // showing an answer box that would be thrown away.
@@ -243,7 +256,23 @@ function route() {
       show("wait");
       return;
     }
-    if (game.wagering) { renderWager(clue); show("wager"); return; }
+    if (game.wagering) {
+      // Off the wager screen the moment it is in. The screen was holding them on a dead
+      // gold button until the slowest team in the room had finished typing, with nothing
+      // saying why - which is what "it takes a long time to send" actually was.
+      // Not until the server has it. Firebase fires a listener on the local write first,
+      // so without the sending check the screen would say "locked" to a student whose wager
+      // is still sitting on a school network.
+      if (hasWagered() && sending !== "wager") {
+        $("#waitMsg").textContent = "Wager locked: " + money(team.wager)
+          + ". Waiting for the other teams...";
+        show("wait");
+        return;
+      }
+      renderWager(clue);
+      show("wager");
+      return;
+    }
     show("play");
     return;
   }
@@ -270,9 +299,14 @@ function myClue(clue) {
   return true;
 }
 
+// Has this team's wager landed? The one place it is decided, because the router and the
+// screen itself both ask.
+function hasWagered() {
+  return !!team && team.wager !== undefined && team.wager !== null;
+}
+
 function renderWager(clue) {
-  const already = team.wager !== undefined && team.wager !== null;
-  const cap = wagerCap(team.score, game.grid);
+  const cap = wagerCap(team.score, game.grid, !!clue.final);
 
   // Clear on a new wager round only, never on a re-render: a score correction mid-typing
   // would otherwise wipe what the student has half entered.
@@ -283,26 +317,27 @@ function renderWager(clue) {
     $("#wagerErr").textContent = "";
   }
 
-  $("#wagerTitle").textContent = clue.final ? "Final Jeopardy" : "Daily Double";
+  $("#wagerTitle").textContent = clue.final ? "Final Clue" : "Daily Double";
   $("#wagerCat").textContent = clue.category || "";
   $("#wagerMax").textContent = money(cap);
 
   const box = $("#wagerBox");
   const btn = $("#wagerBtn");
-  if (already) box.value = String(team.wager);
-  box.disabled = already || sending === "wager";
+  // There is no locked state to draw here: the moment a wager lands the router takes the
+  // student to the waiting screen, which is the whole fix for how long this used to feel.
+  box.disabled = sending === "wager";
   btn.disabled = box.disabled;
-  btn.textContent = sending === "wager" ? "Sending..."
-    : already ? "Wager locked: " + money(team.wager)
-    : "Lock Wager";
+  btn.textContent = sending === "wager" ? "Sending..." : "Lock Wager";
 }
 
-// Clamped here and read back from the snapshot, so what the student sees is what was stored.
-// A box that is not a whole number is refused rather than coerced: a Chromebook shows a real
-// keyboard whatever inputmode says, and "five hundred" used to lock in as $0 without a word.
+// A wager that is not a whole number, or is more than the team has, is refused with a
+// reason rather than quietly turned into something else. It used to floor and clamp: "five
+// hundred" locked in as $0 and 900 locked in as 600, both without a word, at the one moment
+// of the game that is entirely about the number.
 function sendWager() {
-  if (!teamRef || !team) return;
-  const cap = wagerCap(team.score, game.grid);
+  if (!teamRef || !team || sending) return;
+  const clue = game.clue || {};
+  const cap = wagerCap(team.score, game.grid, !!clue.final);
   const typed = readWager($("#wagerBox").value);
   if (typed === null) {
     $("#wagerErr").textContent = $("#wagerBox").value.trim()
@@ -310,26 +345,26 @@ function sendWager() {
       : "Enter a wager, or 0.";
     return;
   }
-  const bet = Math.min(typed, cap);
-  // Kept rather than written once: the write's own handler clears this box to take an
-  // offline notice back down, and it was taking the only explanation of why the wager is
-  // not the number they typed with it.
-  const clamped = bet < typed
-    ? "That is over your limit, so it was set to " + money(bet) + "."
-    : "";
-  $("#wagerErr").textContent = clamped;
+  if (typed > cap) {
+    $("#wagerErr").textContent = "That is more than you have. Your limit is "
+      + money(cap) + ".";
+    return;
+  }
+  $("#wagerErr").textContent = "";
   sending = "wager";
-  renderWager(clueOf());
-  teamRef.update({ wager: bet })
+  renderWager(clue);
+  teamRef.update({ wager: typed })
     .then(() => {
       sending = null;
-      $("#wagerErr").textContent = clamped;   // an offline notice has no other way out
-      if (team && game.clue) renderWager(game.clue);
+      $("#wagerErr").textContent = "";   // an offline notice has no other way back down
+      route();
     })
-    .catch((err) => { sending = null; $("#wagerErr").textContent = err.message; });
+    .catch((err) => {
+      sending = null;
+      $("#wagerErr").textContent = err.message;
+      renderWager(clue);
+    });
 }
-
-function clueOf() { return game.clue || {}; }
 
 // The board itself, in the shape the room is looking at: same six columns, same five rows,
 // same spent cells. It used to be a list, one row per category, which asked a student to
