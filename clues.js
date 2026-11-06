@@ -126,7 +126,9 @@ function roundGrid(set, round) {
   };
 }
 
-function cellKey(cat, row) { return cat + "-" + row; }
+// The round is part of the key, so round 2 does not inherit round 1's spent cells - and
+// going back to round 1 to fix a mis-tap finds it as it was left.
+function cellKey(round, cat, row) { return round + "-" + cat + "-" + row; }
 
 function clueAt(set, round, cat, row) {
   var r = set.rounds[round];
@@ -140,7 +142,7 @@ function clueCount(set, round, used) {
   var left = 0;
   r.cells.forEach(function (column, c) {
     column.forEach(function (clue, row) {
-      if (clue && !(used || {})[cellKey(c, row)]) left++;
+      if (clue && !(used || {})[cellKey(round, c, row)]) left++;
     });
   });
   return left;

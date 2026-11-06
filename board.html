@@ -143,7 +143,7 @@ function renderGrid() {
     (grid.values[c] || []).forEach((value, r) => {
       const el = cellEls[c] && cellEls[c][r];
       if (!el) return;
-      const spent = !value || (game.used || {})[c + "-" + r];
+      const spent = !value || (game.used || {})[(game.round || 1) + "-" + c + "-" + r];
       el.classList.toggle("spent", !!spent);
     });
   });

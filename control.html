@@ -126,6 +126,7 @@ let gameRef = null;
 let beatTimer = null;
 let clueSet = null;
 let game = {};              // last snapshot of rooms/<code>/game
+let gameLoaded = false;     // the game node has been read at least once
 let teams = [];
 let buzzedIds = null;       // null until the first snapshot, so reopening a room does not beep
 let muted = localStorage.getItem(MUTE_KEY) === "1";
@@ -243,12 +244,13 @@ function openRoom(code) {
 
   // Publishing the grid is what makes a board possible: category names and cell values only,
   // never clue text and never an answer.
-  gameRef.update({
-    round: 1,
-    grid: roundGrid(clueSet, 1),
-    clue: null,
-    reveal: false,
-    pick: null
+  //
+  // Reopening is a refresh in the middle of a lesson, not a new game, so the round that is
+  // already there wins and an open clue stays open. Only the grid is republished, because
+  // the clue set lives on this device and a fresh tab has to put it back.
+  gameRef.once("value").then((snap) => {
+    const round = Number((snap.val() || {}).round) || 1;
+    return gameRef.update({ round: round, grid: roundGrid(clueSet, round), pick: null });
   }).catch((err) => { alert("Could not start the game: " + err.message); });
 
   teamsRef.on("value", renderTeams);
@@ -296,6 +298,7 @@ function startHeartbeat() {
 
 function renderGame(snap) {
   game = snap.val() || {};
+  gameLoaded = true;
   const clue = game.clue || null;
 
   // A team picked on their own device. Only the control screen knows the clue text, so the
@@ -354,7 +357,7 @@ function renderGrid() {
   grid.cats.forEach((name, c) => {
     grid.values[c].forEach((value, r) => {
       const cell = document.createElement("button");
-      const spent = !value || (game.used || {})[cellKey(c, r)];
+      const spent = !value || (game.used || {})[cellKey(round, c, r)];
       cell.className = "ctlcell" + (spent ? " spent" : "");
       cell.style.gridColumn = c + 1;
       cell.style.gridRow = r + 2;
@@ -380,7 +383,7 @@ function renderGrid() {
 function selectCell(cat, row) {
   const round = Number(game.round) || 1;
   const clue = clueAt(clueSet, round, cat, row);
-  if (!clue || (game.used || {})[cellKey(cat, row)]) return;
+  if (!clue || (game.used || {})[cellKey(round, cat, row)]) return;
 
   const update = {
     clue: {
@@ -390,7 +393,7 @@ function selectCell(cat, row) {
     reveal: false,
     pick: null
   };
-  update["used/" + cellKey(cat, row)] = true;
+  update["used/" + cellKey(round, cat, row)] = true;
   gameRef.update(update)
     .then(resetBuzzers)
     .catch((err) => { alert("Could not open that clue: " + err.message); });
@@ -456,7 +459,11 @@ function renderTeams(snap) {
 
   // Someone has to pick first and nothing has happened yet to decide it, so pick at random.
   // After this, turn only ever moves to whichever team the teacher last awarded.
-  if (gameRef && teams.length && !game.turn) {
+  //
+  // gameLoaded matters: the teams listener is registered first and so fires first, and
+  // without this a refresh mid-game would reassign the turn at random before the real one
+  // had even arrived.
+  if (gameRef && gameLoaded && teams.length && !game.turn) {
     gameRef.child("turn").set(teams[Math.floor(Math.random() * teams.length)].id)
       .catch(() => {});
   }
@@ -655,6 +662,7 @@ function endGame() {
     buzzedIds = null;
     teams = [];
     game = {};
+    gameLoaded = false;
     $("#rows").textContent = "";
     $("#panel").hidden = true;
     $("#cog").setAttribute("aria-expanded", "false");

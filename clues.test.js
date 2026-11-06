@@ -188,9 +188,20 @@ tests["clueCount counts what is left, skipping spent cells and blanks"] = functi
   assert.strictEqual(C.clueCount(set, 1, {}), 6);
   assert.strictEqual(C.clueCount(set, 1, undefined), 6);
   var used = {};
-  used[C.cellKey(0, 0)] = true;
-  used[C.cellKey(1, 0)] = true;
+  used[C.cellKey(1, 0, 0)] = true;
+  used[C.cellKey(1, 1, 0)] = true;
   assert.strictEqual(C.clueCount(set, 1, used), 4);
+};
+
+// Round 2 is a different board. Spending a cell in round 1 must not blank the cell behind it
+// in round 2, and coming back to round 1 must find it as it was left.
+tests["spent cells do not leak between rounds"] = function () {
+  var set = C.parseClueSet(tsv(column(1, "ONE", "a").concat(column(2, "TWO", "b"))));
+  var used = {};
+  used[C.cellKey(1, 0, 0)] = true;
+  assert.strictEqual(C.clueCount(set, 1, used), 4);
+  assert.strictEqual(C.clueCount(set, 2, used), 5, "round 1 spent a round 2 cell");
+  assert.notStrictEqual(C.cellKey(1, 0, 0), C.cellKey(2, 0, 0));
 };
 
 var failed = 0;

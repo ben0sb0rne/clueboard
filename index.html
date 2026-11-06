@@ -224,7 +224,7 @@ function renderPick() {
     const vals = document.createElement("div");
     vals.className = "pickvals";
     (grid.values[c] || []).forEach((value, r) => {
-      const spent = !value || (game.used || {})[c + "-" + r];
+      const spent = !value || (game.used || {})[(game.round || 1) + "-" + c + "-" + r];
       const b = document.createElement("button");
       b.className = "pickval" + (spent ? " spent" : "");
       b.textContent = value ? money(value) : "—";
