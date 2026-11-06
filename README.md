@@ -26,6 +26,8 @@ full. It leaves spent cells alone, so dismissing it returns to the board as it w
 - `clues.js` - parses a pasted clue set. `node clues.test.js` checks it.
 - `demo.js` - a localStorage stand-in for Firebase, see below.
 - `sample-clues.tsv` - a working clue set, and the template to copy.
+- `katex/` - KaTeX, committed rather than loaded from a CDN. woff2 fonts only.
+- `fonts/` - Anton, the board font. Self-hosted, OFL licence alongside it.
 - `firebase-config.js` - the only file you need to edit by hand
 - `database.rules.json` - deployed by the CLI, not pasted into the console
 
