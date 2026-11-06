@@ -67,9 +67,31 @@ reveal its answer, not when you open it, so a mis-tap costs nothing and a questi
 over. The trade is that a teacher who reads answers out instead of revealing them never
 empties the board.
 
+**One palette, three screens.** The board, the dashboard and a student's phone are the same
+show: board blue, near-black, and the value gold. It is `palette.css`, which all three load
+before their own stylesheet - a student picking a clue on a phone is picking off cells that
+look like the ones on the wall. Gold is the thing to press; red only ever takes something
+away, which is a deduction, a negative score or ending a game.
+
+**One region for the buttons, and one gold button in it.** Every control the dashboard has
+lives in the strip above the stage, right-aligned, and a button never moves between states -
+it appears and disappears in its own place. Exactly one of them is gold, and it is whatever
+comes next: `Start game`, then `Next`, then `Show the clue` once the wagers are in, then
+`Reveal answer`, then `Back to grid`. **`Back to grid` is deliberately not the easy one to
+hit** until the answer is up, because an accidental press there is the one that costs a clue.
+
 The control screen is built around checking answers, which is most of what you do with it.
 The clue runs full width across the top, and the correct answer sits at the head of the same
 column the teams' submissions are in, so marking is one glance down a column.
+
+Things worth knowing that the screen does not say, because a dashboard used during a lesson
+is no place for a paragraph of instructions:
+
+- Tap a team's name to rename it, or its score to correct it.
+- During Final, tap a team's answer to put it on the board.
+- Open the cog to remove a team, with the `x` beside its row.
+- A game ends by itself an hour after you last touch the control screen, or an hour after it
+  is closed. You get a warning five minutes before.
 
 - `board.html` - student-facing, on the TV. Never touched during a game.
 - `control.html` - everything the teacher does. Holds the clue set, in memory.

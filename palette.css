@@ -1,0 +1,42 @@
+/* One palette, three screens. The board, the teacher's dashboard and a student's phone are
+   the same show, so the colours live in one file that all three load before their own
+   stylesheet. board.html loads this and board.css; index.html and control.html load this and
+   style.css, and control.html loads board.css on top for the parts it shares with the board.
+
+   Everything below the show colours is derived from them: this is a dark palette, so "ink"
+   is the light the text is drawn in and the primary action is gold, the way a value is on
+   the board. Red is kept for taking something away - a deduction, a negative score, ending
+   a game - and never for an ordinary action. */
+
+:root {
+  /* Sampled from a broadcast frame on 5 November 2026, rather than taken from a number
+     written down somewhere. The widely repeated #060CE9 is far brighter than what a camera
+     actually sees, and no source publishes the gold at all.
+
+     Method: locate the board by the density of saturated blue, then take the most common
+     colour inside it and average that bucket. Three passes - patches above the digits row
+     by row, a whole-board mode, and a glyph-core mode - agreed within a couple of points.
+     --board-blue-lit is the control grid's hover, derived from the blue, not picked.
+
+     shortcut: faithful to the frame, which is darker than the board looks in the room. If a
+     classroom projector washes these out, scale the blue up and keep the hue.
+
+     The gold is Ben's, not the sampler's: #eca035 came off the frame, #fea441 is what he
+     wants on the wall. Brighter and a touch warmer, which is the direction a projector
+     needs anyway. */
+  --board-blue: #04106e;
+  --board-blue-lit: #071dc6;
+  --gap-ink: #04051c;
+  --surround: #090a26;
+  --value-gold: #fea441;
+  --value-gold-lit: #ffbe72;
+  --clue-white: #fff;
+
+  --ink: #fff;        /* text, and anything drawn on the dark ground */
+  --muted: #9ca0d8;   /* labels, and a control that is not the point */
+  --line: #272c6b;    /* the ring round a quiet control, and a rule */
+  --faint: #101338;   /* a surface raised off the page */
+  --red: #e4323a;     /* taking away: a deduction, a negative, an error */
+  --red-dark: #a3161c;
+  --good: #3ecf6d;    /* the correct answer, and awarding it */
+}

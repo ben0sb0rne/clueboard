@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Clueboard - Control</title>
+<link rel="stylesheet" href="palette.css">
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="board.css">
 <link rel="stylesheet" href="katex/katex.min.css">
@@ -14,13 +15,14 @@
   <h1>Clueboard</h1>
 
   <div id="importBox">
-    <p class="sub">Paste your clue set below: select the rows in your spreadsheet and copy.
-      The first row has to be the header.</p>
+    <p class="sub">Copy the rows out of your spreadsheet and paste them here, header row and all.</p>
     <textarea id="tsv" spellcheck="false"
       placeholder="round&#9;category&#9;value&#9;clue&#9;image&#9;answer&#9;dd"></textarea>
     <p id="importErr" class="err"></p>
-    <button id="importBtn">Load clue set</button>
-    <button id="sampleBtn" class="minor">Use the sample set</button>
+    <div class="acts">
+      <button id="sampleBtn" class="quiet">Use the sample set</button>
+      <button id="importBtn" class="act">Load clue set</button>
+    </div>
   </div>
 
   <div id="ready" hidden>
@@ -36,21 +38,22 @@
       <summary id="checkSum">Check the clues</summary>
       <div id="checkList"></div>
     </details>
-    <button id="createBtn">Create room</button>
-    <button id="reimportBtn" class="minor">Load a different set</button>
+    <div class="acts">
+      <button id="reimportBtn" class="quiet">Load a different set</button>
+      <button id="createBtn" class="act">Create room</button>
+    </div>
   </div>
 </main>
 
 <main id="dash" hidden>
   <div id="idlebar" class="idlebar" hidden>
     <span>Nobody has touched this game for a while. It ends in <b id="idleLeft">5:00</b>.</span>
-    <button id="keepAlive">Keep game open</button>
+    <button id="keepAlive" class="act">Keep game open</button>
   </div>
 
-  <div class="bar">
+  <header class="bar">
     <div class="roomcode" id="roomCode"></div>
     <div class="joinlink">Join at <a id="joinLink" href="#"></a></div>
-    <button id="openBoard">Open projector</button>
     <button id="cog" aria-label="Settings" aria-expanded="false" title="Settings">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
            stroke-linecap="round" aria-hidden="true" focusable="false">
@@ -59,59 +62,47 @@
         <path d="M20 12h2.5M1.5 12H4M12 4V1.5M12 20v2.5M17.66 6.34l1.76-1.76M4.58 19.42l1.76-1.76M17.66 17.66l1.76 1.76M4.58 4.58l1.76 1.76"></path>
       </svg>
     </button>
-  </div>
+  </header>
 
   <div id="panel" class="panel" hidden>
     <label class="opt"><input type="checkbox" id="mute"> Mute buzzer on this device</label>
     <label class="opt"><input type="checkbox" id="teamsPick"> Teams pick their own clues</label>
     <label class="opt"><input type="checkbox" id="showCode"> Show the room code on the board</label>
-    <button id="roundBtn">Go to round 2</button>
-    <button id="finalBtn">Final Jeopardy</button>
-    <button id="endGame">End game</button>
-    <span class="note">Tap a team's name to rename it, or its score to correct it. During Final,
-      tap a team's answer to put it on the board. You pick the clues unless you hand the board
-      over, with the icon beside whoever is up next. Remove a team
-      with the &times; beside its row. Back to grid without revealing leaves the clue on the
-      board. A game ends by itself an hour after you last touch this
-      screen, or an hour after it is closed; you get a warning five minutes before.</span>
+    <div class="acts">
+      <button id="roundBtn" class="quiet">Go to round 2</button>
+      <button id="finalBtn" class="quiet">Final Jeopardy</button>
+      <button id="endGame" class="quiet">End game</button>
+    </div>
     <span id="rulesHint" class="note warn" hidden>Auto-cleanup is off: deploy the latest database.rules.json.</span>
   </div>
 
+  <!-- Where the game is, on the left, and every button it has, on the right. A button never
+       moves between states: it appears and disappears in its own place, and the one to press
+       is always the last of them, in the same corner. -->
+  <div class="strip">
+    <p class="state" id="stateLine"></p>
+    <div class="acts">
+      <button id="openBoard" class="quiet">Open projector</button>
+      <button id="introBtn" class="quiet" hidden>Start intro</button>
+      <button id="startBtn" class="act" hidden>Start game</button>
+      <button id="introNext" class="act" hidden>Next</button>
+      <button id="showClueBtn" class="quiet" hidden>Show the clue</button>
+      <button id="timerBtn" class="quiet" hidden>Start the timer</button>
+      <!-- Reveal is the gold one and Back to grid is not, until the answer is up and they
+           trade places. Back to grid on an unrevealed clue is the mis-tap that costs the
+           most, so it is never the easy one to hit. -->
+      <button id="revealBtn" class="act" hidden>Reveal answer</button>
+      <button id="dismissBtn" class="quiet" hidden>Back to grid</button>
+    </div>
+  </div>
+
   <div id="stage">
-    <!-- Before the first clue, and only then: the teacher decides whether the class gets the
-         category intro or the board straight away. -->
-    <section id="preGame" hidden>
-      <p class="turnline"><span>The class is looking at the room code. Pick how it opens.</span></p>
-      <div class="startrow">
-        <button id="introBtn">Start intro</button>
-        <button id="startBtn">Start game</button>
-      </div>
-    </section>
-
-    <section id="introState" hidden>
-      <p class="turnline"><span id="introWhere"></span></p>
-      <div class="startrow">
-        <button id="introNext">Next</button>
-      </div>
-    </section>
-
     <section id="gridState">
-      <p class="turnline">
-        <span id="turnLine"></span>
-        <span class="hintline">Click a cell to open it. The icon beside a team hands them the board.</span>
-      </p>
       <div id="ctlGrid" class="ctlgrid"></div>
       <p class="empty" id="roundDone" hidden>Every clue in this round is spent.</p>
     </section>
 
     <section id="clueState" hidden>
-      <div class="cluebar">
-        <span id="clueWhere"></span>
-        <button id="showClueBtn" hidden>Show the clue</button>
-        <button id="timerBtn" hidden>Start the timer</button>
-        <button id="revealBtn">Reveal answer</button>
-        <button id="dismissBtn">Back to grid</button>
-      </div>
       <p class="wagerline" id="wagerLine" hidden></p>
       <div class="ctlclue">
         <div id="ctlClueText"></div>
@@ -499,35 +490,36 @@ function renderGame(snap) {
   const pre = !game.started && !clue;
   const introing = intro !== null && !clue;
 
+  const wagering = !!(clue && game.wagering);
+  const round = Number(game.round) || 1;
+
   document.body.classList.toggle("inclue", !!clue);
-  $("#preGame").hidden = !pre;
-  $("#introState").hidden = !introing;
   $("#gridState").hidden = !!clue || pre || introing;
   $("#clueState").hidden = !clue;
 
+  // Every button lives in the strip and keeps its place there. Only which of them are on
+  // screen changes, so the one to press is always the last and always the same corner.
+  // While wagers are being collected the clue is not on the board yet, so revealing the
+  // answer would be revealing it to nobody.
+  $("#introBtn").hidden = !pre;
+  $("#startBtn").hidden = !pre;
+  $("#introNext").hidden = !introing;
+  $("#showClueBtn").hidden = !wagering;
+  $("#timerBtn").hidden = !clue || !clue.final || wagering;
+  $("#revealBtn").hidden = !clue;
+  $("#dismissBtn").hidden = !clue;
+  $("#roundBtn").textContent = "Go to round " + (round === 2 ? 1 : 2);
+
   if (introing) {
-    // The same strip the board is showing: the game's title, then the categories.
-    const stops = [game.title || "Title"].concat(cats);
-    $("#introWhere").textContent = (intro + 1) + " of " + stops.length + " on the board: " +
-      (stops[intro] || "");
     // The next card's own name, because the teacher reads it out as it lands.
+    const stops = introStops(cats);
     $("#introNext").textContent = intro + 1 < stops.length
       ? "Next: " + stops[intro + 1]
       : "Start the game";
   }
-  $("#roundBtn").textContent = "Go to round " + (Number(game.round) === 2 ? 1 : 2);
 
   if (clue) {
-    const wagering = !!game.wagering;
-    $("#clueWhere").textContent = clue.final
-      ? "FINAL JEOPARDY - " + (clue.category || "")
-      : (clue.category || "") + " - " + money(clue.value) + (clue.dd ? " - DAILY DOUBLE" : "");
     mathText($("#ctlClueText"), clue.text);
-
-    // While wagers are being collected the clue is not on the board yet, so revealing the
-    // answer would be revealing it to nobody.
-    $("#showClueBtn").hidden = !wagering;
-    $("#timerBtn").hidden = !clue.final || wagering;
     $("#timerBtn").textContent = game.timerEnds && game.timerEnds > serverNow()
       ? "Restart the timer"
       : "Start the timer";
@@ -535,11 +527,54 @@ function renderGame(snap) {
     if (wagering) $("#wagerLine").textContent = wagerStatus(clue);
     $("#revealBtn").disabled = !!game.reveal || wagering;
     $("#revealBtn").textContent = game.reveal ? "Answer is showing" : "Reveal answer";
+    // Exactly one gold button, and it is whatever comes next: show the clue once the wagers
+    // are in, then reveal the answer, then go back. Back to grid is gold only at the end,
+    // because until then it is the mis-tap that costs the most.
+    setAct($("#showClueBtn"), wagering);
+    setAct($("#revealBtn"), !wagering && !game.reveal);
+    setAct($("#dismissBtn"), !!game.reveal);
   } else {
     renderGrid();
   }
+
+  $("#stateLine").textContent = stateText();
   renderTeamRows();
   maybeShowClue();
+}
+
+// The intro's stops, in the order the board pans through them: the game's title, then every
+// category. Both screens have to count them the same way.
+function introStops(cats) {
+  return [game.title || "Title"].concat(cats);
+}
+
+// A control is either the thing to press or it is not, and a state changes which one it is
+// rather than moving it somewhere else.
+function setAct(btn, primary) {
+  btn.classList.toggle("act", primary);
+  btn.classList.toggle("quiet", !primary);
+}
+
+// Where the game is, in one line, in the one place the dashboard puts it. It reads the
+// room rather than taking arguments, because the teams listener needs it too and knows none
+// of renderGame's working.
+function stateText() {
+  const clue = game.clue || null;
+  const intro = Number.isInteger(game.intro) ? game.intro : null;
+  if (clue) {
+    return clue.final
+      ? "Final Jeopardy \u00b7 " + (clue.category || "")
+      : (clue.category || "") + " \u00b7 " + money(clue.value) +
+        (clue.dd ? " \u00b7 Daily Double" : "");
+  }
+  if (intro !== null) {
+    const stops = introStops(((game.grid || {}).cats) || []);
+    return "Intro " + (intro + 1) + " of " + stops.length + " \u00b7 " + (stops[intro] || "");
+  }
+  if (!game.started) return (game.title || "Ready") + " \u00b7 not started";
+  return "Round " + (Number(game.round) || 1) + " \u00b7 " + (game.turn
+    ? "up next: " + (teamName(game.turn) || "a team that has left")
+    : "nobody up yet");
 }
 
 /* ---------- wagers ---------- */
@@ -653,9 +688,6 @@ function renderGrid() {
   const left = clueCount(clueSet, round, game.used);
   $("#roundDone").hidden = left > 0;
   $("#roundDone").textContent = "Every clue in round " + round + " is spent.";
-  $("#turnLine").textContent = game.turn
-    ? "Up next: " + (teamName(game.turn) || "a team that has left")
-    : "Nobody is up yet.";
 }
 
 // Publishes the clue text, which is about to be on the projector anyway, and marks the cell
@@ -770,9 +802,8 @@ function renderTeams(snap) {
   }
 
   renderTeamRows();
-  if (!document.body.classList.contains("inclue")) $("#turnLine").textContent = game.turn
-    ? "Up next: " + (teamName(game.turn) || "a team that has left")
-    : "Nobody is up yet.";
+  // A team joining or being renamed changes the line, and this listener fires on its own.
+  $("#stateLine").textContent = stateText();
 
   // A wager is a write to teams, not to game, so the wager line and the auto-advance have to
   // be driven from here as well as from renderGame.

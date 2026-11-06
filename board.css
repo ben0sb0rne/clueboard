@@ -32,29 +32,10 @@
 [hidden] { display: none !important; }
 
 :root {
-  /* Sampled from a broadcast frame on 5 November 2026, rather than taken from a number
-     written down somewhere. The widely repeated #060CE9 is far brighter than what a camera
-     actually sees, and no source publishes the gold at all.
+  /* The colours are in palette.css, which every screen loads: they are the show's, not the
+     board's, and the dashboard and the player screen are the same show.
 
-     Method: locate the board by the density of saturated blue, then take the most common
-     colour inside it and average that bucket. Three passes - patches above the digits row
-     by row, a whole-board mode, and a glyph-core mode - agreed within a couple of points.
-     --board-blue-lit is the control grid's hover, derived from the blue, not picked.
-
-     shortcut: faithful to the frame, which is darker than the board looks in the room. If a
-     classroom projector washes these out, scale the blue up and keep the hue.
-
-     The gold is Ben's, not the sampler's: #eca035 came off the frame, #fea441 is what he
-     wants on the wall. Brighter and a touch warmer, which is the direction a projector
-     needs anyway. */
-  --board-blue: #04106e;
-  --board-blue-lit: #071dc6;
-  --gap-ink: #04051c;
-  --surround: #090a26;
-  --value-gold: #fea441;
-  --clue-white: #fff;
-
-  /* The show's board type carries a hard black edge: a thin outline, and a solid shadow
+     The show's board type carries a hard black edge: a thin outline, and a solid shadow
      thrown down and right with no blur at all. Both in em so they hold their proportion
      from the 14px turn banner to an 86px clue. Equal x and y is 45 degrees exactly. */
   --edge: 0.045em;
@@ -379,10 +360,14 @@ body.board {
 /* ---------- the control screen's game half ---------- */
 
 .control #tsv {
+  display: block;
   width: min(100%, 70ch);
   height: 34vh;
+  margin-bottom: 0.9em;
   padding: 0.7em;
   font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--ink);
+  background: var(--gap-ink);
   border: 2px solid var(--line);
   border-radius: 12px;
   resize: vertical;
@@ -411,26 +396,50 @@ body.board {
   border: 2px solid var(--line);
   border-radius: 12px;
 }
-.control button.minor {
-  padding: 0.5em 1em;
-  margin-left: 0.6em;
-  font-size: clamp(14px, 1.5vw, 18px);
-  font-weight: 600;
+/* Two kinds of button on the host screens and no others: the one to press, and everything
+   else. This is what the eight per-id rules it replaces could not be - each of those had its
+   own size, so no two rows of buttons lined up. */
+.control button.act,
+.control button.quiet {
+  padding: 0.6em 1.2em;
+  font-size: clamp(15px, 1.7vw, 20px);
+  font-weight: 700;
+  line-height: 1.25;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+.control button.act { color: var(--gap-ink); background: var(--value-gold); }
+.control button.act:hover:not(:disabled) { background: var(--value-gold-lit); }
+.control button.quiet {
   color: var(--muted);
-  background: #fff;
+  background: none;
   box-shadow: inset 0 0 0 2px var(--line);
 }
-.control .startrow { display: flex; flex-wrap: wrap; gap: 0.8em; }
-.control #importBtn,
-.control #createBtn,
-.control #introBtn,
-.control #startBtn,
-.control #introNext {
+.control button.quiet:hover:not(:disabled) {
+  color: var(--ink);
+  box-shadow: inset 0 0 0 2px var(--muted);
+}
+.control button.act:disabled,
+.control button.quiet:disabled {
+  color: #4b4f8c;
+  background: none;
+  box-shadow: inset 0 0 0 2px var(--line);
+}
+/* One row of buttons, right-aligned wherever it appears, so the last of them is always in
+   the same corner. */
+.control .acts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.6em;
+}
+/* The setup screen is read sitting down, before a lesson, and has room to be larger. */
+.control #setup .acts { justify-content: flex-start; }
+.control #setup button.act,
+.control #setup button.quiet {
   padding: 0.7em 1.4em;
-  font-size: clamp(18px, 2.2vw, 26px);
-  font-weight: 700;
-  color: #fff;
-  background: var(--ink);
+  font-size: clamp(17px, 2vw, 24px);
 }
 .control .warnings {
   margin: 0 0 1.2em;
@@ -450,7 +459,7 @@ body.board {
   font-weight: 700;
   color: var(--muted);
 }
-.control .check.bad > summary { color: #a3161c; }
+.control .check.bad > summary { color: var(--red); }
 .control #checkList {
   margin-top: 0.8em;
   max-height: 50vh;
@@ -473,7 +482,7 @@ body.board {
   margin: 0.15em 0 0;
   font-size: clamp(14px, 1.5vw, 17px);
   font-weight: 700;
-  color: #0a7d28;
+  color: var(--good);
   line-height: 1.4;
 }
 .control .chrow img {
@@ -483,7 +492,7 @@ body.board {
   max-height: 120px;
   border-radius: 8px;
 }
-.control .cherr { margin: 0.3em 0 0; font-size: 13px; color: #a3161c; }
+.control .cherr { margin: 0.3em 0 0; font-size: 13px; color: var(--red); }
 
 .control #dash {
   display: grid;
@@ -491,43 +500,31 @@ body.board {
   gap: 1.4vh 1.6vw;
   align-content: start;
 }
-.control #dash > .bar,
-.control #dash > .panel,
-.control #dash > .idlebar { grid-column: 1 / -1; }
 /* The clue runs full width with the teams beneath it, rather than beside them. Checking an
    answer is most of this screen's job, and that needs the correct answer and the submissions
    in one column - which means one column for the whole screen. The clue gets the width back
    as type size. */
 
-.control #openBoard {
-  margin-left: auto;
-  padding: 0.6em 1.2em;
-  font-size: clamp(16px, 1.9vw, 24px);
-  font-weight: 700;
-  color: #fff;
-  background: var(--ink);
-}
-.control #roundBtn,
-.control #finalBtn {
-  padding: 0.5em 1em;
-  font-size: inherit;
-  font-weight: 700;
-  color: var(--ink);
-  background: #fff;
-  box-shadow: inset 0 0 0 2px var(--line);
-  border-radius: 10px;
-}
-
-.control .turnline {
+/* Where the game is, and what can be done about it, on one line above the stage. A floor on
+   the height, so nothing below it moves when the buttons change, and an auto margin rather
+   than space-between: on a narrow screen the buttons wrap to their own line, and only the
+   margin keeps them in the same corner there. */
+.control .strip {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.4em 1em;
-  margin: 0;
-  font-size: clamp(15px, 1.7vw, 21px);
-  font-weight: 700;
+  align-items: center;
+  gap: 0.6em 1.2em;
+  min-height: 2.9em;
 }
-.control .hintline { font-weight: 400; font-size: 0.78em; color: var(--muted); }
+.control .strip .acts { margin-left: auto; }
+.control .state {
+  margin: 0;
+  font-size: clamp(13px, 1.4vw, 17px);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
 
 /* A small, dense mirror of the board: this one is for clicking, not for reading from the
    back of the room. */
@@ -564,36 +561,6 @@ body.board {
 .control .ctlcell:hover:not(:disabled) { background: var(--board-blue-lit); }
 .control .ctlcell.spent { background: #0b0c2c; color: transparent; }
 
-.control .cluebar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.6em 1em;
-  margin-bottom: 1vh;
-}
-.control #clueWhere {
-  flex: 1 1 14ch;
-  font-size: clamp(13px, 1.4vw, 17px);
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.control #showClueBtn,
-.control #timerBtn,
-.control #revealBtn,
-.control #dismissBtn {
-  padding: 0.6em 1.1em;
-  font-size: clamp(14px, 1.6vw, 19px);
-  font-weight: 700;
-  color: #fff;
-  background: var(--ink);
-}
-.control #revealBtn:disabled {
-  color: var(--muted);
-  background: #fff;
-  box-shadow: inset 0 0 0 2px var(--line);
-}
 .control .ctlclue {
   padding: 1em 1.1em;
   background: var(--faint);
@@ -615,8 +582,8 @@ body.board {
   z-index: 5;
   padding-top: 0.5em;
   padding-bottom: 0.5em;
-  background: #f1f8f2;
-  border-bottom: 3px solid #0a7d28;
+  background: #0d2a16;
+  border-bottom: 3px solid var(--good);
 }
 .control td.keylbl {
   font-size: clamp(11px, 1.05vw, 14px);
@@ -631,7 +598,7 @@ body.board {
 .control tr.keyrow td.keyans {
   font-size: clamp(20px, 2.7vw, 38px);
   font-weight: 800;
-  color: #0a7d28;
+  color: var(--good);
   line-height: 1.2;
   vertical-align: middle;
 }
@@ -650,14 +617,14 @@ body.board {
   padding: 0.3em;
   border-radius: 8px;
   color: var(--muted);
-  background: #fff;
+  background: none;
   box-shadow: inset 0 0 0 2px var(--line);
 }
 .control button.give svg { display: block; width: 100%; height: 100%; fill: currentColor; }
-.control button.give:hover { color: var(--ink); box-shadow: inset 0 0 0 2px var(--ink); }
+.control button.give:hover { color: var(--ink); box-shadow: inset 0 0 0 2px var(--muted); }
 .control button.give.has {
-  color: #fff;
-  background: #0a7d28;
+  color: var(--gap-ink);
+  background: var(--good);
   box-shadow: none;
 }
 
@@ -684,9 +651,9 @@ body.board {
   line-height: 1.2;
   border-radius: 8px;
 }
-.control .mark .plus { color: #fff; background: #0a7d28; }
+.control .mark .plus { color: var(--gap-ink); background: var(--good); }
 .control .mark .minus { color: #fff; background: var(--red); }
-.control .mark button:disabled { color: var(--muted); background: #fff; box-shadow: inset 0 0 0 2px var(--line); }
+.control .mark button:disabled { color: #4b4f8c; background: none; box-shadow: inset 0 0 0 2px var(--line); }
 
 /* The control screen is read at arm's length on a second monitor, not from the back of the
    room, so it keeps one size and scrolls. The board is the thing that has to be legible. */

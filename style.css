@@ -1,17 +1,10 @@
-:root {
-  --ink: #000;
-  --muted: #55687a;
-  --line: #c2ccd6;
-  --faint: #eef2f5;
-  --red: #d81e26;
-  --red-dark: #a3161c;
-}
+/* The colours are in palette.css, which this file assumes is already loaded. */
 
 * { box-sizing: border-box; }
 
 html, body {
   margin: 0;
-  background: #fff;
+  background: var(--surround);
   color: var(--ink);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
   -webkit-text-size-adjust: 100%;
@@ -28,11 +21,12 @@ button:disabled { cursor: default; }
 input {
   font: inherit;
   color: inherit;
-  background: #fff;
+  background: var(--gap-ink);
   border: 2px solid var(--line);
   border-radius: 12px;
 }
-input:focus { outline: none; border-color: var(--muted); }
+input::placeholder { color: #5a5f9e; }
+input:focus { outline: none; border-color: var(--value-gold); }
 
 .err { color: var(--red); margin: 0; min-height: 1.4em; font-size: 1rem; }
 [hidden] { display: none !important; }
@@ -75,10 +69,10 @@ body.student { height: 100dvh; overflow: hidden; }
   margin-top: auto;
   font-size: clamp(19px, 5vw, 26px);
   font-weight: 700;
-  color: #fff;
-  background: var(--ink);
+  color: var(--gap-ink);
+  background: var(--value-gold);
 }
-#joinBtn:active { background: var(--muted); }
+#joinBtn:active { background: var(--value-gold-lit); }
 
 .who {
   display: flex;
@@ -134,14 +128,14 @@ body.student { height: 100dvh; overflow: hidden; }
   font-size: clamp(24px, 7.5vw, 46px);
   font-weight: 800;
   letter-spacing: 0.01em;
-  color: #fff;
-  background: var(--red);
-  box-shadow: 0 5px 0 var(--red-dark);
+  color: var(--gap-ink);
+  background: var(--value-gold);
+  box-shadow: 0 5px 0 #a9671f;
 }
 #lock { flex: 0 0 24dvh; }
 #wagerBtn { width: 100%; }
 #lock:active,
-#wagerBtn:active { background: var(--red-dark); box-shadow: none; transform: translateY(5px); }
+#wagerBtn:active { background: var(--value-gold-lit); box-shadow: none; transform: translateY(5px); }
 #lock:disabled,
 #wagerBtn:disabled {
   background: var(--faint);
@@ -155,14 +149,6 @@ body.student { height: 100dvh; overflow: hidden; }
 .host { padding: 2.5vh 3vw; }
 .host h1 { margin: 0 0 0.4em; font-size: clamp(26px, 4vw, 44px); }
 .host .sub { color: var(--muted); font-size: clamp(16px, 1.8vw, 22px); margin: 0 0 1.2em; }
-
-#createBtn {
-  padding: 0.7em 1.4em;
-  font-size: clamp(20px, 2.6vw, 30px);
-  font-weight: 700;
-  color: #fff;
-  background: var(--ink);
-}
 
 .bar {
   display: flex;
@@ -180,26 +166,10 @@ body.student { height: 100dvh; overflow: hidden; }
   font-weight: 800;
   line-height: 1;
   letter-spacing: 0.08em;
+  color: var(--value-gold);
 }
 .joinlink { font-size: clamp(15px, 1.8vw, 24px); color: var(--muted); }
-.joinlink a { color: var(--muted); }
-#reset {
-  margin-left: auto;
-  padding: 0.65em 1.3em;
-  font-size: clamp(18px, 2.2vw, 28px);
-  font-weight: 700;
-  color: #fff;
-  background: var(--ink);
-}
-#reset:active { background: var(--muted); }
-/* White and grey with nothing to reset, so the state is readable from the back of the room.
-   Buttons here carry no border, so the disabled one needs one to still read as a button. */
-#reset:disabled {
-  color: var(--muted);
-  background: #fff;
-  box-shadow: inset 0 0 0 2px var(--line);
-}
-
+.joinlink a { color: var(--value-gold); }
 table { width: 100%; border-collapse: collapse; }
 th {
   text-align: left;
@@ -217,9 +187,12 @@ td {
 }
 tr.buzzed { background: var(--faint); }
 tr.buzzed .name { font-weight: 800; }
-/* Team and Members shrink to their content (or their header); Answer takes the rest. */
-.num, .name, .members, .rm { width: 1%; white-space: nowrap; }
+/* Everything shrinks to its content except the answer, which takes the rest. */
+.num, .name, .rm { width: 1%; white-space: nowrap; }
 .answer { width: auto; }
+/* The first and last columns sit flush with the grid above them. */
+th:first-child, td:first-child { padding-left: 0; }
+th:last-child, td:last-child { padding-right: 0; }
 
 td.num {
   font-weight: 800;
@@ -228,8 +201,6 @@ td.num {
   color: var(--muted);
   padding-right: 0.7em;
 }
-td.members { font-size: calc(clamp(14px, 1.5vw, 21px) * var(--fit, 1)); color: var(--muted); }
-
 /* Inner box, so one wordy team cannot starve the answer column. */
 .clamp {
   display: inline-block;
@@ -240,9 +211,8 @@ td.members { font-size: calc(clamp(14px, 1.5vw, 21px) * var(--fit, 1)); color: v
 }
 td.name { cursor: pointer; }
 td.name .clamp { max-width: 20ch; }
-td.members .clamp { max-width: 24ch; }
 td.answer { font-weight: 600; }
-.empty { color: var(--muted); font-size: clamp(18px, 2.2vw, 28px); padding: 1.5em 0.4em; }
+.empty { color: var(--muted); font-size: clamp(18px, 2.2vw, 28px); padding: 1.5em 0; }
 
 .err:empty { display: none; }
 
@@ -256,17 +226,19 @@ td.answer { font-weight: 600; }
 #cog {
   display: flex;
   padding: 0;
-  margin-left: 0.9em;
+  /* Pushed to the far edge, so the bar is the room code at one end and the settings at the
+     other with nothing in between competing for the middle. */
+  margin-left: auto;
   font-size: clamp(20px, 2.4vw, 30px);
   line-height: 1;
-  color: #9fb0bf;
+  color: #4b4f8c;
   background: none;
   border-radius: 0;
 }
 #cog svg { display: block; width: 1em; height: 1em; }
 #cog:hover,
 #cog:focus-visible,
-#cog[aria-expanded="true"] { color: var(--muted); }
+#cog[aria-expanded="true"] { color: var(--ink); }
 
 .panel {
   display: flex;
@@ -292,20 +264,11 @@ td.answer { font-weight: 600; }
   height: 1.15em;
   border: 0;
   border-radius: 0;
-  accent-color: var(--red);
+  accent-color: var(--value-gold);
 }
 .panel .note { flex: 1 1 20ch; font-size: 0.85em; }
 
-#endGame {
-  padding: 0.5em 1em;
-  font-size: inherit;
-  font-weight: 700;
-  color: var(--ink);
-  background: #fff;
-  border: 2px solid var(--line);
-  border-radius: 10px;
-}
-#endGame.danger { color: #fff; background: var(--red); border-color: var(--red); }
+#endGame.danger { color: #fff; background: var(--red); box-shadow: none; }
 
 .rm { display: none; }
 body.editing .rm { display: table-cell; }
@@ -330,28 +293,20 @@ body.editing .rm { display: table-cell; }
   gap: 0.8em 1.2em;
   padding: 0.8em 1.1em;
   margin-bottom: 1.4vh;
-  background: #fdeced;
+  background: #2a0e14;
   border: 2px solid var(--red);
   border-radius: 12px;
   font-size: clamp(15px, 1.7vw, 22px);
   font-weight: 600;
 }
-#keepAlive {
-  margin-left: auto;
-  padding: 0.5em 1.1em;
-  font-size: inherit;
-  font-weight: 700;
-  color: #fff;
-  background: var(--red);
-  border-radius: 10px;
-}
+#keepAlive { margin-left: auto; }
 
 /* ---------- player: picking a clue, and waiting ---------- */
 
 .who .score {
   font-variant-numeric: tabular-nums;
   font-weight: 800;
-  color: var(--ink);
+  color: var(--value-gold);
   flex: none;
 }
 
@@ -390,16 +345,18 @@ body.editing .rm { display: table-cell; }
   padding: 0.5em 0.1em;
   font-size: clamp(14px, 3.8vw, 19px);
   font-weight: 800;
-  color: #fff;
-  background: var(--ink);
+  /* The same cell as the board behind them, so a student picking from a phone is picking off
+     the board they are looking at. */
+  color: var(--value-gold);
+  background: var(--board-blue);
   border-radius: 10px;
 }
-.pickval:active { background: var(--muted); }
+.pickval:active { background: var(--board-blue-lit); }
 .pickval.spent,
 .pickval:disabled {
-  color: var(--line);
-  background: #fff;
-  box-shadow: inset 0 0 0 2px var(--faint);
+  color: transparent;
+  background: #0b0c2c;
+  box-shadow: none;
 }
 
 .waitmsg {
