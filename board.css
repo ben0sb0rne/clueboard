@@ -463,3 +463,77 @@ body.board {
    room, so it keeps one size and scrolls. The board is the thing that has to be legible. */
 .control td { font-size: clamp(14px, 1.5vw, 20px); }
 .control th { font-size: clamp(11px, 1vw, 14px); }
+
+/* ---------- Daily Double, and Final ---------- */
+
+/* The one moment the board is unambiguously a show rather than a page: it fills the screen,
+   names the team it belongs to, and says nothing else until the wager is in. */
+.board .splash { text-align: center; }
+.board .splashtitle {
+  font-size: clamp(38px, 8.6vw, 164px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.03em;
+  color: var(--value-gold);
+  text-shadow: 0 6px 0 rgba(0, 0, 0, 0.45);
+}
+.board .splashwho {
+  margin-top: 0.55em;
+  font-size: clamp(15px, 2.3vw, 42px);
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #fff;
+}
+
+/* Final shows the category alone while every team wagers. */
+.board .finalcat {
+  font-size: clamp(28px, 6.2vw, 116px);
+  font-weight: 800;
+  line-height: 1.1;
+  text-align: center;
+  text-transform: uppercase;
+  color: #fff;
+  text-shadow: 0 5px 0 rgba(0, 0, 0, 0.4);
+}
+
+/* Who is ready, never how much: a wager stays secret until that team is revealed. */
+.board .pready {
+  margin-top: 0.3em;
+  font-size: clamp(10px, 1.05vw, 18px);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #8ad6a0;
+}
+.board .pbet {
+  margin-top: 0.15em;
+  font-size: clamp(10px, 1.05vw, 18px);
+  font-weight: 700;
+  color: #c9ccf2;
+  font-variant-numeric: tabular-nums;
+}
+
+.control .wagerline {
+  margin: 0.7em 0 0;
+  font-size: clamp(14px, 1.6vw, 20px);
+  font-weight: 700;
+  color: var(--muted);
+}
+
+/* During Final the answer cell is the reveal switch, so it has to read as one. */
+.control td.answer.tap {
+  cursor: pointer;
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 2px var(--line);
+}
+.control td.answer.onboard {
+  color: #0a7d28;
+  font-weight: 700;
+  box-shadow: inset 0 0 0 2px #0a7d28;
+}
+.control td.answer.staked::after {
+  content: " (" attr(data-bet) ")";
+  font-weight: 700;
+  color: var(--muted);
+}

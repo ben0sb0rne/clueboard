@@ -403,3 +403,13 @@ body.editing .rm { display: table-cell; }
   font-weight: 600;
   color: var(--muted);
 }
+
+/* The category is all a student gets before wagering - the clue is on the board, and they
+   have to commit without it. */
+.wagercat {
+  margin: 0.2em 0 1.4dvh;
+  font-size: clamp(18px, 5vw, 26px);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}

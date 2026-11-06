@@ -135,6 +135,28 @@ function clueAt(set, round, cat, row) {
   return (r && r.cells[cat] && r.cells[cat][row]) || null;
 }
 
+// The cap on a wager: the larger of what a team already has and the top value on the board.
+// Taking the larger is what lets a team on zero, or in the red, still play - capping at the
+// score alone would lock them out, and a classroom has no reason to do that.
+//
+// Read off the published grid rather than ROUND_VALUES, so a set with its own value ladder
+// caps against the board the students can actually see.
+function wagerCap(score, grid) {
+  var top = 0;
+  ((grid && grid.values) || []).forEach(function (column) {
+    column.forEach(function (v) { if (Number(v) > top) top = Number(v); });
+  });
+  return Math.max(Number(score) || 0, top);
+}
+
+// What a team typed, made safe to write: a whole number of dollars, never negative, never
+// over the cap. A blank or unparseable box is 0, which is a legal wager.
+function clampWager(raw, cap) {
+  var n = Math.floor(Number(String(raw == null ? "" : raw).replace(/[^0-9.\-]/g, "")));
+  if (!isFinite(n) || n < 0) n = 0;
+  return Math.min(n, Math.max(0, Number(cap) || 0));
+}
+
 // How many clues are still on the board, so the control screen can say when a round is spent.
 function clueCount(set, round, used) {
   var r = set.rounds[round];
@@ -151,6 +173,7 @@ function clueCount(set, round, used) {
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     parseClueSet: parseClueSet, roundGrid: roundGrid, cellKey: cellKey,
-    clueAt: clueAt, clueCount: clueCount, ROUND_VALUES: ROUND_VALUES
+    clueAt: clueAt, clueCount: clueCount, ROUND_VALUES: ROUND_VALUES,
+    wagerCap: wagerCap, clampWager: clampWager
   };
 }

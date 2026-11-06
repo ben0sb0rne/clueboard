@@ -6,9 +6,19 @@ the teacher, and student devices that buzz, answer and pick clues. Forked from
 
 No framework, no build step. Plain files served by GitHub Pages.
 
-**Status: playable prototype.** A round runs end to end: import a clue set, open a room,
-teams join, clues are picked and answered, and the teacher scores by hand. Daily Double
-wagers and Final Jeopardy are not built; a Daily Double shows and plays as a normal clue.
+**Status: playable prototype.** A whole game runs end to end: import a clue set, open a room,
+teams join, clues are picked and answered, Daily Doubles and Final Jeopardy are wagered, and
+the teacher scores by hand.
+
+Wagers work the same way in both: the team enters one on their device before the clue is
+shown, and the clue is then worth that wager instead of the cell value. The cap is **the
+larger of the team's score and the top value on the board**, so a team on zero or in the red
+can still play. A Daily Double belongs to the team whose turn it is - whoever picked it - and
+only that team can answer it. Final is everyone's: the category goes up, every team wagers,
+then the clue, then the teacher reveals the teams one at a time by tapping each answer.
+
+Start Final from the cog, at any point - the class is about to end and the board is half
+full. It leaves spent cells alone, so dismissing it returns to the board as it was.
 
 - `board.html` - student-facing, on the TV. Never touched during a game.
 - `control.html` - everything the teacher does. Holds the clue set, in memory.

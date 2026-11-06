@@ -204,6 +204,33 @@ tests["spent cells do not leak between rounds"] = function () {
   assert.notStrictEqual(C.cellKey(1, 0, 0), C.cellKey(2, 0, 0));
 };
 
+// The cap is the rule that keeps a losing team in the game, so it is worth pinning down.
+tests["a wager is capped by the top value on the board, not by the score"] = function () {
+  var set = C.parseClueSet(tsv(column(1, "ONE", "a")));
+  var grid = C.roundGrid(set, 1);                 // top value 1000
+  assert.strictEqual(C.wagerCap(0, grid), 1000, "a team on zero must still be able to play");
+  assert.strictEqual(C.wagerCap(-400, grid), 1000, "a team in the red must still be able to play");
+  assert.strictEqual(C.wagerCap(2500, grid), 2500, "a team ahead may wager everything it has");
+  assert.strictEqual(C.wagerCap(1000, grid), 1000);
+};
+
+tests["wagerCap survives a missing or empty grid"] = function () {
+  assert.strictEqual(C.wagerCap(800, null), 800);
+  assert.strictEqual(C.wagerCap(800, { values: [] }), 800);
+  assert.strictEqual(C.wagerCap(-50, null), 0, "a cap is never negative");
+};
+
+tests["clampWager keeps what a student types inside the cap"] = function () {
+  assert.strictEqual(C.clampWager("600", 1000), 600);
+  assert.strictEqual(C.clampWager("$1,200", 1000), 1000, "over the cap is pulled to the cap");
+  assert.strictEqual(C.clampWager("-300", 1000), 0, "a negative wager is not a way to gain");
+  assert.strictEqual(C.clampWager("", 1000), 0);
+  assert.strictEqual(C.clampWager(null, 1000), 0);
+  assert.strictEqual(C.clampWager("lots", 1000), 0, "unparseable is 0, never NaN");
+  assert.strictEqual(C.clampWager("12.9", 1000), 12, "whole dollars only");
+  assert.strictEqual(C.clampWager("500", 0), 0, "a zero cap allows only zero");
+};
+
 var failed = 0;
 Object.keys(tests).forEach(function (name) {
   try {

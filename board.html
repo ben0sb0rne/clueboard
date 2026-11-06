@@ -28,6 +28,11 @@
   <section id="cluePanel" hidden aria-live="polite">
     <div class="cluehead" id="clueHead"></div>
     <div class="cluebody">
+      <div class="splash" id="ddSplash" hidden>
+        <div class="splashtitle">DAILY DOUBLE</div>
+        <div class="splashwho" id="ddWho"></div>
+      </div>
+      <div class="finalcat" id="finalCat" hidden></div>
       <div class="cluetext" id="clueText"></div>
       <img id="clueImage" alt="" hidden>
       <div class="clueanswer" id="clueAnswer" hidden></div>
@@ -78,7 +83,8 @@ if (!code) {
         name: t.name || "",
         answer: t.answer || "",
         score: Number(t.score) || 0,
-        buzzedAt: t.buzzedAt || 0
+        buzzedAt: t.buzzedAt || 0,
+        wager: (t.wager === undefined || t.wager === null) ? null : Number(t.wager)
       });
     });
     render();
@@ -155,6 +161,8 @@ function renderGrid() {
 function renderPodiums() {
   const wrap = $("#podiums");
   const order = teams.slice().sort((a, b) => a.id.localeCompare(b.id));
+  const clue = game.clue || null;
+  const isFinal = !!(clue && clue.final);
   wrap.textContent = "";
   order.forEach((t) => {
     const box = document.createElement("div");
@@ -172,12 +180,30 @@ function renderPodiums() {
     box.appendChild(score);
 
     // Their answer goes up only once the teacher has revealed, so the board never spoils a
-    // question for the teams still thinking. Student-typed: textContent, never mathText.
-    if (game.reveal && t.answer) {
+    // question for the teams still thinking. Final is revealed team by team instead, so it
+    // reads off `shown` and ignores `reveal` - otherwise revealing the answer would put every
+    // team's response up at once and throw away the one-at-a-time reveal.
+    const open = isFinal ? !!(game.shown || {})[t.id] : !!game.reveal;
+
+    if (isFinal && game.wagering && t.wager !== null) {
+      const ready = document.createElement("div");
+      ready.className = "pready";
+      ready.textContent = "Wager in";          // who is ready, never how much
+      box.appendChild(ready);
+    }
+
+    // Student-typed: textContent, never mathText.
+    if (open && t.answer) {
       const ans = document.createElement("div");
       ans.className = "panswer";
       ans.textContent = t.answer;
       box.appendChild(ans);
+    }
+    if (isFinal && open && t.wager !== null) {
+      const bet = document.createElement("div");
+      bet.className = "pbet";
+      bet.textContent = "Wagered " + money(t.wager);
+      box.appendChild(bet);
     }
     wrap.appendChild(box);
   });
@@ -193,16 +219,31 @@ function renderClue(clue) {
     return;
   }
 
-  const key = clue.cat + "-" + clue.row;
+  const key = clue.final ? "final" : clue.cat + "-" + clue.row;
   const fresh = key !== shownKey;
   shownKey = key;
 
-  $("#clueHead").textContent =
-    (clue.category || "") + "   " + money(clue.value) + (clue.dd ? "   DAILY DOUBLE" : "");
-  mathText($("#clueText"), clue.text);
+  // Three things this panel can be showing, and the room decides which: a Daily Double splash
+  // or a Final category while wagers come in, then the clue itself.
+  const wagering = !!game.wagering;
+  const splash = !!(clue.dd && wagering);
+  const catOnly = !!(clue.final && wagering);
+  const hideClue = splash || catOnly;
+
+  $("#ddSplash").hidden = !splash;
+  $("#ddWho").textContent = splash ? (clue.ownerName || "") : "";
+  $("#finalCat").hidden = !catOnly;
+  if (catOnly) $("#finalCat").textContent = clue.category || "";
+
+  $("#clueHead").textContent = splash ? ""
+    : clue.final ? "FINAL JEOPARDY"
+    : (clue.category || "") + "   " + money(clue.value) + (clue.dd ? "   DAILY DOUBLE" : "");
+
+  $("#clueText").hidden = hideClue;
+  if (!hideClue) mathText($("#clueText"), clue.text);
 
   const img = $("#clueImage");
-  if (clue.image) {
+  if (clue.image && !hideClue) {
     // Images are public by design: a clue image goes on the projector, so it is not a secret
     // and has no reason to be local. The cell holds a filename or any URL.
     img.src = /^https?:/.test(clue.image) ? clue.image : "clues/images/" + clue.image;
@@ -213,7 +254,7 @@ function renderClue(clue) {
   }
 
   const ansEl = $("#clueAnswer");
-  if (game.reveal && clue.answer) {
+  if (game.reveal && !hideClue && clue.answer) {
     mathText(ansEl, clue.answer);
     ansEl.hidden = false;
   } else {

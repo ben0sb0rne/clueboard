@@ -63,6 +63,23 @@
   <p id="pickErr" class="err"></p>
 </main>
 
+<main id="wager" class="screen" hidden>
+  <div class="who">
+    <span id="wagerWho"></span>
+    <span id="wagerScore" class="score"></span>
+  </div>
+  <h2 class="picktitle" id="wagerTitle">Daily Double</h2>
+  <p class="wagercat" id="wagerCat"></p>
+
+  <div class="field">
+    <label for="wagerBox">Your wager, up to <span id="wagerMax"></span></label>
+    <input id="wagerBox" inputmode="numeric" autocomplete="off" enterkeyhint="done" maxlength="7">
+  </div>
+
+  <p id="wagerErr" class="err"></p>
+  <button id="wagerBtn">Lock Wager</button>
+</main>
+
 <main id="wait" class="screen" hidden>
   <div class="who">
     <span id="waitWho"></span>
@@ -76,6 +93,9 @@
 <script src="firebase-config.js"></script>
 <script src="demo.js"></script>
 <script src="common.js"></script>
+<!-- Our own file, not a dependency: it carries the wager cap, and one definition of that rule
+     across the three screens beats three that can drift. KaTeX is what stays off this page. -->
+<script src="clues.js"></script>
 <script>
 const $ = (s) => document.querySelector(s);
 const STORE = "clueboard-team";
@@ -89,6 +109,7 @@ let myId = null;
 let team = null;
 let game = {};
 let wasLocked = false;
+let wagerRound = null;      // which clue the wager box is currently for
 
 const saved = loadSaved();
 $("#code").value = urlCode || (saved ? saved.code : "");
@@ -113,9 +134,11 @@ $("#members").addEventListener("keydown", (e) => { if (e.key === "Enter") join()
 $("#leave").addEventListener("click", armLeave);
 $("#lock").addEventListener("click", lockIn);
 $("#answer").addEventListener("keydown", (e) => { if (e.key === "Enter") lockIn(); });
+$("#wagerBtn").addEventListener("click", sendWager);
+$("#wagerBox").addEventListener("keydown", (e) => { if (e.key === "Enter") sendWager(); });
 
 function show(which) {
-  ["boot", "join", "play", "pick", "wait"].forEach((id) => {
+  ["boot", "join", "play", "pick", "wager", "wait"].forEach((id) => {
     $("#" + id).hidden = id !== which;
   });
 }
@@ -186,17 +209,80 @@ function attach(code, teamId) {
   gameRef.on("value", (snap) => { game = snap.val() || {}; route(); });
 }
 
-// Three things a student device can be doing, and the room decides which: answering an open
-// clue, picking the next one, or waiting. No buttons for the student to get wrong.
+// Four things a student device can be doing, and the room decides which: wagering, answering
+// an open clue, picking the next one, or waiting. No buttons for the student to get wrong.
 function route() {
   if (!team) { show("join"); return; }
-  if (game.clue) { show("play"); return; }
+  const clue = game.clue;
+
+  if (clue) {
+    // A Daily Double belongs to one team. Everyone else watches, and says so rather than
+    // showing an answer box that would be thrown away.
+    if (!myClue(clue)) {
+      $("#waitMsg").textContent = clue.dd
+        ? (clue.ownerName || "Another team") + " has the Daily Double."
+        : "Watch the board...";
+      show("wait");
+      return;
+    }
+    if (game.wagering) { renderWager(clue); show("wager"); return; }
+    show("play");
+    return;
+  }
+
   if (game.turn === myId) { renderPick(); show("pick"); return; }
   const picker = game.turn ? "another team" : "the teacher";
   $("#waitMsg").textContent = game.turn
     ? "Waiting for " + picker + " to pick..."
     : "Waiting for the next clue...";
   show("wait");
+}
+
+// Final is everyone's. A Daily Double is one team's, frozen onto the clue when it was opened
+// so that the teacher awarding someone else mid-clue cannot hand it over.
+function myClue(clue) {
+  if (clue.final) return true;
+  if (clue.dd) return clue.owner === myId;
+  return true;
+}
+
+function renderWager(clue) {
+  const already = team.wager !== undefined && team.wager !== null;
+  const cap = wagerCap(team.score, game.grid);
+
+  // Clear on a new wager round only, never on a re-render: a score correction mid-typing
+  // would otherwise wipe what the student has half entered.
+  const round = clue.final ? "final" : clue.cat + "-" + clue.row;
+  if (round !== wagerRound) {
+    wagerRound = round;
+    $("#wagerBox").value = "";
+    $("#wagerErr").textContent = "";
+  }
+
+  $("#wagerTitle").textContent = clue.final ? "Final Jeopardy" : "Daily Double";
+  $("#wagerCat").textContent = clue.category || "";
+  $("#wagerMax").textContent = money(cap);
+
+  const box = $("#wagerBox");
+  const btn = $("#wagerBtn");
+  if (already) box.value = String(team.wager);
+  box.disabled = already;
+  btn.disabled = already;
+  btn.textContent = already ? "Wager locked: " + money(team.wager) : "Lock Wager";
+}
+
+// Clamped here and read back from the snapshot, so what the student sees is what was stored.
+function sendWager() {
+  if (!teamRef || !team) return;
+  const cap = wagerCap(team.score, game.grid);
+  const raw = $("#wagerBox").value.trim();
+  if (!raw) { $("#wagerErr").textContent = "Enter a wager, or 0."; return; }
+  const bet = clampWager(raw, cap);
+  $("#wagerErr").textContent = bet < Number(String(raw).replace(/[^0-9]/g, ""))
+    ? "That is over your limit, so it was set to " + money(bet) + "."
+    : "";
+  teamRef.update({ wager: bet })
+    .catch((err) => { $("#wagerErr").textContent = err.message; });
 }
 
 // A list, not a replica of the board. The board is already on the screen at the front of the
@@ -279,11 +365,16 @@ function toJoinScreen() {
   team = null;
   game = {};
   wasLocked = false;
+  wagerRound = null;
   $("#answer").disabled = false;
   $("#answer").value = "";
   $("#lock").disabled = false;
   $("#lock").textContent = "Lock Answer";
   $("#playErr").textContent = "";
+  $("#wagerBox").value = "";
+  $("#wagerBox").disabled = false;
+  $("#wagerBtn").disabled = false;
+  $("#wagerErr").textContent = "";
   $("#code").value = "";
   show("join");
 }

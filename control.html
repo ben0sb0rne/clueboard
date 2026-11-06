@@ -54,8 +54,10 @@
   <div id="panel" class="panel" hidden>
     <label class="opt"><input type="checkbox" id="mute"> Mute buzzer on this device</label>
     <button id="roundBtn">Go to round 2</button>
+    <button id="finalBtn">Final Jeopardy</button>
     <button id="endGame">End game</button>
-    <span class="note">Tap a team's name to rename it, or its score to correct it. Remove a team
+    <span class="note">Tap a team's name to rename it, or its score to correct it. During Final,
+      tap a team's answer to put it on the board. Remove a team
       with the &times; beside its row. A game left open ends by itself an hour after this
       screen is closed.</span>
     <span id="rulesHint" class="note warn" hidden>Auto-cleanup is off: deploy the latest database.rules.json.</span>
@@ -74,9 +76,11 @@
     <section id="clueState" hidden>
       <div class="cluebar">
         <span id="clueWhere"></span>
+        <button id="showClueBtn" hidden>Show the clue</button>
         <button id="revealBtn">Reveal answer</button>
         <button id="dismissBtn">Back to board</button>
       </div>
+      <p class="wagerline" id="wagerLine" hidden></p>
       <div class="ctlclue">
         <div id="ctlClueText"></div>
         <div class="ctlanswer">
@@ -149,6 +153,8 @@ $("#endGame").addEventListener("click", armEndGame);
 $("#keepAlive").addEventListener("click", markActive);
 $("#revealBtn").addEventListener("click", revealAnswer);
 $("#dismissBtn").addEventListener("click", dismissClue);
+$("#showClueBtn").addEventListener("click", showClue);
+$("#finalBtn").addEventListener("click", startFinal);
 addEventListener("pointerdown", markActive);
 addEventListener("keydown", markActive);
 
@@ -316,21 +322,96 @@ function renderGame(snap) {
   $("#roundBtn").textContent = "Go to round " + (Number(game.round) === 2 ? 1 : 2);
 
   if (clue) {
-    $("#clueWhere").textContent =
-      (clue.category || "") + " - " + money(clue.value) + (clue.dd ? " - DAILY DOUBLE" : "");
+    const wagering = !!game.wagering;
+    $("#clueWhere").textContent = clue.final
+      ? "FINAL JEOPARDY - " + (clue.category || "")
+      : (clue.category || "") + " - " + money(clue.value) + (clue.dd ? " - DAILY DOUBLE" : "");
     mathText($("#ctlClueText"), clue.text);
     mathText($("#ctlAnswerText"), clue.answer || lookupAnswer(clue));
-    $("#revealBtn").disabled = !!game.reveal;
+
+    // While wagers are being collected the clue is not on the board yet, so revealing the
+    // answer would be revealing it to nobody.
+    $("#showClueBtn").hidden = !wagering;
+    $("#wagerLine").hidden = !wagering;
+    if (wagering) $("#wagerLine").textContent = wagerStatus(clue);
+    $("#revealBtn").disabled = !!game.reveal || wagering;
     $("#revealBtn").textContent = game.reveal ? "Answer is on the board" : "Reveal answer";
   } else {
     renderGrid();
   }
   renderTeamRows();
+  maybeShowClue();
+}
+
+/* ---------- wagers ---------- */
+
+// Who owes a wager: Final is everyone's, a Daily Double is only its owner's.
+function owing(clue) {
+  if (!clue) return [];
+  if (clue.final) return teams;
+  if (clue.dd) return teams.filter((t) => t.id === clue.owner);
+  return [];
+}
+
+function hasWagered(t) { return t.wager !== undefined && t.wager !== null; }
+
+function wagerStatus(clue) {
+  const who = owing(clue);
+  if (!who.length) return "Nobody can wager on this clue. Show it to play it as a normal clue.";
+  if (clue.final) {
+    const inN = who.filter(hasWagered).length;
+    return inN + " of " + who.length + " wagers in.";
+  }
+  const t = who[0];
+  return hasWagered(t)
+    ? t.name + " wagered " + money(t.wager) + "."
+    : "Waiting for " + t.name + " to wager.";
+}
+
+// Advances by itself once every wager is in, so the usual case needs no tap. The button is
+// still there for a team that dithers, which is the same override the grid already allows.
+function maybeShowClue() {
+  const clue = game.clue;
+  if (!clue || !game.wagering || !gameRef) return;
+  const who = owing(clue);
+  if (!who.length || !who.every(hasWagered)) return;
+  showClue();
+}
+
+function showClue() {
+  if (!gameRef) return;
+  gameRef.update({ wagering: null })
+    .catch((err) => { alert("Could not show the clue: " + err.message); });
+}
+
+// The teacher can trigger Final at any point - the class is about to end and the board is
+// half full. It leaves `used` alone, so dismissing it returns to the board as it was.
+function startFinal() {
+  if (!gameRef || !clueSet) return;
+  const f = (clueSet.final || [])[0];
+  if (!f) { alert("This clue set has no final clue. Add a row with round = final."); return; }
+  gameRef.update({
+    clue: {
+      final: true, category: f.category, value: 0,
+      text: f.text, image: f.image || "", dd: false
+    },
+    wagering: true, reveal: false, pick: null, shown: null
+  })
+    .then(resetBuzzers)
+    .catch((err) => { alert("Could not start Final Jeopardy: " + err.message); });
+}
+
+// What this clue is worth to this team: a wager when one was placed, the cell value otherwise.
+function stake(clue, team) {
+  if (!clue) return 0;
+  if (clue.final || clue.dd) return Number(team.wager) || 0;
+  return Number(clue.value) || 0;
 }
 
 // The answer is held here, never published until the teacher reveals it. game/clue carries
 // one only after that, so this is the lookup the control screen uses in the meantime.
 function lookupAnswer(clue) {
+  if (clue.final) return ((clueSet.final || [])[0] || {}).answer || "";
   const found = clueAt(clueSet, Number(game.round) || 1, clue.cat, clue.row);
   return found ? found.answer : "";
 }
@@ -385,13 +466,21 @@ function selectCell(cat, row) {
   const clue = clueAt(clueSet, round, cat, row);
   if (!clue || (game.used || {})[cellKey(round, cat, row)]) return;
 
+  // A Daily Double belongs to the team whose turn it is, whether they picked it themselves or
+  // the teacher picked for them. The owner is frozen onto the clue, so awarding another team
+  // mid-clue cannot hand the Daily Double over. With nobody to own it, it plays as a normal
+  // clue rather than stranding the board on a wager that can never arrive.
+  const owner = (clue.dd && game.turn) ? game.turn : null;
   const update = {
     clue: {
       cat: cat, row: row, category: clue.category, value: clue.value,
-      text: clue.text, image: clue.image || "", dd: !!clue.dd
+      text: clue.text, image: clue.image || "", dd: !!owner,
+      owner: owner, ownerName: owner ? teamName(owner) : null
     },
+    wagering: owner ? true : null,
     reveal: false,
-    pick: null
+    pick: null,
+    shown: null
   };
   update["used/" + cellKey(round, cat, row)] = true;
   gameRef.update(update)
@@ -410,7 +499,7 @@ function revealAnswer() {
 }
 
 function dismissClue() {
-  gameRef.update({ clue: null, reveal: false, pick: null })
+  gameRef.update({ clue: null, reveal: false, pick: null, wagering: null, shown: null })
     .then(resetBuzzers)
     .catch((err) => { alert("Could not close that clue: " + err.message); });
 }
@@ -418,7 +507,8 @@ function dismissClue() {
 function toggleRound() {
   const next = Number(game.round) === 2 ? 1 : 2;
   if (!clueSet.rounds[next]) { alert("This clue set has no round " + next + "."); return; }
-  gameRef.update({ round: next, grid: roundGrid(clueSet, next), clue: null, reveal: false, pick: null })
+  gameRef.update({ round: next, grid: roundGrid(clueSet, next), clue: null, reveal: false,
+                   pick: null, wagering: null, shown: null })
     .then(resetBuzzers)
     .catch((err) => { alert("Could not change round: " + err.message); });
 }
@@ -440,7 +530,8 @@ function renderTeams(snap) {
       members: t.members || "",
       answer: t.answer || "",
       score: Number(t.score) || 0,
-      buzzedAt: t.buzzedAt || 0
+      buzzedAt: t.buzzedAt || 0,
+      wager: (t.wager === undefined || t.wager === null) ? null : Number(t.wager)
     });
   });
 
@@ -472,6 +563,11 @@ function renderTeams(snap) {
   if (!document.body.classList.contains("inclue")) $("#turnLine").textContent = game.turn
     ? "Picking: " + (teamName(game.turn) || "a team that has left")
     : "Nobody is picking yet.";
+
+  // A wager is a write to teams, not to game, so the wager line and the auto-advance have to
+  // be driven from here as well as from renderGame.
+  if (game.clue && game.wagering) $("#wagerLine").textContent = wagerStatus(game.clue);
+  maybeShowClue();
 }
 
 function renderTeamRows() {
@@ -496,7 +592,25 @@ function renderTeamRows() {
     scoreCell.addEventListener("click", () => editScore(t.id, t.score));
 
     // Student-typed: textContent, never mathText and never innerHTML.
-    cell(tr, t.buzzedAt ? t.answer : "", "answer");
+    const wagering = !!game.wagering;
+    const answerText = wagering
+      ? (hasWagered(t) ? "Wagered " + money(t.wager) : "")
+      : (t.buzzedAt ? t.answer : "");
+    const answerCell = cell(tr, answerText, "answer");
+    if (clue && (clue.final || clue.dd) && !wagering && hasWagered(t)) {
+      answerCell.classList.add("staked");
+      answerCell.dataset.bet = money(t.wager);
+    }
+
+    // Final reveals one team at a time, so the board does not spoil the rest. Tapping is
+    // already the idiom here - name to rename, score to correct - so the answer is the target.
+    if (clue && clue.final && !wagering) {
+      answerCell.classList.add("tap");
+      const on = !!(game.shown || {})[t.id];
+      if (on) answerCell.classList.add("onboard");
+      answerCell.title = on ? "Take this answer off the board" : "Show this answer on the board";
+      answerCell.addEventListener("click", () => toggleShown(t.id, on));
+    }
 
     const mark = tr.insertCell();
     mark.className = "mark";
@@ -504,8 +618,14 @@ function renderTeamRows() {
       const b = document.createElement("button");
       b.className = sign > 0 ? "plus" : "minus";
       b.textContent = label;
-      b.disabled = !clue;
-      b.title = clue ? (sign > 0 ? "Award " : "Deduct ") + money(clue.value) : "Open a clue first";
+      // A team that could not answer this clue must not be scorable on it: awarding $0 looks
+      // harmless but still moves the next pick to them, so a stray tap would hand it over.
+      const scorable = !!clue && !wagering && (!clue.dd || clue.owner === t.id);
+      b.disabled = !scorable;
+      b.title = !clue ? "Open a clue first"
+        : wagering ? "Wagers are still coming in"
+        : !scorable ? "This Daily Double is " + (clue.ownerName || "another team") + "'s"
+        : (sign > 0 ? "Award " : "Deduct ") + money(stake(clue, t));
       b.addEventListener("click", () => score(t, sign));
       mark.appendChild(b);
     });
@@ -528,14 +648,21 @@ function renderTeamRows() {
 // or none, and the teacher reads what they typed and decides.
 function score(team, sign) {
   const clue = game.clue;
-  if (!clue) return;
+  if (!clue || game.wagering) return;
   const updates = {};
   updates["rooms/" + roomCode + "/teams/" + team.id + "/score"] =
-    team.score + sign * (Number(clue.value) || 0);
+    team.score + sign * stake(clue, team);
   // The pick follows the award, as on the show. An override by the teacher does not move it,
-  // which is what makes a Daily Double belong to the right team later.
-  if (sign > 0) updates["rooms/" + roomCode + "/game/turn"] = team.id;
+  // which is what makes a Daily Double belong to the right team later. Final moves nothing:
+  // there is no next pick.
+  if (sign > 0 && !clue.final) updates["rooms/" + roomCode + "/game/turn"] = team.id;
   db.ref().update(updates).catch((err) => { alert("Could not score that: " + err.message); });
+}
+
+function toggleShown(id, on) {
+  if (!gameRef) return;
+  gameRef.child("shown").child(id).set(on ? null : true)
+    .catch((err) => { alert("Could not change the board: " + err.message); });
 }
 
 function editScore(id, current) {
@@ -569,6 +696,7 @@ function resetBuzzers() {
       updates[child.key + "/answer"] = "";
       updates[child.key + "/buzzedAt"] = null;
       updates[child.key + "/locked"] = false;
+      updates[child.key + "/wager"] = null;
     });
     if (Object.keys(updates).length) return teamsRef.update(updates);
   });

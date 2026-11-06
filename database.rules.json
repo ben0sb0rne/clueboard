@@ -25,6 +25,7 @@
             "buzzedAt": { ".validate": "newData.val() == now" },
 
             "score":    { ".validate": "newData.isNumber()" },
+            "wager":    { ".validate": "newData.isNumber()" },
 
             "$other":   { ".validate": false }
           }
