@@ -24,7 +24,18 @@
             "locked":   { ".validate": "newData.isBoolean()" },
             "buzzedAt": { ".validate": "newData.val() == now" },
 
+            "score":    { ".validate": "newData.isNumber()" },
+
             "$other":   { ".validate": false }
+          }
+        },
+
+        "game": {
+          ".read": true,
+          ".write": true,
+
+          "pick": {
+            ".validate": "newData.hasChildren(['team', 'cat', 'row']) && newData.child('team').val() == root.child('rooms').child($code).child('game').child('turn').val() && newData.child('cat').isNumber() && newData.child('row').isNumber()"
           }
         }
       }

@@ -1,104 +1,88 @@
-# Classroom Buzzer
+# Clueboard
 
-A 4-letter room code, a text box and a big red button. Teams type an answer, hit
-**Lock Answer**, and the teacher's dashboard shows who locked in first using
-Firebase's server clock. No logins, no build step, no dependencies to install.
+A Jeopardy-style quiz board for the classroom: a board on the projector, a control screen for
+the teacher, and student devices that buzz, answer and pick clues. Forked from
+[the classroom buzzer](https://github.com/ben0sb0rne/buzzer), which stays as it is.
 
-- `index.html` - student view
-- `host.html` - teacher view
-- `firebase-config.js` - the only file you need to edit
-- `database.rules.json` - database rules to paste into the console
+No framework, no build step. Plain files served by GitHub Pages.
 
-## 1. Firebase
+**Status: prototype.** The files inherited from the buzzer (`index.html`, `host.html`) are
+still the plain buzzer. The board, control and player screens are not built yet.
 
-1. In the [Firebase console](https://console.firebase.google.com), open your project.
-2. **Databases & Storage -> Realtime Database -> Create Database.** Pick the region closest to you and
-   choose **Start in locked mode** (step 3 replaces the rules). This is a different product
-   from Cloud Firestore - make sure you are on Realtime Database.
-3. Copy the URL shown at the top of that page. It looks like
-   `https://YOUR-PROJECT-default-rtdb.firebaseio.com` or, outside the US,
-   `https://YOUR-PROJECT-default-rtdb.europe-west1.firebasedatabase.app`.
-4. **Project settings -> Your apps -> Web app -> Config.** Copy that `firebaseConfig` object
-   into `firebase-config.js`, then add the URL from step 3 as `databaseURL`. That snippet does
-   not include `databaseURL`, so it is easy to lose if you paste the whole object over the file.
-5. **Realtime Database -> Rules**, paste the contents of `database.rules.json`, hit **Publish**.
+- `board.html` - student-facing, on the TV. Never touched during a game. *(not built)*
+- `control.html` - everything the teacher does. Holds the clue set. *(not built)*
+- `index.html` - student devices: buzz, answer, pick, wager.
+- `firebase-config.js` - the only file you need to edit by hand
+- `database.rules.json` - deployed by the CLI, not pasted into the console
 
-The web API key in that config is not a secret - it identifies the project, it does not grant
-access. The rules below are what actually control access.
+## Its own Firebase project, always
 
-## 2. GitHub Pages
+Clueboard must have a **separate Firebase project** from the buzzer. This is not tidiness:
+Firebase security rules are **one document per project**. Two repos each carrying a
+`database.rules.json` means whoever publishes last wins, so publishing the buzzer's rules
+would silently delete Clueboard's `game` branch and take down a live lesson.
 
-1. Push this folder to a GitHub repository.
-2. **Settings -> Pages -> Source: Deploy from a branch**, branch `main`, folder `/ (root)`, **Save**.
-3. A minute later the teacher view is at `https://YOUR-NAME.github.io/REPO/host.html`.
+## Setup
 
-Bookmark the teacher view. Students only ever need the join link it displays.
+One interactive login, then everything else is a command.
 
-## 3. In class
+```bash
+npx firebase-tools login
+```
 
-Open `host.html`, hit **Create room**, put the code and join address on the board. Students open
-the link, enter a team name and members, and join. They type an answer and hit **Lock Answer**;
-both their device and yours buzz, and their box locks. Buzzed teams jump to the top of your
-list numbered in order. **Reset Buzzers** clears every answer and unlocks everyone for the next
-question. A student who refreshes rejoins as the same team and stays locked if they were locked.
+```bash
+npx firebase-tools projects:create clueboard --display-name Clueboard
+```
 
-The room lives in the URL (`host.html?room=CODE`), so refreshing the teacher view keeps the
-class; opening plain `host.html` starts a new room.
+Project ids are global, not per-account, so `clueboard` may already belong to a stranger. If
+the CLI refuses it, add a short suffix and use that everywhere below - which is what the
+console did on its own when it named the buzzer's project `buzzer-7cbfd`.
 
-The join address the dashboard prints has no room code in it, so it never changes - students can
-bookmark it once and just type the 4 letters each lesson. The link it points at *does* carry
-`?room=CODE`, so copying it into Google Classroom still fills the code in automatically.
+Create the Realtime Database once in the console (**Databases & Storage -> Realtime Database ->
+Create Database**, nearest region, **locked mode** - the next step replaces the rules). Then:
 
-## The cog
+```bash
+npx firebase-tools use clueboard && npx firebase-tools deploy --only database
+```
 
-Everything that is not needed during a question hides behind the cog in the top right, so the
-projected dashboard stays clean. Opening it gives you:
+That publishes `database.rules.json` from this repo. **Nothing is pasted into the console**,
+which is the one process difference from the buzzer: the rules are a version-controlled file,
+so a rules change is a commit and a deploy rather than a hand-edit someone has to remember.
 
-- **Mute buzzer on this device** - silences the sound on the teacher machine only; student
-  devices still buzz. Remembered on that machine.
-- **End game** - two taps, because it clears every team in the room (see below).
-- A **x** beside each row while the panel is open, to remove one team. Use it for the duplicate
-  row you get when a student rejoins from a different browser.
+Fill `firebase-config.js` from:
 
-## Ending a game
+```bash
+npx firebase-tools apps:sdkconfig WEB
+```
 
-Closing the teacher tab does *not* end a game by itself: teams live in the database, so a
-student device would rejoin the same dead room every time it reopened. Four things end one.
+`databaseURL` is not in that output - copy it off the top of the Realtime Database page.
 
-1. **End game** in the cog deletes every team in the room. Any student device, open or closed,
-   lands back on the join screen the moment it next sees the database.
-2. **The dashboard is left open but untouched.** After 55 minutes with no clicks and no buzzes,
-   a red bar appears with a 5 minute countdown and a **Keep game open** button. Ignore it and
-   the game ends itself. Any click, keypress or student buzz resets the clock.
-3. **The dashboard is closed.** While it is open it stamps `rooms/<code>/hostSeen` once a
-   minute. A student device that finds that stamp more than an hour old treats the game as over,
-   deletes its own row and returns to the join screen. It leaves the stale stamp in the database
-   on purpose: that stamp is what tells the *rest* of the class the game is over.
-4. **The dashboard is opened again.** The leftover stamp, and the rows of any students who
-   never came back, are deleted the next time you open `host.html` in the same browser - which
-   also frees those devices straight away instead of an hour later. It skips the wipe if you are
-   reopening that same room (`?room=CODE`), or if the stamp shows another tab is still running it.
+## GitHub Pages
 
-Each of these is doing a different job: 2 covers a forgotten tab, 3 covers a closed one, 4 sweeps
-up after it, and 1 is you ending it deliberately, which is still the tidiest way.
+**Settings -> Pages -> Source: Deploy from a branch**, branch `main`, folder `/ (root)`.
+The board is then at `https://ben0sb0rne.github.io/clueboard/board.html`.
 
-One hour is the only number involved. Student devices keep no clock of their own: a device holds
-its team until one of the four above says the room is over, so there is a single answer to "is
-this game still running?" and the server's clock decides it, not a Chromebook's.
+## Taking fixes from the buzzer
 
-## About the rules
+A fork drifts: a bug fixed in the buzzer's `common.js` does not arrive here on its own. The
+buzzer is wired up as `upstream`, so cherry-pick when it matters.
 
-Anyone who knows a room code can read that room's teams and write to a team inside it - there
-are no accounts, so the 4-letter code is the only thing standing between a class and its room.
-On top of that, the rules pin each team to exactly the five fields the app uses, reject anything
-else, and require `buzzedAt` to equal the server's own clock, so a student cannot fake an
-earlier buzz by changing the time on their Chromebook. The same applies to `hostSeen`, the one
-field outside `teams`: it is the teacher dashboard's "I am still here" stamp, and it too has to
-match the server clock.
+```bash
+git fetch upstream && git log --oneline upstream/main
+```
 
-If you ever see **"Auto-cleanup is off"** inside the cog, it means the published rules predate
-`hostSeen`. Re-paste `database.rules.json` in the console. Everything else keeps working in the
-meantime; only the automatic cleanup of abandoned rooms is inactive.
+## What the rules allow
 
-Fine for classroom answers. Do not put anything private in it, and make a fresh room per class
-if you would rather old answers were not readable by someone who still has yesterday's code.
+Anyone with a room code can read that room and write to it - there are no accounts, so the
+4-letter code is all that stands between a class and its room. Teams are pinned to their known
+fields and `buzzedAt` must equal the server clock, so a student cannot fake an earlier buzz.
+
+`game` is world-writable, because without auth the rules cannot tell a teacher from a student.
+A determined student with devtools could clear the board. That is the same exposure the buzzer
+already carries, where a student can delete another team. The one thing validated there is
+`pick`: a team can only pick a clue when `game/turn` names them, so a stray tap from the wrong
+team is rejected rather than stealing the pick.
+
+**Clue answers are never written to the database.** The control screen holds the whole clue set
+in memory and publishes only the current clue, plus the answer at the moment the teacher reveals
+it - which is when it goes on the projector anyway.
