@@ -39,13 +39,16 @@
 <main id="play" class="screen" hidden>
   <div class="who">
     <span id="whoTeam"></span>
+    <span id="playScore" class="score"></span>
     <button id="leave" class="leave" title="Change room">
       <span id="leaveIdle">Room <b id="whoCode"></b></span>
       <span id="leaveArm" hidden>Tap again to leave</span>
     </button>
   </div>
 
-  <div class="answerbox">
+  <!-- The id is on the wrapper rather than the input: a buzzers-only game hides the box and
+       the hint over it together, and CSS gives the button the space they leave. -->
+  <div class="answerbox" id="answerWrap">
     <input id="answer" placeholder=" " autocomplete="off" enterkeyhint="done" maxlength="300">
     <div class="hint" aria-hidden="true">Type your answer</div>
   </div>
@@ -91,7 +94,7 @@
     <span id="waitWho"></span>
     <span id="waitScore" class="score"></span>
   </div>
-  <p class="waitmsg" id="waitMsg">Waiting for the next clue...</p>
+  <p class="waitmsg" id="waitMsg"></p>
 </main>
 
 <script src="https://www.gstatic.com/firebasejs/12.0.0/firebase-app-compat.js"></script>
@@ -114,8 +117,8 @@ let gameRef = null;
 let myId = null;
 let team = null;
 let game = {};
-let wasLocked = false;
-let wagerRound = null;      // which clue the wager box is currently for
+let answerRound = null;     // which clue the answer box is currently for
+let wagerRound = null;      // and the same for the wager box
 let sending = null;         // "answer" | "wager" while a write is still in flight
 let online = true;
 
@@ -221,24 +224,33 @@ function attach(code, teamId) {
     $("#waitWho").textContent = team.name;
     $("#wagerWho").textContent = team.name;
     const s = money(team.score);
+    $("#playScore").textContent = s;
     $("#pickScore").textContent = s;
     $("#waitScore").textContent = s;
     $("#wagerScore").textContent = s;     // the screen that needs the score most
-    setLocked(!!team.locked, team.answer || "");
     route();
   });
 
   gameRef.on("value", (snap) => { game = snap.val() || {}; route(); });
 }
 
-// Four things a student device can be doing, and the room decides which: wagering, answering
-// an open clue, picking the next one, or waiting. No buttons for the student to get wrong.
+// The buzzer is where a student device sits for a whole lesson, so it does not go anywhere:
+// between clues it stays exactly where it is and goes dead. Three things take it off screen,
+// and each of them is a thing to do rather than a thing to read - the grid when this team has
+// the pick, somebody else's Daily Double, and the final clue's wager.
+//
+// It used to be replaced by "Waiting for the next clue...", which is a sentence a student
+// reads once and then stares at for the rest of the lesson. A control that is always in the
+// same place and lights up when it works is less to learn than a screen that keeps changing.
 function route() {
   if (!team) { show("join"); return; }
+  // Drawn whether or not it is the screen on show, because it is where the router lands by
+  // default and both listeners come through here.
+  renderPlay();
   const clue = game.clue;
 
-  // The game is over and the results are on the board. Nothing left to do on a phone, so
-  // it says so rather than sitting on "Waiting for the next clue..." for the rest of break.
+  // The game is over and the results are on the board. Nothing left to do on a phone, so it
+  // says so rather than leaving a dead buzzer up for the rest of break.
   if (game.over) {
     $("#waitMsg").textContent = "That is the game. " + money(team.score || 0)
       + " - look up for the results.";
@@ -247,12 +259,11 @@ function route() {
   }
 
   if (clue) {
-    // A Daily Double belongs to one team. Everyone else watches, and says so rather than
-    // showing an answer box that would be thrown away.
+    // A Daily Double belongs to one team. myClue() is false for nothing else, so this is
+    // always that: everyone else watches, and is told whose it is.
     if (!myClue(clue)) {
-      $("#waitMsg").textContent = clue.dd
-        ? (clue.ownerName || "Another team") + " has the Daily Double."
-        : "Watch the board...";
+      $("#waitMsg").textContent =
+        (clue.ownerName || "Another team") + " has the Daily Double.";
       show("wait");
       return;
     }
@@ -273,22 +284,14 @@ function route() {
       show("wager");
       return;
     }
-    show("play");
-    return;
-  }
-
-  // The teacher paces the game and normally picks the clues themselves. A team only sees the
-  // board when it has been handed to them for one pick, or when the teacher has turned
-  // team picking on for the whole game.
-  if (game.turn === myId && (game.teamsPick || game.picker === myId)) {
+  } else if (game.turn === myId && (game.teamsPick || game.picker === myId)) {
+    // The teacher paces the game and normally picks the clues themselves. A team only sees
+    // the board when it has been handed to them for one pick, or when the teacher has turned
+    // team picking on for the whole game.
     renderPick(); show("pick"); return;
   }
-  const elsewhere = (game.picker && game.picker !== myId)
-    || (game.teamsPick && game.turn && game.turn !== myId);
-  $("#waitMsg").textContent = elsewhere
-    ? "Waiting for another team to pick..."
-    : "Waiting for the next clue...";
-  show("wait");
+
+  show("play");
 }
 
 // Final is everyone's. A Daily Double is one team's, frozen onto the clue when it was opened
@@ -443,8 +446,9 @@ function toJoinScreen() {
   myId = null;
   team = null;
   game = {};
-  wasLocked = false;
+  answerRound = null;
   wagerRound = null;
+  $("#answerWrap").hidden = false;
   $("#answer").disabled = false;
   $("#answer").value = "";
   $("#lock").disabled = false;
@@ -458,21 +462,45 @@ function toJoinScreen() {
   show("join");
 }
 
-function setLocked(locked, answer) {
+// Written answers can be off for a whole game, in which case the buzzer is the only control
+// and teams answer out loud. The final clue is the exception the setting carries: every team
+// answers that one at the same time, so there is nobody to say it to.
+function typingOn() {
+  return !game.buzzersOnly || !!(game.clue && game.clue.final);
+}
+
+// The one place the buzzer screen is drawn, in the three states the room puts it in: a clue
+// is open and it takes an answer, this team has already locked one in, or there is no clue
+// and both controls are dead. Dead rather than gone - see route().
+function renderPlay() {
   const box = $("#answer");
   const btn = $("#lock");
-  if (locked) {
-    box.value = answer;
-  } else if (wasLocked) {
-    box.value = "";                    // only on release, so live typing is never wiped
+  const typing = typingOn();
+  const live = !!game.clue && !game.wagering;
+  // Optimistic: Firebase fires a listener on the local write before the server has it, so
+  // the press has to show as locked on its own rather than waiting for the echo.
+  const locked = !!(team && team.locked) || sending === "answer";
+
+  $("#answerWrap").hidden = !typing;
+  box.disabled = !live || locked;
+  btn.disabled = !live || locked;
+
+  // Cleared when the clue changes, not when the lock is released: a score correction
+  // mid-typing used to be the only re-render that could wipe a half-typed answer, and the
+  // host's reset only ever reaches a team that locked something in - a student who typed and
+  // never locked carried it into the next question.
+  const round = !live ? null : game.clue.final ? "final" : game.clue.cat + "-" + game.clue.row;
+  if (round !== answerRound) {
+    answerRound = round;
+    box.value = "";
     $("#playErr").textContent = "";
   }
-  wasLocked = locked;
-  box.disabled = locked;
-  btn.disabled = locked;
-  btn.textContent = !locked ? "Lock Answer"
-    : sending === "answer" ? "Sending..."
-    : "Locked in";
+  // Empty until the write echoes back, and the box already holds what was typed.
+  if (locked && team && team.answer) box.value = team.answer;
+
+  btn.textContent = sending === "answer" ? "Sending..."
+    : locked ? (typing ? "Locked in" : "Buzzed in")
+    : (typing ? "Lock Answer" : "Buzz In");
 }
 
 // Firebase applies a write locally and fires listeners before the server has seen it, so a
@@ -480,19 +508,24 @@ function setLocked(locked, answer) {
 // difference between "Locked in" and the teacher marking the round without them.
 function lockIn() {
   if (!teamRef || sending) return;
+  // The real guard on a buzz, rather than trusting that the button was disabled: between
+  // clues there is nothing to ring in to, and a write here would put a team in the order for
+  // a question that is not open.
+  if (!game.clue || game.wagering) return;
+  const typing = typingOn();
   const answer = $("#answer").value.trim();
-  if (!answer) return;                 // empty box does nothing
+  if (typing && !answer) return;       // empty box does nothing; with no box, the buzz is all
   // Muting is the room's, not the device's: the teacher turns it off once and thirty
   // Chromebooks go quiet, which is the only version of this setting that is any use in a
   // lesson. It still beeps for the tap, not for the delivery.
   if (!game.muted) beep();
   sending = "answer";
-  setLocked(true, answer);
-  teamRef.update({ answer: answer, buzzedAt: SERVER_TIME, locked: true })
+  renderPlay();
+  teamRef.update({ answer: typing ? answer : "", buzzedAt: SERVER_TIME, locked: true })
     .then(() => {
       sending = null;
       $("#playErr").textContent = "";
-      if (team) setLocked(!!team.locked, team.answer || "");
+      renderPlay();
     })
     .catch((err) => { sending = null; $("#playErr").textContent = err.message; });
 }

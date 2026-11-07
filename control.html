@@ -87,6 +87,7 @@
       <label class="opt"><input type="checkbox" id="mute"> Mute all buzzers</label>
       <label class="opt"><input type="checkbox" id="teamsPick"> Let teams pick their own clues</label>
       <label class="opt"><input type="checkbox" id="showCode"> Show the room code on the board</label>
+      <label class="opt"><input type="checkbox" id="buzzOnly"> Buzzers only - teams answer out loud</label>
     </div>
     <div class="acts">
       <button id="roundBtn" class="quiet">Go to round 2</button>
@@ -171,6 +172,7 @@ const LAST_ROOM = "clueboard-host-room";
 const SET_KEY = "clueboard-set";           // the raw paste, re-parsed on load
 const PICK_KEY = "clueboard-teams-pick";   // host preference, remembered between games
 const CODE_KEY = "clueboard-show-code";    // the same, for the code in the board's corner
+const BUZZ_KEY = "clueboard-buzzers-only"; // and for a game played without answer boxes
 const TITLE_KEY = "clueboard-title";       // so a refresh mid-lesson still knows the game
 const STILL_BEATING = 3 * 60 * 1000;
 // What a student device treats as a room still being alive. A code is not free to hand out
@@ -196,6 +198,10 @@ let teamsPick = localStorage.getItem(PICK_KEY) === "1";
 // Off unless it has been turned on: a game screen carries the clue and nothing else, and a
 // class that has joined has no use for the code.
 let showCode = localStorage.getItem(CODE_KEY) === "1";
+// No answer boxes on the student devices: they buzz in and answer out loud, which is how a
+// quiz is run in a room where not everybody has a device. The final clue keeps its box, since
+// every team answers that one at once.
+let buzzersOnly = localStorage.getItem(BUZZ_KEY) === "1";
 // Kept rather than read off the field at publish time, because openRoom also runs on a
 // refresh, where the setup screen the field lives on was never shown.
 let gameTitle = localStorage.getItem(TITLE_KEY) || "";
@@ -208,6 +214,7 @@ let idleTimer = null;
 $("#mute").checked = muted;
 $("#teamsPick").checked = teamsPick;
 $("#showCode").checked = showCode;
+$("#buzzOnly").checked = buzzersOnly;
 $("#importBtn").addEventListener("click", importSet);
 $("#sampleBtn").addEventListener("click", loadSample);
 $("#reimportBtn").addEventListener("click", () => showSetup(true));
@@ -218,6 +225,7 @@ $("#cog").addEventListener("click", togglePanel);
 $("#mute").addEventListener("change", setMute);
 $("#teamsPick").addEventListener("change", setTeamsPick);
 $("#showCode").addEventListener("change", setShowCode);
+$("#buzzOnly").addEventListener("change", setBuzzersOnly);
 $("#roundBtn").addEventListener("click", () => moves.setRound(otherRound()));
 $("#endGame").addEventListener("click",
   () => arm($("#endGame"), "End the game", () => moves.end()));
@@ -477,7 +485,8 @@ function openRoom(code) {
     if (!gameTitle && was.title) gameTitle = was.title;
     return gameRef.update({ round: round, grid: roundGrid(clueSet, round), pick: null,
                             teamsPick: teamsPick || null, picker: null, muted: muted || null,
-                            showCode: showCode || null, title: gameTitle || null });
+                            showCode: showCode || null, buzzersOnly: buzzersOnly || null,
+                            title: gameTitle || null });
   }).catch((err) => { alert("Could not start the game: " + err.message); });
 
   teamsRef.on("value", renderTeams);
@@ -1050,6 +1059,14 @@ function setShowCode() {
   showCode = $("#showCode").checked;
   localStorage.setItem(CODE_KEY, showCode ? "1" : "0");
   if (gameRef) gameRef.update({ showCode: showCode || null }).catch(() => {});
+}
+
+// Mid-game is a fair moment to flip this: the answer boxes go, or come back, on the next
+// snapshot, and nothing a team has already locked in is touched.
+function setBuzzersOnly() {
+  buzzersOnly = $("#buzzOnly").checked;
+  localStorage.setItem(BUZZ_KEY, buzzersOnly ? "1" : "0");
+  if (gameRef) gameRef.update({ buzzersOnly: buzzersOnly || null }).catch(() => {});
 }
 
 // Two taps, because each of these stops a lesson: the first arms the button and says so,

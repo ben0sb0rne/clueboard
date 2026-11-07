@@ -83,6 +83,8 @@ body.student { height: 100dvh; overflow: hidden; }
   color: var(--muted);
 }
 .who span:first-child {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -136,6 +138,10 @@ body.student { height: 100dvh; overflow: hidden; }
    wager commits a team exactly as hard as locking an answer, and it is the same move. */
 #lock,
 #wagerBtn { flex: 0 0 24dvh; width: 100%; }
+/* Buzzers only: with the box gone the button is the screen, which is also the one control a
+   student can hit without looking down at it. Keyed off the hidden box rather than a class of
+   its own - there is only one thing that can hide it. */
+#answerWrap[hidden] ~ #lock { flex: 1; min-height: 0; }
 #lock:active,
 #wagerBtn:active { background: var(--value-gold-lit); box-shadow: none; transform: translateY(5px); }
 #lock:disabled,

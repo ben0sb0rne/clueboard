@@ -133,6 +133,23 @@ asked them to find on a phone a thing already on the wall in front of them. The 
 in the system font there, not Anton - a webfont on thirty phones for a screen that is up for
 five seconds is not a trade worth making.
 
+**The buzzer never leaves a student's screen.** It is the one screen a phone sits on for a
+whole lesson, so between clues it stays exactly where it is and goes dead - empty box, grey
+button - rather than being replaced by "Waiting for the next clue...", which is a sentence a
+student reads once and then stares at for forty minutes. A control that is always in the same
+place and lights up when it works is less to learn than a screen that keeps changing. Three
+things take it off screen, and each is something to do rather than something to read: the
+grid when this team has the pick, a Daily Double that belongs to somebody else, and the
+wager. The box clears itself when the clue changes, so what somebody typed and never locked
+in cannot follow them into the next question.
+
+**`Buzzers only` in the cog takes the answer boxes away** for a whole game: teams ring in and
+answer out loud, and the buzzer fills the phone. Use it for a room where the devices are a
+show of hands with a buzz order attached. The dashboard still has the correct answer to mark
+against, and the buzz order column is what it is read by. The final clue keeps its box in any
+case - every team answers that one at the same time, so there is nobody to say it to. The
+setting is remembered between games and can be flipped mid-game.
+
 **While a clue is open, a team that has rung in is at full strength and everyone still
 thinking is pulled back** - on the podiums and on the dashboard's team list alike. Lighting
 the background alone was not a difference anyone read from the back of a room. It is only
@@ -205,6 +222,8 @@ is no place for a paragraph of instructions:
   under its name, wrapping onto as many lines as it needs.
 - `Mute all buzzers` in the cog silences the whole room, student devices included, not just
   the dashboard. It is remembered between games.
+- `Buzzers only` in the cog runs the game with no answer boxes on the student devices, except
+  on the final clue. Also remembered between games.
 - On the final clue, tap a team's answer to put it on the board.
 - While wagers are coming in, the teams column says who is in, never how much. An amount
   there is a number you can read and do nothing with - it cannot go on the board until the
