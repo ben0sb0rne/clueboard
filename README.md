@@ -235,7 +235,11 @@ is no place for a paragraph of instructions:
 
 - `board.html` - student-facing, on the TV. Never touched during a game.
 - `control.html` - everything the teacher does. Holds the clue set, in memory.
-- `index.html` - student devices: buzz, answer, wager, and pick a clue when handed the board.
+- `index.html` - the front page, and student devices: buzz, answer, wager, and pick a clue
+  when handed the board. The two are one page because the join address on the board is
+  this directory, so whatever is at `/` has to be what gets a student into a game.
+- `privacy.html` - the privacy and COPPA statement, linked from the front page. Every claim
+  on it is a claim about this code; change it when the data model changes.
 - `clues.js` - parses a clue set, and works out what a clue is worth. `node clues.test.js`.
 - `game.js` - every move a host can make, with no screen attached. Both host screens drive a
   room through it, so the rules of a game are written once.
@@ -345,6 +349,21 @@ is 331,776, which sounds like plenty until you remember that a room lingers an h
 host closes and that teachers all start at nine o'clock. A code that is already somebody's
 game sends their class into yours. Teams are pinned to their known
 fields and `buzzedAt` must equal the server clock, so a student cannot fake an earlier buzz.
+
+**A recycled code is wiped before it is opened on.** An hour without a host makes a room
+reusable, and nothing used to delete what the last game left there - so a code handed back out
+could drop a stranger's teams, the first names they typed and their scores onto a dashboard in
+front of a different class. `freeCode` wipes in the branch that has just established the room is
+stale. It leaves the give-up branch alone, where the code was never checked and a wipe could
+take a live game.
+
+**A room nobody closed is cleaned up by the browser that opened it.** The rules do not let a
+client list rooms - deliberately, since that list would be every live code - so the host's own
+browser is the only thing that still knows the code. `clueboard-host-room` holds every room
+this browser has opened and not closed, capped at twenty, and each one is wiped and dropped
+from the list the next time the control screen loads. It used to hold a single code, which
+meant a room abandoned two lessons ago was never cleaned up by anything at all. The key still
+reads a bare code, from before it was a list.
 
 `game` is world-writable, because without auth the rules cannot tell a teacher from a student.
 A determined student with devtools could clear the board. That is the same exposure the buzzer

@@ -89,6 +89,17 @@
       <label class="opt"><input type="checkbox" id="showCode"> Show the room code on the board</label>
       <label class="opt"><input type="checkbox" id="buzzOnly"> Buzzers only - teams answer out loud</label>
     </div>
+    <!-- Five made pairs and then the two colours themselves, in that order, because the
+         realistic want is "the green one" rather than a hex code. The board repaints as the
+         picker is dragged, which is a better preview than any swatch: the question is never
+         whether a colour is nice, it is whether the dimmed podium still reads as dimmer than
+         the lit one from the back of the room, and only the board at full size shows that. -->
+    <div class="colours">
+      <span class="optname">Colours</span>
+      <div class="swatches" id="swatches"></div>
+      <label class="pick" title="The board"><input type="color" id="groundPick"></label>
+      <label class="pick" title="The values"><input type="color" id="accentPick"></label>
+    </div>
     <div class="acts">
       <button id="roundBtn" class="quiet">Go to round 2</button>
       <button id="finalBtn" class="quiet">Go to the final clue</button>
@@ -164,6 +175,8 @@
 <script src="clues.js"></script>
 <!-- The moves a host can make, shared with the board, which can now run a game by itself. -->
 <script src="game.js"></script>
+<!-- The room's colours, shared with the board and the student devices. -->
+<script src="theme.js"></script>
 <script>
 const $ = (s) => document.querySelector(s);
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ";   // no I or O: they read as 1 and 0 on a projector
@@ -173,6 +186,7 @@ const SET_KEY = "clueboard-set";           // the raw paste, re-parsed on load
 const PICK_KEY = "clueboard-teams-pick";   // host preference, remembered between games
 const CODE_KEY = "clueboard-show-code";    // the same, for the code in the board's corner
 const BUZZ_KEY = "clueboard-buzzers-only"; // and for a game played without answer boxes
+const THEME_KEY = "clueboard-theme";       // the two colours the rest of the palette follows
 const TITLE_KEY = "clueboard-title";       // so a refresh mid-lesson still knows the game
 const STILL_BEATING = 3 * 60 * 1000;
 // What a student device treats as a room still being alive. A code is not free to hand out
@@ -202,6 +216,8 @@ let showCode = localStorage.getItem(CODE_KEY) === "1";
 // quiz is run in a room where not everybody has a device. The final clue keeps its box, since
 // every team answers that one at once.
 let buzzersOnly = localStorage.getItem(BUZZ_KEY) === "1";
+// Null is Studio Blue: the default lives in palette.css and nothing here repeats it.
+let theme = loadTheme();
 // Kept rather than read off the field at publish time, because openRoom also runs on a
 // refresh, where the setup screen the field lives on was never shown.
 let gameTitle = localStorage.getItem(TITLE_KEY) || "";
@@ -215,6 +231,8 @@ $("#mute").checked = muted;
 $("#teamsPick").checked = teamsPick;
 $("#showCode").checked = showCode;
 $("#buzzOnly").checked = buzzersOnly;
+applyTheme(theme);      // before the first paint, so this screen never flashes the default
+drawSwatches();
 $("#importBtn").addEventListener("click", importSet);
 $("#sampleBtn").addEventListener("click", loadSample);
 $("#reimportBtn").addEventListener("click", () => showSetup(true));
@@ -226,6 +244,10 @@ $("#mute").addEventListener("change", setMute);
 $("#teamsPick").addEventListener("change", setTeamsPick);
 $("#showCode").addEventListener("change", setShowCode);
 $("#buzzOnly").addEventListener("change", setBuzzersOnly);
+// input, not change: it fires continuously as the picker is dragged, which is what makes the
+// projector window a live preview rather than an apply-and-see.
+$("#groundPick").addEventListener("input", pickColours);
+$("#accentPick").addEventListener("input", pickColours);
 $("#roundBtn").addEventListener("click", () => moves.setRound(otherRound()));
 $("#endGame").addEventListener("click",
   () => arm($("#endGame"), "End the game", () => moves.end()));
@@ -256,8 +278,12 @@ addEventListener("resize", () => {
 const fromUrl = (new URL(location).searchParams.get("room") || "")
   .toUpperCase().replace(/[^A-Z]/g, "").slice(0, 4);
 
-const leftover = localStorage.getItem(LAST_ROOM);
-if (leftover && leftover !== fromUrl) wipeIfDead(leftover);
+// Every room this browser left open, cleaned up the next time it is used. Each one that goes
+// is dropped from the list; one that is still being hosted somewhere stays on it for next time.
+leftovers().forEach((code) => {
+  if (code === fromUrl) return;
+  wipeIfDead(code).then((gone) => { if (gone) forgetRoom(code); });
+});
 
 loadStoredSet();
 if (clueSet && /^[A-Z]{4}$/.test(fromUrl)) openRoom(fromUrl);
@@ -346,11 +372,23 @@ function createRoom() {
 // Four tries, then take the last one anyway: at that point the odds say the database is
 // unreachable rather than that the alphabet has run out, and refusing to open a room in
 // front of a waiting class is the worse failure.
+//
+// A code handed back here may still be carrying the last game's teams, because an hour
+// without a host makes a room reusable and nothing has ever deleted what it left. Opening on
+// top of that put a stranger's class - their team names, whatever they typed for members,
+// their scores - on the board of a teacher who had never seen them. So it is wiped on the
+// way out, in the branch that has just established it is stale. The give-up branch is left
+// alone on purpose: that code was never checked, so a wipe there could take a live game, and
+// a wipe would be failing anyway in the case that branch exists for.
 function freeCode(tries) {
   const code = newCode();
   if (tries <= 1) return Promise.resolve(code);
   return hostSeenAge(code).then((age) =>
-    age === null || age > HOST_GONE ? code : freeCode(tries - 1));
+    age === null || age > HOST_GONE
+      // Not allowed to stop the room opening: in front of a class, a room with somebody
+      // else's teams on it beats no room at all, and the cog can remove them.
+      ? wipeRoom(code).catch(() => {}).then(() => code)
+      : freeCode(tries - 1));
 }
 
 // The whole set, read before the lesson rather than discovered during it. It renders with the
@@ -460,7 +498,7 @@ function openRoom(code) {
   $("#dash").hidden = false;
 
   roomCode = code;
-  localStorage.setItem(LAST_ROOM, code);
+  rememberRoom(code);
   // The host's moves on this room, from game.js. It reads this screen's own state through
   // these getters rather than keeping a copy, so there is only ever one.
   moves = hostMoves({
@@ -483,10 +521,11 @@ function openRoom(code) {
     // Reopening on a device that never typed the title takes it back off the room, rather
     // than blanking the card the board opens on.
     if (!gameTitle && was.title) gameTitle = was.title;
+    if (!theme && was.theme) { theme = loadTheme(was.theme); applyTheme(theme); drawSwatches(); }
     return gameRef.update({ round: round, grid: roundGrid(clueSet, round), pick: null,
                             teamsPick: teamsPick || null, picker: null, muted: muted || null,
                             showCode: showCode || null, buzzersOnly: buzzersOnly || null,
-                            title: gameTitle || null });
+                            theme: theme, title: gameTitle || null });
   }).catch((err) => { alert("Could not start the game: " + err.message); });
 
   teamsRef.on("value", renderTeams);
@@ -1063,6 +1102,69 @@ function setShowCode() {
 
 // Mid-game is a fair moment to flip this: the answer boxes go, or come back, on the next
 // snapshot, and nothing a team has already locked in is touched.
+/* ---------- colours ---------- */
+
+// Takes a stored or published value and gives back a usable pair or null. Everything that
+// reads a theme comes through here, so "is this two hex colours" is asked in one place.
+function loadTheme(from) {
+  let t = from;
+  if (t === undefined) {
+    try { t = JSON.parse(localStorage.getItem(THEME_KEY) || "null"); } catch (e) { t = null; }
+  }
+  return (t && okColour(t.ground) && okColour(t.accent))
+    ? { ground: t.ground, accent: t.accent } : null;
+}
+
+function setTheme(t) {
+  theme = loadTheme(t);
+  if (theme) localStorage.setItem(THEME_KEY, JSON.stringify(theme));
+  else localStorage.removeItem(THEME_KEY);
+  applyTheme(theme);
+  drawSwatches();
+  pushTheme();
+}
+
+// Dragging a picker fires on every pixel of travel. The board is a separate window reading
+// this out of the database, so it has to be published to follow along - but not sixty times a
+// second. A beat's wait is below what the eye reads as lag and turns a drag into a few writes.
+let themeWrite = null;
+function pushTheme() {
+  clearTimeout(themeWrite);
+  themeWrite = setTimeout(() => {
+    if (gameRef) gameRef.update({ theme: theme }).catch(() => {});
+  }, 150);
+}
+
+function pickColours() {
+  setTheme({ ground: $("#groundPick").value, accent: $("#accentPick").value });
+}
+
+// The made pairs, each drawn as the thing it is - a board with a value on it - because the
+// pair is what was chosen, not either colour on its own.
+function drawSwatches() {
+  const wrap = $("#swatches");
+  const now = theme || THEMES[0];
+  wrap.textContent = "";
+  THEMES.forEach((t) => {
+    const b = document.createElement("button");
+    b.className = "swatch";
+    b.style.background = t.ground;
+    b.title = t.name;
+    b.setAttribute("aria-label", t.name);
+    b.setAttribute("aria-pressed",
+      String(t.ground === now.ground && t.accent === now.accent));
+    const bar = document.createElement("i");
+    bar.style.background = t.accent;
+    b.appendChild(bar);
+    // The first is the original, and choosing it clears the room's colours rather than
+    // publishing a copy of the default.
+    b.addEventListener("click", () => setTheme(t === THEMES[0] ? null : t));
+    wrap.appendChild(b);
+  });
+  $("#groundPick").value = now.ground;
+  $("#accentPick").value = now.accent;
+}
+
 function setBuzzersOnly() {
   buzzersOnly = $("#buzzOnly").checked;
   localStorage.setItem(BUZZ_KEY, buzzersOnly ? "1" : "0");
@@ -1101,12 +1203,38 @@ function wipeRoom(code) {
     .then(() => db.ref("rooms/" + code + "/hostSeen").remove().catch(() => {}));
 }
 
+// Resolves true only when the room is gone, so a leftover is forgotten once it is cleaned up
+// and a live one is kept on the list for next time.
 function wipeIfDead(code) {
   return hostSeenAge(code).then((age) => {
-    if (code === roomCode) return;
-    if (age !== null && age < STILL_BEATING) return;
-    return wipeRoom(code);
-  }).catch(() => {});
+    if (code === roomCode) return false;
+    if (age !== null && age < STILL_BEATING) return false;
+    return wipeRoom(code).then(() => true);
+  }).catch(() => false);
+}
+
+// Rooms this browser has opened and not closed. This was a single code, which meant a room
+// abandoned two lessons ago was never cleaned up by anything: the rules do not let a client
+// list rooms - deliberately, since the list would be every live code - so this browser is the
+// only thing in the world that still knows the code, and one slot forgot it the next lesson.
+function leftovers() {
+  const raw = localStorage.getItem(LAST_ROOM);
+  if (!raw) return [];
+  try {
+    const v = JSON.parse(raw);
+    return Array.isArray(v) ? v : [];
+  } catch (e) {
+    return [raw];          // the bare code this key used to hold
+  }
+}
+
+function rememberRoom(code) {
+  const list = leftovers().filter((c) => c !== code).concat(code);
+  localStorage.setItem(LAST_ROOM, JSON.stringify(list.slice(-20)));
+}
+
+function forgetRoom(code) {
+  localStorage.setItem(LAST_ROOM, JSON.stringify(leftovers().filter((c) => c !== code)));
 }
 
 // And this is the step that does destroy it, which is why it is a separate button with its
@@ -1123,7 +1251,7 @@ function closeRoom() {
   wipeRoom(code).then(() => {
     tRef.off();
     gRef.off();
-    localStorage.removeItem(LAST_ROOM);
+    forgetRoom(code);
     teamsRef = null;
     gameRef = null;
     moves = null;

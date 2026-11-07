@@ -33,10 +33,66 @@
   --clue-white: #fff;
 
   --ink: #fff;        /* text, and anything drawn on the dark ground */
-  --muted: #9ca0d8;   /* labels, and a control that is not the point */
-  --line: #272c6b;    /* the ring round a quiet control, and a rule */
-  --faint: #101338;   /* a surface raised off the page */
   --red: #e4323a;     /* taking away: a deduction, a negative, an error */
   --red-dark: #a3161c;
   --good: #3ecf6d;    /* the correct answer, and awarding it */
+
+  /* Everything from here down is a step away from the two above, and the values written here
+     are only the fallback for a browser that cannot work them out - see the block below. */
+  --muted: #9ca0d8;        /* labels, and a control that is not the point */
+  --line: #272c6b;         /* the ring round a quiet control, and a rule */
+  --faint: #101338;        /* a surface raised off the page */
+  --spent: #070826;        /* a cell whose clue has been played */
+  --podium-dim: #0d0f33;   /* a team that has not rung in */
+  --podium: #13154a;       /* and one that has nothing to say either way */
+  --podium-lit: #1d2070;   /* and one that is in */
+  --off: #4b4f8c;          /* a control that cannot be pressed yet */
+  --placeholder: #5a5f9e;  /* an empty field */
+  --quiet: #6f74b4;        /* a label that is not being read */
+  --label: #8f93c8;        /* and one that is */
+  --pale: #b9bce6;         /* the lightest the cool side goes */
+  --press-shadow: #a9671f; /* under the gold button, so it has a body */
+}
+
+/* The teacher picks two colours and the rest follows.
+ *
+ * Not a scheme invented for theming - it is what the hand-picked palette already was.
+ * Measured in OKLCH, every blue in the project sat between hue 265 and 282 and every gold
+ * between 63 and 69, with lightness doing all the other work. So each colour above is one
+ * step away from one of the two: an absolute lightness, a share of the source's chroma, and
+ * a hue nudge. Those three numbers are exactly what relative colour syntax takes.
+ *
+ * Checked in Chromium on 7 November 2026: with --board-blue and --value-gold left as they
+ * are, every line below reproduces the hex above it with zero channel drift. So a board with
+ * no theme chosen is not merely close to the old one, it is the old one.
+ *
+ * Lightness is what carries contrast, and it is absolute here. An alternate palette therefore
+ * has the original's contrast at every step by construction: the dim / normal / lit podium
+ * ladder reads the same whatever hue it is in, and a teacher can pick a pair that is not to
+ * their taste but not one that is unreadable from the back of the room.
+ *
+ * It has to sit behind @supports rather than rely on a fallback declaration, because a custom
+ * property has no fallback - the last one declared always wins, valid or not. A browser
+ * without relative colour (before Chrome 119 or Safari 16.4) keeps the hexes above and simply
+ * does not theme. */
+@supports (color: oklch(from red l c h)) {
+  :root {
+    --gap-ink: oklch(from var(--board-blue) 0.134 calc(c * 0.327) calc(h + 8.8));
+    --spent: oklch(from var(--board-blue) 0.158 calc(c * 0.392) calc(h + 9.7));
+    --surround: oklch(from var(--board-blue) 0.165 calc(c * 0.364) calc(h + 11.1));
+    --podium-dim: oklch(from var(--board-blue) 0.193 calc(c * 0.449) calc(h + 9.8));
+    --faint: oklch(from var(--board-blue) 0.210 calc(c * 0.457) calc(h + 9.4));
+    --podium: oklch(from var(--board-blue) 0.235 calc(c * 0.619) calc(h + 9.0));
+    --podium-lit: oklch(from var(--board-blue) 0.302 calc(c * 0.865) calc(h + 7.8));
+    --line: oklch(from var(--board-blue) 0.328 calc(c * 0.697) calc(h + 9.7));
+    --board-blue-lit: oklch(from var(--board-blue) 0.393 calc(c * 1.580) calc(h - 0.6));
+    --off: oklch(from var(--board-blue) 0.454 calc(c * 0.635) calc(h + 13.3));
+    --placeholder: oklch(from var(--board-blue) 0.510 calc(c * 0.640) calc(h + 13.3));
+    --quiet: oklch(from var(--board-blue) 0.582 calc(c * 0.630) calc(h + 13.9));
+    --label: oklch(from var(--board-blue) 0.680 calc(c * 0.503) calc(h + 15.2));
+    --muted: oklch(from var(--board-blue) 0.723 calc(c * 0.523) calc(h + 15.5));
+    --pale: oklch(from var(--board-blue) 0.807 calc(c * 0.381) calc(h + 16.2));
+    --press-shadow: oklch(from var(--value-gold) 0.575 calc(c * 0.773) calc(h - 1.6));
+    --value-gold-lit: oklch(from var(--value-gold) 0.846 calc(c * 0.783) calc(h + 4.9));
+  }
 }

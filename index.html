@@ -12,24 +12,45 @@
 <!-- No KaTeX here, on purpose. Category names are plain text and the clue itself is on the
      projector, so the player screen stays dependency-free. -->
 
-<main id="join" class="screen">
-  <h1>Clueboard</h1>
+<!-- The front page and the join screen are one screen, and have to be: the address students
+     read off the board is this directory, built as new URL("./", location.href) by both
+     board.html and control.html. So whatever is at / is what a student lands on with a code
+     in their hand - which is why the code field gets the middle of the screen and the two
+     links for everybody else get a corner each. -->
+<main id="join" class="screen home">
+  <header class="wordmark">
+    <h1>Clueboard</h1>
+    <p class="tag">A quiz board for the classroom</p>
+  </header>
 
-  <div class="field">
-    <label for="code">Room code</label>
-    <input id="code" maxlength="4" autocapitalize="characters" autocomplete="off" spellcheck="false">
-  </div>
-  <div class="field">
-    <label for="team">Team name</label>
-    <input id="team" maxlength="40" autocomplete="off">
-  </div>
-  <div class="field">
-    <label for="members">Team members (separate with commas)</label>
-    <input id="members" maxlength="200" autocomplete="off" placeholder="Ada, Grace, Alan">
+  <div class="entry">
+    <div class="field">
+      <label for="code">Room code</label>
+      <input id="code" maxlength="4" autocapitalize="characters" autocomplete="off" spellcheck="false"
+        placeholder="----">
+    </div>
+    <div class="field">
+      <label for="team">Team name</label>
+      <input id="team" maxlength="40" autocomplete="off">
+    </div>
+    <div class="field">
+      <label for="members">Team members (separate with commas)</label>
+      <input id="members" maxlength="200" autocomplete="off" placeholder="Ada, Grace, Alan">
+    </div>
+
+    <p id="joinErr" class="err"></p>
+    <button id="joinBtn">Join</button>
   </div>
 
-  <p id="joinErr" class="err"></p>
-  <button id="joinBtn">Join</button>
+  <footer class="corners">
+    <a class="corner" href="control.html">Host a game</a>
+    <!-- Placeholder. When there is a designer: give this an href and drop .soon. -->
+    <a class="corner soon">Designer <span class="pend">soon</span></a>
+  </footer>
+  <p class="legal">
+    No accounts, no tracking, and nothing kept after the game.
+    <a href="privacy.html">Privacy and COPPA</a>
+  </p>
 </main>
 
 <main id="boot" class="screen" hidden>
@@ -105,6 +126,8 @@
 <!-- Our own file, not a dependency: it carries the wager cap, and one definition of that rule
      across the three screens beats three that can drift. KaTeX is what stays off this page. -->
 <script src="clues.js"></script>
+<!-- The room's colours, so thirty phones match the board. -->
+<script src="theme.js"></script>
 <script>
 const $ = (s) => document.querySelector(s);
 const STORE = "clueboard-team";
@@ -231,7 +254,11 @@ function attach(code, teamId) {
     route();
   });
 
-  gameRef.on("value", (snap) => { game = snap.val() || {}; route(); });
+  gameRef.on("value", (snap) => {
+    game = snap.val() || {};
+    applyTheme(game.theme);
+    route();
+  });
 }
 
 // The buzzer is where a student device sits for a whole lesson, so it does not go anywhere:

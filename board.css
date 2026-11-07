@@ -161,7 +161,7 @@ body.board {
   font-size: clamp(16px, 2.2vw, 30px);
   letter-spacing: 0.3em;
   text-transform: uppercase;
-  color: #8f93c8;
+  color: var(--label);
 }
 .board .wcode {
   font-size: clamp(90px, 24vw, 340px);
@@ -177,7 +177,7 @@ body.board {
   max-width: 80vw;
   font-size: clamp(16px, 2vw, 30px);
   line-height: 1.5;
-  color: #b9bce6;
+  color: var(--pale);
 }
 
 /* The grid: 6 categories across, 5 values down, near-black gaps. The section has to be a
@@ -233,7 +233,7 @@ body.board {
 
 /* Spent cells go dark rather than disappearing: the grid has to keep its shape, because the
    clue animation is measured against these cells. */
-.board .cell.spent { background: #070826; }
+.board .cell.spent { background: var(--spent); }
 .board .cell.spent span { visibility: hidden; }
 
 /* The clue, full screen. position: fixed and transform-only, so the expand out of a cell
@@ -360,20 +360,20 @@ body.board {
   min-width: 0;
   padding: 0.7vh 0.5vw 1vh;
   text-align: center;
-  background: #13154a;
+  background: var(--podium);
   border-bottom: clamp(3px, 0.4vw, 7px) solid transparent;
 }
 /* The one gold line in the game, and the only thing that says whose pick it is. It is on the
    board and nowhere else: the dashboard already says so in words on the state line, and had
    a second gold mark of its own down the side of the team's row. */
 .board .podium.picking { border-bottom-color: var(--value-gold); }
-.board .podium.buzzed { background: #1d2070; }
+.board .podium.buzzed { background: var(--podium-lit); }
 /* While a clue is open, a team that has rung in is at its ordinary strength and everyone
    still thinking is pulled back - darker ground, and the type dimmed with it. Lighting the
    background alone was not a difference anyone read from the back of a room. The opacity
    takes the black edge down with the letter, which a colour change would leave at full
    strength and turn into an outline. */
-.board #podiums.live .podium:not(.buzzed) { background: #0d0f33; }
+.board #podiums.live .podium:not(.buzzed) { background: var(--podium-dim); }
 .board #podiums.live .podium:not(.buzzed) .pname,
 .board #podiums.live .podium:not(.buzzed) .pscore { opacity: 0.4; }
 /* The team's name is set at the score's size, not a caption above it: a podium is a name
@@ -386,7 +386,7 @@ body.board {
   letter-spacing: 0.02em;
   line-height: 1.1;
   text-transform: uppercase;
-  color: #9aa0dd;
+  color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -411,7 +411,7 @@ body.board {
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
-.board .panswer.blank { color: #8c90c6; }
+.board .panswer.blank { color: var(--label); }
 
 /* ---------- the results ---------- */
 
@@ -434,7 +434,7 @@ body.board {
   font-weight: 700;
   letter-spacing: 0.3em;
   text-transform: uppercase;
-  color: #8f93c8;
+  color: var(--label);
 }
 /* column-reverse, so the row built first - last place - is the one at the bottom. */
 .board .resultlist {
@@ -456,7 +456,7 @@ body.board {
   align-items: center;
   gap: 2vw;
   padding: 0 2vw;
-  background: #13154a;
+  background: var(--podium);
   opacity: 0;
   transform: translateY(35%);
   transition: opacity var(--slow) linear, transform var(--slow) var(--ease);
@@ -472,7 +472,7 @@ body.board {
   text-align: center;
   font-size: clamp(22px, 3.4vw, 64px);
   font-weight: 700;
-  color: #6f74b4;
+  color: var(--quiet);
 }
 .board .result.first .rplace { color: var(--value-gold); }
 .board .rwho { flex: 1; min-width: 0; }
@@ -490,7 +490,7 @@ body.board {
   margin-top: 0.2em;
   font-size: clamp(11px, 1.3vw, 24px);
   line-height: 1.25;
-  color: #b9bce6;
+  color: var(--pale);
   overflow: hidden;
   display: -webkit-box;
   -webkit-box-orient: vertical;
@@ -514,7 +514,7 @@ body.board {
   z-index: 20;
   font-size: clamp(10px, 1.1vw, 18px);
   letter-spacing: 0.18em;
-  color: #6f74b4;
+  color: var(--quiet);
   pointer-events: none;
 }
 
@@ -582,7 +582,7 @@ body.board {
 }
 .control button.act:disabled,
 .control button.quiet:disabled {
-  color: #4b4f8c;
+  color: var(--off);
   background: none;
   box-shadow: inset 0 0 0 2px var(--line);
 }
@@ -741,7 +741,7 @@ body.board {
   border-radius: 0;
 }
 .control .ctlcell:hover:not(:disabled) { background: var(--board-blue-lit); }
-.control .ctlcell.spent { background: #0b0c2c; color: transparent; }
+.control .ctlcell.spent { background: var(--spent); color: transparent; }
 
 .control .ctlclue {
   padding: 1em 1.1em;
@@ -848,7 +848,7 @@ body.board {
 }
 .control .mark .plus { color: var(--gap-ink); background: var(--good); }
 .control .mark .minus { color: #fff; background: var(--red); }
-.control .mark button:disabled { color: #4b4f8c; background: none; box-shadow: inset 0 0 0 2px var(--line); }
+.control .mark button:disabled { color: var(--off); background: none; box-shadow: inset 0 0 0 2px var(--line); }
 
 /* The control screen is read at arm's length on a second monitor rather than from the back
    of the room, so it starts smaller than the board's own sizes. Every one of these carries
@@ -1207,7 +1207,7 @@ body.board {
   box-shadow: inset 0 0 0 2px var(--muted);
 }
 .board #hostbar button:disabled {
-  color: #4b4f8c;
+  color: var(--off);
   background: none;
   box-shadow: inset 0 0 0 2px var(--line);
 }
@@ -1238,7 +1238,7 @@ body.board {
 /* Not greyed into invisibility: between clues these are most of what is on the podium, and a
    control that vanishes reads as a bug. They go quiet and stop responding. */
 .board .pmark button:disabled {
-  color: #4b4f8c;
+  color: var(--off);
   background: none;
   box-shadow: inset 0 0 0 2px var(--line);
 }

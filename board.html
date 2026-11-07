@@ -94,6 +94,8 @@
      are two small files and loading them unconditionally beats a second code path. -->
 <script src="clues.js"></script>
 <script src="game.js"></script>
+<!-- The room's colours. Two of them; palette.css works out the rest. -->
+<script src="theme.js"></script>
 <script src="firebase-config.js"></script>
 <script src="demo.js"></script>
 <script src="common.js"></script>
@@ -181,6 +183,8 @@ if (!code) {
 } else {
   db.ref("rooms/" + code + "/game").on("value", (snap) => {
     game = snap.val() || {};
+    // Before render, so a board opening onto a themed room has never been the wrong colour.
+    applyTheme(game.theme);
     render();
   });
   db.ref("rooms/" + code + "/teams").on("value", (snap) => {

@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clueboard - Privacy</title>
+<link rel="stylesheet" href="palette.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<!-- Every claim on this page is a claim about code in this repo, so it changes when the code
+     does. Where each one comes from:
+       the five fields        database.rules.json
+       deletion, and when     closeRoom() / wipeRoom() / wipeIfDead() in control.html
+       the hour               HOST_GONE in index.html, freeCode() in control.html
+       the one outside script the firebasejs <script> tags at the foot of every page
+       answers stay local     the clue set is held in memory by control.html and never written
+
+     The shape is the FTC's six-step plan, step 2, which is the list of what a policy has to
+     carry: who the operator is and how to reach them, what is collected and how, who else
+     gets it, how long it is kept, and how to have it reviewed or deleted. -->
+<body class="doc">
+<main class="wrap">
+
+<h1>Privacy</h1>
+<p class="updated">Last updated 6 November 2026</p>
+
+<p class="lede">Clueboard has no accounts, no sign-in, no advertising and no tracking. While a
+game is running it holds the team names and what students type into it. When the game is closed,
+that is deleted.</p>
+
+<h2>Who runs Clueboard</h2>
+<p>Clueboard is run by one person, not a company.</p>
+<!-- COPPA asks for all four: name, mailing address, telephone number, email. Fill in the first
+     three. A PO box and a forwarding number are the usual answer for a one-person service. -->
+<address class="operator">
+<strong>[name, mailing address and telephone number]</strong><br>
+<a href="mailto:benjamintylerosborne@gmail.com">benjamintylerosborne@gmail.com</a>
+</address>
+<p>Write to that address about anything on this page, or to have something deleted, whether you
+are a student, a parent, a teacher or a school. It reaches the person who runs the service.</p>
+
+<h2>What a game puts on the network</h2>
+<p>A game room is a four-letter code. While that room is open, five things are stored in it, so
+that the board at the front of the class and the teacher's screen can show them:</p>
+<ul>
+  <li>the team name a team types in</li>
+  <li>whatever a team types into the team members box</li>
+  <li>the answers and wagers that team locks in, and the moment it buzzed</li>
+  <li>that team's score</li>
+  <li>which clue is on the projector right now</li>
+</ul>
+<p>That is the whole list of what anybody types. There is no account, no password, no email
+address, no surname field, no class list, no age and no date of birth, because there is nowhere
+in Clueboard to enter one.</p>
+<p>One thing is collected without being typed: joining a game means your device's IP address is
+seen by Google, whose database carries the room. Nothing else happens in the background - no
+analytics, no advertising identifier, no location, no fingerprinting of your device.</p>
+
+<h2>What never goes on the network</h2>
+<ul>
+  <li><strong>The clue set.</strong> A teacher pastes their questions and answers into their own
+    browser and they stay on that device. They are not uploaded. The only thing published to a
+    room is the clue currently on the projector - which the whole room is looking at anyway.</li>
+  <li><strong>Anything for us.</strong> No analytics, no advertising, no tracking cookies. The
+    only code loaded from anywhere other than this site is Google's Firebase library, which is
+    what talks to the database.</li>
+</ul>
+
+<h2>Who else is involved</h2>
+<p>Google, and nobody else. The live game is carried by Google Firebase Realtime Database, and
+the library that talks to it is served by Google from <code>www.gstatic.com</code>. So a room's
+contents, and the IP address of every device in it, pass through Google's servers for as long as
+the game is running. What Google does with that is covered by
+<a href="https://policies.google.com/privacy">Google's privacy policy</a>.</p>
+<p>There is no analytics provider, no advertising network and no other vendor. Nothing is handed
+to anybody else, for any reason, unless the law requires it.</p>
+
+<h2>How long any of it lasts</h2>
+<p><strong>Nothing is kept indefinitely, and there is no copy of it anywhere else.</strong>
+Nothing is archived, backed up by us, or looked at after the lesson.</p>
+<ul>
+  <li><strong>Closing the room deletes it at once.</strong> <em>Close the room</em> on the
+    teacher's screen wipes the teams, the scores and the game, there and then.</li>
+  <li><strong>A room nobody closed stops working after an hour.</strong> Nobody can join it, the
+    teams on it are told the game has ended, and the code goes back in the pool. It is wiped
+    before it is handed to anybody else, so one class's room can never turn up in another's.
+    Either way the contents are deleted the next time that teacher opens the control screen,
+    for every room they left open and not just the last one.</li>
+  <li><strong>Sooner, if you ask.</strong> Write to the address above and it will be deleted.</li>
+</ul>
+<p>Your own browser remembers one thing, on your device and nowhere else, so that a refresh in
+the middle of a lesson does not lose your place: which room and team you are, on a student
+device, and which clue set you loaded, on the teacher's. Clearing your browser data clears it.</p>
+
+<h2>What is never done with it</h2>
+<p>Nothing from a room is sold, rented or shared. None of it is used for advertising of any kind,
+targeted or otherwise. None of it is used to build a profile of any student. None of it is used
+for any commercial purpose at all: Clueboard is free, has nothing to sell and no business model
+to feed.</p>
+
+<h2>Who can see a room, and what protects it</h2>
+<p>Anyone holding the four-letter code can read that room while it is open. There are no
+accounts, so the code is the only thing in the way of it. Codes are put up on the board at the
+front of the room and stop working when the game ends.</p>
+<p>Everything is encrypted in transit: the site is served over HTTPS and the game connects over a
+secure WebSocket. What is deliberately not there is a login, so <strong>a room is only as private
+as its code</strong>, and nothing worth protecting should be typed into one. The clue answers are
+the one thing held back - they never reach the database at all.</p>
+
+<h2>Children's privacy, and COPPA</h2>
+<p>Clueboard is built for a classroom and collects about as little as a game played on several
+devices can.</p>
+<p>What a student does type in is a team name and a team members box, which is there so the
+teacher can tell one team from another. <strong>If a student types a first name there, that is
+personal information</strong>, and it is treated as such: it goes up on the board in front of the
+class, it is used for nothing else, it is never shared, and it is deleted with the room.
+<strong>Teachers: ask for first names or a team nickname.</strong></p>
+<p>Nothing else about a student is asked for anywhere in the app - no surname, no email address,
+no age, no photograph, no location.</p>
+
+<h2>For schools and districts</h2>
+<p>Where students are under 13, Clueboard relies on the school's authorisation rather than
+writing to parents one at a time, which is the route the FTC sets out for services used in
+class. Two things come with that route, and Clueboard holds to both:</p>
+<ul>
+  <li><strong>The decision belongs to the school or the district, not to an individual
+    teacher.</strong> The FTC is explicit about this, and so are we.</li>
+  <li><strong>It covers the lesson and nothing else.</strong> Nothing from a room is ever used
+    commercially, which is the condition the whole route rests on.</li>
+</ul>
+<p>On request from a school, a parent or a guardian, we will say what is held for a given room,
+let it be reviewed, delete it, and stop any further collection. Write to the address above. In
+practice a teacher closing the room does the deleting immediately, and faster than we can.</p>
+<p>Clueboard is not a student record system and holds no education records. There is no roster,
+no grade book and nothing that outlives the lesson, so a school's own FERPA obligations sit where
+they already sit.</p>
+
+<h2>Changes</h2>
+<p>If any of this changes, the date at the top of the page changes with it. The history of every
+change is public, in the repository this page is served from.</p>
+
+<a class="back" href="./">&larr; Back to Clueboard</a>
+
+</main>
+</body>
+</html>

@@ -25,7 +25,7 @@ input {
   border: 2px solid var(--line);
   border-radius: 12px;
 }
-input::placeholder { color: #5a5f9e; }
+input::placeholder { color: var(--placeholder); }
 input:focus { outline: none; border-color: var(--value-gold); }
 
 .err { color: var(--red); margin: 0; min-height: 1.4em; font-size: 1rem; }
@@ -61,18 +61,109 @@ body.student { height: 100dvh; overflow: hidden; }
   font-size: clamp(17px, 4.6vw, 22px);
   padding: 0.55em 0.6em;
 }
-#code { text-transform: uppercase; letter-spacing: 0.3em; font-weight: 700; }
-
 #joinBtn {
   width: 100%;
   padding: 0.7em;
-  margin-top: auto;
   font-size: clamp(19px, 5vw, 26px);
   font-weight: 700;
   color: var(--gap-ink);
   background: var(--value-gold);
 }
 #joinBtn:active { background: var(--value-gold-lit); }
+
+/* ---------- the landing page (index.html's join screen) ---------- */
+
+/* One screen doing both jobs, for the reason given in index.html. The wordmark holds the
+   top, the two quiet links hold the bottom, and everything between them belongs to the room
+   code. overflow-y because .screen is exactly 100dvh and the body cannot scroll: on a short
+   phone with the keyboard up this scrolls rather than cutting the links off the bottom. */
+.home { gap: 0; overflow-y: auto; }
+.home .wordmark { text-align: center; }
+.home h1 {
+  font-size: clamp(30px, 8.5vw, 52px);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.home .tag {
+  margin: 0.35em 0 0;
+  font-size: clamp(13px, 3.6vw, 18px);
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* Auto margins on all four sides: in this column they swallow every spare pixel above and
+   below, so the code sits in the middle of whatever the wordmark and the links leave, and
+   they centre it on a laptop - where a code field the width of the window is not a code
+   field. */
+.home .entry { width: 100%; max-width: 26rem; margin: auto; }
+.home .entry .field:first-child { margin-bottom: 2dvh; }
+/* Centred over a centred field. The two below it are an ordinary form and stay left. */
+.home .entry .field:first-child label { text-align: center; }
+
+/* The show's hard black edge. The two numbers are copied from board.css rather than shared,
+   the same trade .pickgrid makes: loading that file here would pull Anton onto thirty
+   phones. */
+.home h1,
+#code {
+  text-shadow: 0.045em 0.045em 0 #000;
+  -webkit-text-stroke: 0.022em #000;
+  paint-order: stroke fill;
+}
+
+/* A cell off the board: a square of blue, the code in gold, no outline on it at all.
+   text-indent puts back the half of the tracking that letter-spacing hangs off the last
+   letter, so four letters sit centred rather than a fifth of a character to the left. */
+#code {
+  text-align: center;
+  text-transform: uppercase;
+  font-size: clamp(40px, 15vw, 68px);
+  font-weight: 800;
+  letter-spacing: 0.24em;
+  text-indent: 0.24em;
+  line-height: 1.2;
+  padding: 0.22em 0;
+  color: var(--value-gold);
+  background: var(--board-blue);
+  border: 0;
+  border-radius: 0;
+}
+/* The four dashes are a shape, not type: the board's edge on them reads as grit. */
+#code::placeholder { text-shadow: none; -webkit-text-stroke: 0; }
+/* The focus ring has to be drawn inside: there is no border left to recolour. */
+#code:focus { box-shadow: inset 0 0 0 3px var(--value-gold); }
+
+.home .corners {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1em;
+  margin-top: 2.4dvh;
+  font-size: clamp(13px, 3.6vw, 16px);
+  font-weight: 700;
+}
+.home .corner { color: var(--muted); text-decoration: none; }
+.home a[href].corner:hover,
+.home a[href].corner:focus-visible { color: var(--value-gold); }
+/* No href on the designer, so it is not a link, not focusable and not a dead end. */
+.home .corner.soon { color: var(--off); }
+.home .pend {
+  margin-left: 0.4em;
+  padding: 0.15em 0.45em;
+  font-size: 0.78em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: var(--faint);
+}
+
+.home .legal {
+  margin: 1.4dvh 0 0;
+  text-align: center;
+  font-size: clamp(11px, 3vw, 13px);
+  line-height: 1.5;
+  color: var(--muted);
+}
+.home .legal a { color: var(--value-gold); }
 
 .who {
   display: flex;
@@ -132,7 +223,7 @@ body.student { height: 100dvh; overflow: hidden; }
   letter-spacing: 0.01em;
   color: var(--gap-ink);
   background: var(--value-gold);
-  box-shadow: 0 5px 0 #a9671f;
+  box-shadow: 0 5px 0 var(--press-shadow);
 }
 /* One shape for both: the box takes the screen, the bar takes the bottom quarter. Locking a
    wager commits a team exactly as hard as locking an answer, and it is the same move. */
@@ -318,6 +409,39 @@ td.answer { font-weight: 600; }
 }
 .panel .note { font-size: 0.85em; }
 
+/* The made pairs, then the two colours themselves. A swatch is a board with a value lying on
+   it rather than two squares side by side, because the pair is the thing being chosen. */
+.panel .colours { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5em 0.8em; }
+.panel .optname { color: var(--ink); font-weight: 600; }
+.swatches { display: flex; gap: 0.4em; }
+.swatch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.7em;
+  height: 1.9em;
+  padding: 0;
+  border-radius: 7px;
+  box-shadow: inset 0 0 0 1px #0006;
+}
+.swatch i { display: block; width: 58%; height: 0.32em; border-radius: 2px; }
+/* The ring is outside the swatch, so it reads against any ground it is drawn on. */
+.swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--ink); }
+/* The escape hatch for a school's own colours. The native control is a real one - it opens
+   the system picker, and it fires as it is dragged - so there is nothing here to build. */
+.pick { display: flex; }
+.pick input[type="color"] {
+  width: 2.7em;
+  height: 1.9em;
+  padding: 0;
+  background: none;
+  border: 2px solid var(--line);
+  border-radius: 7px;
+  cursor: pointer;
+}
+.pick input[type="color"]::-webkit-color-swatch-wrapper { padding: 2px; }
+.pick input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 4px; }
+
 /* A button that has been armed and is waiting for the second tap. Three of them use it now:
    ending a game, closing a room, and leaving one on a student device. */
 .control button.danger { color: #fff; background: var(--red); box-shadow: none; }
@@ -418,7 +542,7 @@ body.editing .rm { display: table-cell; }
 .pickval.spent,
 .pickval:disabled {
   color: transparent;
-  background: #070826;
+  background: var(--spent);
   box-shadow: none;
 }
 
@@ -462,3 +586,39 @@ body.editing .rm { display: table-cell; }
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
+
+/* ---------- a page of words (privacy.html) ---------- */
+
+/* Not a .screen: this one is read, so it scrolls and is as long as it is. */
+.doc { padding: 0 1.2rem 12vh; }
+.doc .wrap { max-width: 64ch; margin: 0 auto; }
+.doc h1 {
+  margin: 6vh 0 0.2em;
+  font-size: clamp(28px, 6vw, 44px);
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.doc .updated { margin: 0 0 2.4em; font-size: 0.9rem; font-weight: 600; color: var(--muted); }
+.doc h2 {
+  margin: 2.2em 0 0.5em;
+  font-size: clamp(17px, 3vw, 23px);
+  font-weight: 800;
+  color: var(--value-gold);
+}
+.doc p, .doc li { font-size: clamp(15px, 2.2vw, 18px); line-height: 1.65; }
+.doc ul { padding-left: 1.2em; }
+.doc li { margin-bottom: 0.45em; }
+.doc a { color: var(--value-gold); }
+/* <address> is the element for this, and it comes italic by default. */
+.doc .operator {
+  margin: 1.4em 0;
+  padding-left: 1em;
+  border-left: 3px solid var(--line);
+  font-style: normal;
+  font-size: clamp(15px, 2.2vw, 18px);
+  line-height: 1.8;
+}
+.doc code { font-size: 0.92em; color: var(--muted); }
+.doc .lede { font-weight: 700; font-size: clamp(17px, 2.6vw, 21px); }
+.doc .back { display: inline-block; margin-top: 3.5em; font-weight: 700; text-decoration: none; }
