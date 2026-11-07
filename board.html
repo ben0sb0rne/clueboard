@@ -61,11 +61,39 @@
 
 <footer id="podiums"></footer>
 
+<!-- Board-only mode. The teacher is running the lesson from the projector with nothing else
+     open, so the controls have to be here - and this is the one screen the whole class is
+     looking at, so they cannot simply sit on it. The bar comes up when the mouse moves and
+     goes again a few seconds later, the way a video player's does: for all but a handful of
+     seconds in a lesson there is nothing here to press.
+     Clues are opened by clicking the cell and teams are marked on their own podium, which
+     is the half of this that needs no chrome at all. -->
+<div id="hostbar" hidden>
+  <p class="hstate" id="hostState"></p>
+  <p class="herr" id="hostErr"></p>
+  <div class="hacts">
+    <button id="hStart" class="quiet" hidden>Start game</button>
+    <button id="hIntro" class="act" hidden>Start intro</button>
+    <button id="hNext" class="act" hidden>Next</button>
+    <button id="hShow" class="act" hidden>Show the clue</button>
+    <button id="hTimer" class="quiet" hidden>Start the timer</button>
+    <button id="hReveal" class="act" hidden>Reveal answer</button>
+    <button id="hBack" class="quiet" hidden>Back to grid</button>
+    <button id="hRound" class="quiet" hidden>Go to round 2</button>
+    <button id="hFinal" class="quiet" hidden>Final clue</button>
+    <button id="hEnd" class="quiet" hidden>End the game</button>
+  </div>
+</div>
+
 <div class="cornercode" id="cornerCode"></div>
 
 <script src="https://www.gstatic.com/firebasejs/12.0.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.0.0/firebase-database-compat.js"></script>
 <script src="katex/katex.min.js"></script>
+<!-- Only board-only mode needs these, and only on the device that imported the set. They
+     are two small files and loading them unconditionally beats a second code path. -->
+<script src="clues.js"></script>
+<script src="game.js"></script>
 <script src="firebase-config.js"></script>
 <script src="demo.js"></script>
 <script src="common.js"></script>
@@ -128,6 +156,20 @@ let thinkEnds = 0;       // server ms when the think time is up, 0 when there is
 let thinkTotal = 1;      // what the bar is drawn against, taken when the timer first appears
 let thinkRaf = null;
 
+// Board-only mode. The clue set is read from this device's own storage - the same place the
+// control screen keeps it - and never from the room, which is what keeps the answers off the
+// network. A board opened anywhere else has no set, so it cannot host however the room is
+// flagged: that is the gate, not a permission.
+const SET_KEY = "clueboard-set";
+let clueSet = null;
+let moves = null;
+let hosting = false;
+let barTimer = null;
+try {
+  clueSet = parseClueSet(localStorage.getItem(SET_KEY) || "");
+  if (!clueSet.rounds[1]) clueSet = null;
+} catch (e) { clueSet = null; }
+
 const joinHere = new URL("./", location.href).href
   .replace(/^https?:\/\//, "").replace(/\/$/, "");
 $("#wLink").textContent = joinHere;
@@ -186,7 +228,140 @@ function render() {
   renderClue(clue);
   renderThink();
   renderResults();
+  // Last, because it reads what everything above has just settled.
+  setHosting(!!game.hostBoard && !!clueSet && !!code);
+  renderHostBar();
 }
+
+/* ---------- board-only mode ---------- */
+
+// The room carries the flag, not the URL, so the teacher can turn it on and off from the
+// control screen mid-lesson and a board that is already open follows. A board with no clue
+// set ignores it: it has no clue text to publish and no answers to reveal, so there is
+// nothing for it to host with.
+function setHosting(on) {
+  if (on === hosting) return;
+  hosting = on;
+  document.body.classList.toggle("hosting", on);
+  $("#hostbar").hidden = !on;
+  if (on) {
+    moves = hostMoves({
+      db: db, code: code,
+      game: () => game, teams: () => teams, clueSet: () => clueSet,
+      fail: hostFail
+    });
+    // The control screen may have been closed and dragged away from, so this board says the
+    // room still has a host. Two screens writing the same timestamp costs nothing.
+    moves.startHeartbeat();
+    wakeBar();
+  } else if (moves) {
+    moves.stopHeartbeat();
+    moves = null;
+  }
+}
+
+// An alert on a projector is a modal dialog in front of a class. It goes in the bar, and the
+// bar stays up until the next thing happens.
+function hostFail(msg) {
+  $("#hostErr").textContent = msg;
+  wakeBar(8000);
+}
+
+// Up on a mouse move, gone a few seconds later. CSS keeps it up while the pointer is on it,
+// so it cannot vanish from under a click.
+function wakeBar(ms) {
+  if (!hosting) return;
+  $("#hostbar").classList.add("up");
+  clearTimeout(barTimer);
+  barTimer = setTimeout(() => $("#hostbar").classList.remove("up"), ms || 3000);
+}
+
+function renderHostBar() {
+  if (!hosting) return;
+  const clue = game.clue || null;
+  const intro = Number.isInteger(game.intro) ? game.intro : null;
+  const over = !!game.over;
+  const pre = !game.started && !clue && !over;
+  const introing = intro !== null && !clue && !over;
+  const wagering = !!(clue && game.wagering);
+  const onGrid = !clue && !pre && !introing && !over;
+  const other = Number(game.round) === 2 ? 1 : 2;
+
+  const show = (sel, on) => { $(sel).hidden = !on; };
+  show("#hStart", pre);
+  show("#hIntro", pre);
+  show("#hNext", introing);
+  show("#hShow", wagering);
+  show("#hTimer", !!clue && !!clue.final && !wagering);
+  show("#hReveal", !!clue && !wagering);
+  show("#hBack", !!clue);
+  // Where the game can go next only belongs on screen when it is not in the middle of
+  // something. Ending it is also offered straight after a final clue, which is what follows
+  // one - there is no board to go back to.
+  show("#hRound", onGrid && !!(clueSet.rounds || {})[other]);
+  show("#hFinal", onGrid && !!(clueSet.final || []).length);
+  show("#hEnd", onGrid || (!!clue && !!clue.final && !!game.reveal));
+
+  $("#hRound").textContent = "Go to round " + other;
+  if (clue) {
+    $("#hReveal").disabled = !!game.reveal;
+    $("#hReveal").textContent = game.reveal ? "Answer is showing" : "Reveal answer";
+    // Reveal first, then mark. There is nowhere private on a projected board, so the answer
+    // going up is what the teacher marks against - the opposite way round from the control
+    // screen, where it sits on a second display only they can see.
+    setGold($("#hReveal"), !wagering && !game.reveal);
+    setGold($("#hBack"), !!game.reveal && !clue.final);
+    setGold($("#hEnd"), !!clue.final && !!game.reveal);
+    $("#hTimer").textContent = game.timerEnds && game.timerEnds > serverNow()
+      ? "Restart the timer" : "Start the timer";
+  }
+  $("#hostState").textContent = hostState(clue, intro, over);
+}
+
+function setGold(btn, primary) {
+  btn.classList.toggle("act", primary);
+  btn.classList.toggle("quiet", !primary);
+}
+
+// Short, because it is on the projector: where the game is and nothing else.
+function hostState(clue, intro, over) {
+  if (over) return "Game over";
+  if (clue) {
+    const where = clue.final ? "Final clue" : (clue.category || "") + " \u00b7 " + money(clue.value);
+    return game.wagering ? where + " \u00b7 wagers" : where;
+  }
+  if (intro !== null) return "Intro";
+  if (!game.started) return game.title || "Ready";
+  return "Round " + (Number(game.round) || 1);
+}
+
+$("#hStart").addEventListener("click", () => moves.start(null));
+$("#hIntro").addEventListener("click", () => moves.start(0));
+$("#hNext").addEventListener("click", () => moves.nextIntro());
+$("#hShow").addEventListener("click", () => moves.showClue());
+$("#hTimer").addEventListener("click", () => moves.startTimer());
+$("#hReveal").addEventListener("click", () => moves.reveal());
+$("#hBack").addEventListener("click", () => moves.dismiss());
+$("#hRound").addEventListener("click",
+  () => moves.setRound(Number(game.round) === 2 ? 1 : 2));
+$("#hFinal").addEventListener("click", () => moves.startFinal());
+// Two taps, as on the control screen: it stops the lesson.
+let endArmed = null;
+$("#hEnd").addEventListener("click", () => {
+  if (!endArmed) {
+    endArmed = setTimeout(() => { endArmed = null; $("#hEnd").textContent = "End the game"; },
+                          4000);
+    $("#hEnd").textContent = "Tap again";
+    return;
+  }
+  clearTimeout(endArmed);
+  endArmed = null;
+  $("#hEnd").textContent = "End the game";
+  moves.end();
+});
+addEventListener("pointermove", () => wakeBar());
+addEventListener("pointerdown", () => { $("#hostErr").textContent = ""; wakeBar(); });
+addEventListener("keydown", () => wakeBar());
 
 // The scores, once the teacher has ended the game. Rebuilt only when a score actually
 // changes, so a correction after the whistle replays the reveal and a stray snapshot does
@@ -349,6 +524,10 @@ function renderGrid() {
         // Column by column, starting once the last category has landed: a wipe across the
         // board rather than thirty cells arriving at once.
         if (intro) cell.style.animationDelay = (grid.cats.length * 115 + c * 72) + "ms";
+        // Board-only mode: the cell itself is how a clue is opened, which is the half of
+        // running a game from the projector that needs no controls at all. It does nothing
+        // on a board that is not hosting, and the cursor says so.
+        cell.addEventListener("click", () => { if (hosting && moves) moves.select(c, r); });
         wrap.appendChild(cell);
         cellEls[c][r] = cell;
       });
@@ -389,9 +568,27 @@ function renderPodiums() {
       score.className = "pscore";
       const extra = document.createElement("div");
       extra.className = "pextra";
-      box.append(name, score, extra);
+      // Board-only mode's other half. Built always and hidden by CSS until the board is
+      // hosting, so a podium is never rebuilt mid-game just to grow a pair of buttons - the
+      // rebuild is what would cut a counting score short.
+      const mark = document.createElement("div");
+      mark.className = "pmark";
+      const id = t.id;
+      [["+", 1], ["\u2212", -1]].forEach(([label, sign]) => {
+        const b = document.createElement("button");
+        b.className = sign > 0 ? "pplus" : "pminus";
+        b.textContent = label;
+        // The team is looked up at the moment of the press, never closed over: these buttons
+        // outlive several scores and a stale one would award against the wrong total.
+        b.addEventListener("click", () => {
+          const live = teams.filter((x) => x.id === id)[0];
+          if (moves && live) moves.score(live, sign);
+        });
+        mark.appendChild(b);
+      });
+      box.append(name, score, extra, mark);
       wrap.appendChild(box);
-      podiumEls[t.id] = { box: box, score: score, extra: extra };
+      podiumEls[t.id] = { box: box, score: score, extra: extra, mark: mark };
     });
     Object.keys(shownScores).forEach((id) => {
       if (!podiumEls[id]) delete shownScores[id];
@@ -410,6 +607,12 @@ function renderPodiums() {
 
     els.box.classList.toggle("picking", t.id === game.turn);
     els.box.classList.toggle("buzzed", !!lit);
+
+    // A team that could not answer this clue must not be scorable on it: awarding $0 looks
+    // harmless but still moves the next pick, so a stray press would hand it over.
+    const scorable = hosting && !!clue && !game.wagering &&
+      (!clue.dd || clue.owner === t.id);
+    Array.prototype.forEach.call(els.mark.children, (b) => { b.disabled = !scorable; });
 
     // The wager takes the score's place for a beat as that team is revealed, at the score's
     // own size. It used to be a 10px line under the podium, which from the back of a room is
@@ -442,11 +645,13 @@ function renderPodiums() {
   // Nothing to replay once the final clue is behind us, so a reopened board does not flash
   // six wagers at a room that has already seen them.
   if (!isFinal) { clearFlashes(); }
-  // Who is in and who is still thinking, only while there is something to be in on. With no
-  // clue open there is nothing to ring in to, and a board of dimmed podiums would be the
-  // normal state of the screen rather than a signal. Final is left out on purpose: nobody is
+  // Who is in and who is still thinking - but only once somebody actually is in. With no
+  // clue open there is nothing to ring in to, and a teacher running the board on their own
+  // with the class shouting out has no buzzes at all: either way this would dim every podium
+  // for the whole game and call it a signal. Final is left out on purpose too - nobody is
   // lit there until the teacher reveals them, so dimming would give away who answered.
-  wrap.classList.toggle("live", !!clue && !isFinal && !game.wagering);
+  const anyIn = order.some((t) => t.buzzedAt);
+  wrap.classList.toggle("live", !!clue && !isFinal && !game.wagering && anyIn);
   wrap.hidden = !order.length || !!game.over;    // the results screen is the podiums now
 }
 

@@ -162,6 +162,22 @@ The control screen is built around checking answers, which is most of what you d
 The clue runs full width across the top, and the correct answer sits at the head of the same
 column the teams' submissions are in, so marking is one glance down a column.
 
+**You can run a whole game from the board alone.** `Run from the board`, beside `Open
+projector`, hands the game to the projector: click a cell to open a clue, mark a team on its
+own podium, and everything else is in a bar that comes up when the mouse moves and goes a few
+seconds later, the way a video player's does. For all but a handful of seconds in a lesson
+there is nothing on screen but the show.
+
+**It reveals first and marks second**, which is the opposite way round from the control
+screen. There is nowhere private on a projected board, so the answer going up is what you
+mark against. That is a change to how the game plays, and it is deliberate.
+
+It is a flag on the room rather than a different address, so a board already dragged onto the
+projector follows the button without being reopened, and you can hand the game back mid-
+lesson. A board can only host if **that device** has the clue set - it reads it from its own
+storage, the same place the control screen keeps it, and a board opened anywhere else has no
+clue text to publish and no answers to reveal. That is the gate, not a permission.
+
 **The control screen opens on a phone**, which is the fallback for a teacher who cannot
 extend their display. Below 700px a team stops being a row and becomes a card: name, score
 and the two scoring buttons on one line, the answer across the full width underneath. Six
@@ -202,6 +218,8 @@ is no place for a paragraph of instructions:
 - `control.html` - everything the teacher does. Holds the clue set, in memory.
 - `index.html` - student devices: buzz, answer, wager, and pick a clue when handed the board.
 - `clues.js` - parses a clue set, and works out what a clue is worth. `node clues.test.js`.
+- `game.js` - every move a host can make, with no screen attached. Both host screens drive a
+  room through it, so the rules of a game are written once.
 - `ui.test.js` - checks every button carries a style of its own. `node ui.test.js`.
 - `demo.js` - a localStorage stand-in for Firebase, see below.
 - `sample-clues.tsv` - a working clue set, and the template to copy.

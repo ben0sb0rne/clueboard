@@ -70,6 +70,13 @@
       </svg>
     </button>
     <button id="openBoard" class="quiet">Open projector</button>
+    <!-- Board-only mode, next to the button that opens the board, because that is what it
+         is about. It is a flag on the room rather than a different URL, so a board that is
+         already open and dragged onto the projector follows it without being reopened -
+         which is the only version of a toggle that is any use mid-lesson. -->
+    <button id="hostBoard" class="quiet" aria-pressed="false"
+      title="Run the game from the board itself: click clues on it, mark on the podiums"
+      >Run from the board</button>
   </header>
 
   <!-- Two kinds of thing, kept apart rather than run together in one wrapping row: what is
@@ -206,6 +213,7 @@ $("#sampleBtn").addEventListener("click", loadSample);
 $("#reimportBtn").addEventListener("click", () => showSetup(true));
 $("#createBtn").addEventListener("click", createRoom);
 $("#openBoard").addEventListener("click", openBoardWindow);
+$("#hostBoard").addEventListener("click", toggleHostBoard);
 $("#cog").addEventListener("click", togglePanel);
 $("#mute").addEventListener("change", setMute);
 $("#teamsPick").addEventListener("change", setTeamsPick);
@@ -490,6 +498,15 @@ function openBoardWindow() {
   if (!win) alert("The projector window was blocked by a popup blocker. Open " + url + " yourself.");
 }
 
+// The board needs this device's clue set to host, and it reads it from localStorage, so
+// this only ever makes sense on a board opened from this machine. A board on another device
+// ignores the flag, which is the gate rather than a permission.
+function toggleHostBoard() {
+  if (!moves) return;
+  moves.gameRef.child("hostBoard").set(game.hostBoard ? null : true)
+    .catch((err) => { alert("Could not hand the game to the board: " + err.message); });
+}
+
 function markActive() {
   lastActivity = Date.now();
   $("#idlebar").hidden = true;
@@ -512,6 +529,10 @@ function tickIdle() {
 function renderGame(snap) {
   game = snap.val() || {};
   gameLoaded = true;
+  // Something moved in this room, so somebody is running it - this screen, a team picking a
+  // clue, or a board being driven from the projector. Without this the idle timer only ever
+  // saw pointers on this page, and would end a game being run entirely from the board.
+  markActive();
   const clue = game.clue || null;
 
   // A team picked on their own device. Only the control screen knows the clue text, so the
@@ -557,6 +578,11 @@ function renderGame(snap) {
   $("#endBtn").hidden = !(clue && clue.final && game.reveal);
   $("#closeBtn").hidden = !over;
   $("#endGame").hidden = over;
+  // Pressed, not a second style of button: it is a mode this screen is in, and the board is
+  // where the game is being run from while it is on.
+  const handed = !!game.hostBoard;
+  $("#hostBoard").setAttribute("aria-pressed", String(handed));
+  setAct($("#hostBoard"), handed);
   $("#roundBtn").textContent = "Go to round " + (round === 2 ? 1 : 2);
 
   if (introing) {

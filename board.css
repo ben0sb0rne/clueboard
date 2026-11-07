@@ -1123,3 +1123,122 @@ body.board {
     border-bottom: 3px solid var(--good);
   }
 }
+
+/* ---------- board-only mode ----------
+
+   The teacher is running the lesson from the projector with nothing else open. This is the
+   one screen the whole class is looking at, so the controls cannot simply sit on it: the bar
+   comes up on a mouse move and goes a few seconds later, the way a video player's does.
+   Opening a clue and marking a team need no bar at all - the cell and the podium are the
+   controls - which is most of a lesson spent with nothing on screen but the show. */
+.board.hosting .cell:not(.spent) { cursor: pointer; }
+.board.hosting .cell:not(.spent):hover {
+  background: var(--board-blue-lit);
+}
+
+.board #hostbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5em 1.2em;
+  padding: 0.7em 1.1em;
+  background: rgba(4, 5, 28, 0.93);
+  border-bottom: 2px solid var(--line);
+  opacity: 0;
+  transform: translateY(-100%);
+  transition: opacity 220ms linear, transform 220ms var(--ease);
+  pointer-events: none;
+}
+.board #hostbar.up,
+.board #hostbar:hover {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+/* This is a working surface, not the show: the board's font, its black edge and its stroke
+   all come off, or a control strip is set in Anton with a shadow behind every letter. */
+.board #hostbar,
+.board #hostbar * {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
+  text-shadow: none;
+  -webkit-text-stroke: 0;
+}
+.board .hstate {
+  margin: 0;
+  font-size: clamp(12px, 1.2vw, 16px);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.board .herr { margin: 0; font-size: clamp(12px, 1.2vw, 16px); color: var(--red); }
+.board .herr:empty { display: none; }
+.board .hacts {
+  margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5em;
+}
+/* The same two buttons the control screen has, and the gold one is ordered last here too, so
+   the one to press is in the same corner whichever screen is running the game. */
+.board #hostbar button {
+  padding: 0.5em 1em;
+  font-size: clamp(13px, 1.3vw, 17px);
+  font-weight: 700;
+  line-height: 1.25;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+.board #hostbar button.act { order: 1; color: var(--gap-ink); background: var(--value-gold); }
+.board #hostbar button.act:hover:not(:disabled) { background: var(--value-gold-lit); }
+.board #hostbar button.quiet {
+  color: var(--muted);
+  background: none;
+  box-shadow: inset 0 0 0 2px var(--line);
+}
+.board #hostbar button.quiet:hover:not(:disabled) {
+  color: var(--ink);
+  box-shadow: inset 0 0 0 2px var(--muted);
+}
+.board #hostbar button:disabled {
+  color: #4b4f8c;
+  background: none;
+  box-shadow: inset 0 0 0 2px var(--line);
+}
+
+/* Marking, on the podium it belongs to. Hidden outright unless this board is hosting, so a
+   projected board that is only a board carries nothing it does not need. */
+.board .pmark { display: none; }
+.board.hosting .pmark {
+  display: flex;
+  justify-content: center;
+  gap: clamp(3px, 0.4vw, 7px);
+  margin-top: 0.5vh;
+}
+.board .pmark button {
+  width: clamp(28px, 3.4vw, 64px);
+  min-height: clamp(24px, 2.6vh, 44px);
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
+  font-size: clamp(14px, 1.6vw, 28px);
+  font-weight: 800;
+  line-height: 1;
+  border-radius: 8px;
+  text-shadow: none;
+  -webkit-text-stroke: 0;
+}
+.board .pmark .pplus { color: var(--gap-ink); background: var(--good); }
+.board .pmark .pminus { color: #fff; background: var(--red); }
+/* Not greyed into invisibility: between clues these are most of what is on the podium, and a
+   control that vanishes reads as a bug. They go quiet and stop responding. */
+.board .pmark button:disabled {
+  color: #4b4f8c;
+  background: none;
+  box-shadow: inset 0 0 0 2px var(--line);
+}

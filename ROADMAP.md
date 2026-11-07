@@ -36,9 +36,10 @@ been seen on either.
 
 ## The order of work
 
-1. **Bugs and hardening** - see below.
-2. **Board-only mode.** The board gains the clue set, clickable cells and `+`/`-` on the
-   podiums. It currently knows none of that: no importer, no parser, no answers.
+1. ~~**Bugs and hardening**~~ - see below.
+2. ~~**Board-only mode.**~~ Built. `Run from the board` on the control screen hands the game
+   to the projector; the rules of a game moved into `game.js` first, so both host screens
+   drive a room through one copy of them.
 3. **The designer.** Click a cell to write a clue, drag to swap, mark Daily Doubles, set the
    final clue. CSV and TSV import stays as the fast path for anyone who already has a
    spreadsheet.
@@ -64,8 +65,9 @@ been seen on either.
       game.
 - [x] **The control screen did not fit a phone.** It is the documented fallback for a teacher
       who cannot extend their display, and the table was wider than the screen.
-- [ ] **A revealed clue cannot be put back.** Revealing spends the cell. Opening one does
-      not, so a mis-tap is already free - but a clue revealed by mistake is gone. Worth
-      revisiting with board-only mode, where the board itself is the thing being clicked.
+- [ ] **A revealed clue cannot be put back** from either screen. Revealing spends the cell;
+      opening one does not, so a mis-tap is already free. `game.js` has `restore()` written
+      for it and nothing calls it yet - it wants a control that cannot itself be mis-tapped,
+      which on a projected board is the hard part.
 - [ ] **The player's grid is tight on a small phone.** 45px cells at 352px wide, against a
       48px guideline. Fine on a Chromebook. For the real device check.
