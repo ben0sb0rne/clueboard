@@ -162,6 +162,12 @@ The control screen is built around checking answers, which is most of what you d
 The clue runs full width across the top, and the correct answer sits at the head of the same
 column the teams' submissions are in, so marking is one glance down a column.
 
+**The control screen opens on a phone**, which is the fallback for a teacher who cannot
+extend their display. Below 700px a team stops being a row and becomes a card: name, score
+and the two scoring buttons on one line, the answer across the full width underneath. Six
+columns on a 390px screen put the deduct button off the right edge and gave the answer six
+characters a line, so the fallback was not one.
+
 **The dashboard is as large as it will go and no larger.** The room code and the whole team
 table are scaled by one number, wound down a twentieth at a time until the last team is on
 screen - measured rather than counted, because one team writing a sentence wraps to three
@@ -296,7 +302,11 @@ git fetch upstream && git log --oneline upstream/main
 ## What the rules allow
 
 Anyone with a room code can read that room and write to it - there are no accounts, so the
-4-letter code is all that stands between a class and its room. Teams are pinned to their known
+4-letter code is all that stands between a class and its room. A new code is checked against
+the rooms that already exist and picked again if it is taken: four letters out of twenty-four
+is 331,776, which sounds like plenty until you remember that a room lingers an hour after its
+host closes and that teachers all start at nine o'clock. A code that is already somebody's
+game sends their class into yours. Teams are pinned to their known
 fields and `buzzedAt` must equal the server clock, so a student cannot fake an earlier buzz.
 
 `game` is world-writable, because without auth the rules cannot tell a teacher from a student.

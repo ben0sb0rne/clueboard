@@ -164,6 +164,10 @@ const PICK_KEY = "clueboard-teams-pick";   // host preference, remembered betwee
 const CODE_KEY = "clueboard-show-code";    // the same, for the code in the board's corner
 const TITLE_KEY = "clueboard-title";       // so a refresh mid-lesson still knows the game
 const STILL_BEATING = 3 * 60 * 1000;
+// What a student device treats as a room still being alive. A code is not free to hand out
+// again until past this, or a class still holding it in localStorage rejoins into somebody
+// else's game. index.html carries the same number.
+const HOST_GONE = 60 * 60 * 1000;
 // The show gives 30 seconds. An 8th grade algebra problem needs longer, and a teacher who
 // wants a different length can say so out loud - the timer shows the room the same number
 // either way, and nothing is enforced by it.
@@ -307,7 +311,27 @@ function createRoom() {
   }
   $("#titleErr").textContent = "";
   localStorage.setItem(TITLE_KEY, gameTitle);
-  openRoom(newCode());
+  $("#createBtn").disabled = true;
+  freeCode(4)
+    .then(openRoom)
+    .catch((err) => { $("#titleErr").textContent = "Could not open a room: " + err.message; })
+    .finally(() => { $("#createBtn").disabled = false; });
+}
+
+// A code nobody else is using. Four letters out of twenty-four is 331,776, which sounds like
+// plenty right up until you remember that a room lingers an hour after its host closes and
+// that teachers all start at nine o'clock - the chance of a clash grows with the square of
+// how many of us are on at once, not with how many codes there are. Handing out one that is
+// already somebody's game sends their class into yours.
+//
+// Four tries, then take the last one anyway: at that point the odds say the database is
+// unreachable rather than that the alphabet has run out, and refusing to open a room in
+// front of a waiting class is the worse failure.
+function freeCode(tries) {
+  const code = newCode();
+  if (tries <= 1) return Promise.resolve(code);
+  return hostSeenAge(code).then((age) =>
+    age === null || age > HOST_GONE ? code : freeCode(tries - 1));
 }
 
 // The whole set, read before the lesson rather than discovered during it. It renders with the
@@ -732,10 +756,8 @@ function renderGrid() {
   $("#roundDone").textContent = "Every clue in round " + round + " is spent.";
 }
 
-// Publishes the clue text, which is about to be on the projector anyway, and marks the cell
-// spent in the same write so the board never shows a cell that is already being played.
-// shortcut: spending the cell here means a mis-click burns that clue, with no undo. Add
-// `used[key] = null` behind a long-press if that ever costs a lesson.
+// Publishes the clue text, which is about to be on the projector anyway. It does not spend
+// the cell - revealAnswer does that - so a mis-tap costs nothing and a clue can be held over.
 function selectCell(cat, row) {
   const round = Number(game.round) || 1;
   const clue = clueAt(clueSet, round, cat, row);

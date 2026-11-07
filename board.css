@@ -1041,3 +1041,85 @@ body.board {
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
+
+/* ---------- the control screen on a phone ----------
+
+   The documented fallback for a teacher who cannot extend their display is to open this page
+   on a phone. It did not fit one: six columns on a 390px screen put the deduct button off
+   the right edge, gave the answer six characters a line, and scrolled the whole page
+   sideways. So below the width where that starts, a team stops being a row and becomes a
+   card - name, score and the two scoring buttons on one line, the answer across the full
+   width underneath it. */
+@media (max-width: 700px) {
+  .control table,
+  .control tbody { display: block; }
+  /* The headings go: on two lines they label nothing, and the card says what each part is
+     by where it sits. */
+  .control thead { display: none; }
+
+  .control tbody tr {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+    grid-template-areas:
+      "num name   score  mark   rm"
+      "num answer answer answer answer";
+    align-items: center;
+    gap: 0.2em 0.5em;
+    padding: 0.5em 0;
+    border-top: 2px solid var(--line);
+  }
+  .control tbody td {
+    display: block;
+    width: auto;
+    padding: 0;
+    border: 0;
+  }
+  .control tbody td.num {
+    grid-area: num;
+    /* Still its own width whether or not a hand-over button is in it, so the names line up
+       down the card edge exactly as they do on the big screen. */
+    width: calc(1.9em + var(--cellpad));
+    align-self: start;
+  }
+  .control tbody td.name { grid-area: name; }
+  .control tbody td.score { grid-area: score; text-align: right; }
+  .control tbody td.mark { grid-area: mark; text-align: right; }
+  .control tbody td.answer { grid-area: answer; }
+  /* Behind the cog, as on the big screen. The blanket td rule above would otherwise beat
+     the .rm { display: none } that hides it. */
+  .control tbody td.rm { grid-area: rm; display: none; }
+  .control.editing tbody td.rm { display: block; }
+  /* Nothing to read on this line, so it takes no height; the answer keeps the width. */
+  .control tbody tr:not(.buzzed) td.answer:empty { display: none; }
+
+  /* Thumbs, not a mouse pointer. */
+  .control .mark button {
+    width: auto;
+    min-width: 3.2em;
+    margin-left: 0.4em;
+  }
+
+  /* The key row is the same card: its label on the first line, the answer across the second,
+     which is how it reads on the big screen too - just stacked. The green comes off the
+     cells and onto the row, or the fill and the rule under it are drawn once per column and
+     the row reads as a handful of stripes. */
+  .control tr.keyrow td.keylbl {
+    grid-area: name;
+    text-align: left;
+    white-space: nowrap;
+  }
+  .control tr.keyrow td {
+    position: static;
+    background: none;
+    border-bottom: 0;
+    padding: 0;
+  }
+  .control tr.keyrow {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    padding: 0.5em 0;
+    background: #0d2a16;
+    border-bottom: 3px solid var(--good);
+  }
+}
