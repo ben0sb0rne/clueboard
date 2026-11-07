@@ -162,6 +162,14 @@ The control screen is built around checking answers, which is most of what you d
 The clue runs full width across the top, and the correct answer sits at the head of the same
 column the teams' submissions are in, so marking is one glance down a column.
 
+**The dashboard is as large as it will go and no larger.** The room code and the whole team
+table are scaled by one number, wound down a twentieth at a time until the last team is on
+screen - measured rather than counted, because one team writing a sentence wraps to three
+lines and costs more height than three teams answering "42". It stops at seven tenths and
+lets the page scroll instead: below that the answers are too small to read at arm's length,
+which is the only thing this screen is for. The stage is deliberately left out of the
+scaling, so that a long answer arriving cannot resize the grid above it.
+
 **Nothing in that table moves while the game runs.** The grid and the open clue share one
 cell of the layout and only one is ever visible, so the stage is always the height of the
 grid; the correct-answer row is always there and empty between clues; and the column the

@@ -221,6 +221,14 @@ $("#startBtn").addEventListener("click", () => startGame(null));
 $("#introNext").addEventListener("click", nextIntro);
 addEventListener("pointerdown", markActive);
 addEventListener("keydown", markActive);
+// A monitor does not change size mid-lesson, but a window dragged onto one does. Debounced
+// the same way board.html debounces its own, because a drag fires this many times a second
+// and each call here forces up to nine layouts.
+let fitTimer = null;
+addEventListener("resize", () => {
+  clearTimeout(fitTimer);
+  fitTimer = setTimeout(fitRows, 150);
+});
 
 const fromUrl = (new URL(location).searchParams.get("room") || "")
   .toUpperCase().replace(/[^A-Z]/g, "").slice(0, 4);
@@ -993,6 +1001,36 @@ function renderTeamRows() {
   });
 
   $("#empty").hidden = teams.length > 0;
+  fitRows();
+}
+
+// This is read at arm's length on a second monitor, or across a desk from a phone, so the
+// type is as big as will fit and no bigger. Wind it down a twentieth at a time until the
+// last team is on screen. It has to be measured rather than counted: one team writing a
+// sentence wraps to three lines and costs more height than three teams answering "42". Past
+// the floor it stops shrinking and the page scrolls, because a dashboard nobody can read is
+// worse than one that scrolls.
+//
+// Ported from the buzzer, where the two sizes it scales were written for it - style.css has
+// carried `var(--fit, 1)` since the fork and nothing has ever set it, so the calc has been a
+// no-op and the comment above it a lie.
+//
+// It deliberately does not scale the stage. The grid and the open clue share one cell of the
+// layout so that the table below never moves, and a stage that shrank whenever a long answer
+// came in would hand that movement straight back.
+// The floor is higher than the buzzer's 0.55, and has to be: that screen is read from the
+// back of a room so it starts at 34px and 0.55 still leaves 19. This one starts at 20px, and
+// 0.55 leaves 11 - too small to read a student's answer at arm's length, which is the whole
+// job. Below 0.7 the shrinking is buying a screen that fits and cannot be used, so it stops
+// and the page scrolls instead.
+function fitRows() {
+  const root = document.documentElement;
+  let scale = 1;
+  document.body.style.setProperty("--fit", "1");
+  while (scale > 0.7 && root.scrollHeight > root.clientHeight) {
+    scale -= 0.05;
+    document.body.style.setProperty("--fit", scale.toFixed(2));
+  }
 }
 
 // Manual, always. No automatic marking and no first-correct rule: several teams can be right,
@@ -1091,6 +1129,7 @@ function togglePanel() {
   $("#panel").hidden = !open;
   $("#cog").setAttribute("aria-expanded", String(open));
   document.body.classList.toggle("editing", open);
+  fitRows();          // the panel is a band of height arriving and leaving
 }
 
 // The room's setting, not this device's: one tick silences thirty Chromebooks as well as

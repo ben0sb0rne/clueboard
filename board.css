@@ -778,7 +778,7 @@ body.board {
 }
 /* Scoped to the row so it outranks td.answer below, which the same cell also carries. */
 .control tr.keyrow td.keyans {
-  font-size: clamp(20px, 2.7vw, 38px);
+  font-size: calc(clamp(20px, 2.7vw, 38px) * var(--fit, 1));
   font-weight: 800;
   color: var(--good);
   line-height: 1.2;
@@ -794,7 +794,7 @@ body.board {
 
 /* What the teacher is reading, so it is the biggest thing in the table. */
 .control td.answer {
-  font-size: clamp(16px, 1.9vw, 28px);
+  font-size: calc(clamp(16px, 1.9vw, 28px) * var(--fit, 1));
   line-height: 1.25;
 }
 
@@ -850,10 +850,12 @@ body.board {
 .control .mark .minus { color: #fff; background: var(--red); }
 .control .mark button:disabled { color: #4b4f8c; background: none; box-shadow: inset 0 0 0 2px var(--line); }
 
-/* The control screen is read at arm's length on a second monitor, not from the back of the
-   room, so it keeps one size and scrolls. The board is the thing that has to be legible. */
-.control td { font-size: clamp(14px, 1.5vw, 20px); }
-.control th { font-size: clamp(11px, 1vw, 14px); }
+/* The control screen is read at arm's length on a second monitor rather than from the back
+   of the room, so it starts smaller than the board's own sizes. Every one of these carries
+   fitRows()' multiplier - they override the td rule in style.css, which already had it, and
+   without it here the scaling reached the room code and nothing else. */
+.control td { font-size: calc(clamp(14px, 1.5vw, 20px) * var(--fit, 1)); }
+.control th { font-size: calc(clamp(11px, 1vw, 14px) * var(--fit, 1)); }
 
 /* ---------- Daily Double, and Final ---------- */
 

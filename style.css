@@ -161,8 +161,10 @@ body.student { height: 100dvh; overflow: hidden; }
   margin-bottom: 1.6vh;
   border-bottom: 3px solid var(--line);
 }
-/* The three sizes fitRows() scales. It winds --fit down until the last team is on screen,
-   so the dashboard is always as large as it can be and no larger. */
+/* fitRows() in control.html winds --fit down a twentieth at a time until the last team is
+   on screen, so the dashboard is always as large as it can be and no larger. Every size it
+   scales carries the multiplier: the room code here, and the table's own sizes at the foot
+   of board.css, which override the td rule below and so need it in their own right. */
 .roomcode {
   font-size: calc(clamp(44px, 9vw, 110px) * var(--fit, 1));
   font-weight: 800;
