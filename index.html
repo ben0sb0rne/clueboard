@@ -18,24 +18,25 @@
      in their hand - which is why the code field gets the middle of the screen and the two
      links for everybody else get a corner each. -->
 <main id="join" class="screen home">
-  <header class="wordmark">
-    <h1>Clueboard</h1>
-    <p class="tag">A quiz board for the classroom</p>
-  </header>
+  <h1>Clueboard</h1>
 
   <div class="entry">
     <div class="field">
       <label for="code">Room code</label>
-      <input id="code" maxlength="4" autocapitalize="characters" autocomplete="off" spellcheck="false"
-        placeholder="----">
-    </div>
-    <div class="field">
-      <label for="team">Team name</label>
-      <input id="team" maxlength="40" autocomplete="off">
-    </div>
-    <div class="field">
-      <label for="members">Team members (separate with commas)</label>
-      <input id="members" maxlength="200" autocomplete="off" placeholder="Ada, Grace, Alan">
+      <!-- One field rather than four boxes: a single input already pastes, autofills, selects
+           and backspaces, where four need scripting to do each of those worse. No
+           autocomplete="one-time-code" - this code is read off a board, not texted, so that
+           would only raise an SMS suggestion that never comes. No inputmode either: the code
+           is letters, and the plain text keyboard is the right one. -->
+      <!-- No maxlength, deliberately. It truncates what is typed or pasted before the filter
+           below can drop the spaces and stray characters, so "WX YZ" arrived as "WXY" - the
+           space used up the fourth slot and the Z was refused. asCode() caps at four after
+           cleaning, which is the same limit applied in the right order.
+           shortcut: a paste longer than the code keeps its first four letters, so pasting
+           "room code WXYZ" tries ROOM. Pasting the bare code is the case that matters and a
+           wrong code fails loudly; revisit if anyone actually hits it. -->
+      <input id="code" autocapitalize="characters" autocomplete="off"
+        spellcheck="false" enterkeyhint="go">
     </div>
 
     <p id="joinErr" class="err"></p>
@@ -47,14 +48,45 @@
     <!-- Placeholder. When there is a designer: give this an href and drop .soon. -->
     <a class="corner soon">Designer <span class="pend">soon</span></a>
   </footer>
-  <p class="legal">
-    No accounts, no tracking, and nothing kept after the game.
-    <a href="privacy.html">Privacy and COPPA</a>
-  </p>
+  <p class="legal"><a href="privacy.html">Privacy and COPPA</a></p>
 </main>
 
 <main id="boot" class="screen" hidden>
   <p class="boot">Rejoining...</p>
+</main>
+
+<!-- Joining and being ready are two acts, not one. The code screen gets them into the room;
+     everything a team wants to fuss over lives here, behind a Ready button. The point is the
+     teacher's view: a team still picking a name looks nothing like a team that cannot get in,
+     which is the thing that used to cost a walk across the room. Ready never gates the start -
+     see route(). -->
+<main id="lobby" class="screen" hidden>
+  <header class="lobbyhead">
+    <h2 id="lobbyTitle">Get ready</h2>
+    <p class="lobbycode">Room <span id="lobbyCode"></span></p>
+  </header>
+
+  <div class="lobbyform">
+    <div class="field">
+      <label for="team">Team name</label>
+      <input id="team" maxlength="40" autocomplete="off" enterkeyhint="next">
+    </div>
+    <div class="field">
+      <label for="members">Team members (separate with commas)</label>
+      <input id="members" maxlength="200" autocomplete="off" enterkeyhint="done"
+        placeholder="Ada, Grace, Alan">
+    </div>
+
+    <!-- Off unless the teacher turns it on. Built once, on first show, from BUZZERS. -->
+    <div class="field" id="buzzWrap" hidden>
+      <label id="buzzLabel">Your buzzer</label>
+      <div id="buzzGrid"></div>
+    </div>
+  </div>
+
+  <p id="lobbyErr" class="err"></p>
+  <p id="frozenNote" class="frozennote" hidden>Your teacher has locked this in.</p>
+  <button id="readyBtn">Ready</button>
 </main>
 
 <main id="play" class="screen" hidden>
@@ -132,8 +164,10 @@
 const $ = (s) => document.querySelector(s);
 const STORE = "clueboard-team";
 const HOST_GONE = 60 * 60 * 1000;   // control screen shut this long: the game is over
-const urlCode = (new URL(location).searchParams.get("room") || "")
-  .toUpperCase().replace(/[^A-Z]/g, "").slice(0, 4);
+// Four letters, uppercase, nothing else: the only shape a room code ever has. The URL, the
+// box and the join all ask the same function, so there is one answer rather than three.
+const asCode = (v) => v.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 4);
+const urlCode = asCode(new URL(location).searchParams.get("room") || "");
 
 let teamRef = null;
 let gameRef = null;
@@ -164,7 +198,31 @@ if (saved && (!urlCode || urlCode === saved.code)) {
 }
 
 $("#joinBtn").addEventListener("click", join);
-$("#members").addEventListener("keydown", (e) => { if (e.key === "Enter") join(); });
+
+// The box holds only ever what a code can be: anything else is dropped as it is typed rather
+// than refused on submit, and the fourth letter moves on the way a passcode field does. Enter
+// does the same at each step, so the form is reachable from the keyboard alone, and focus
+// selects, so a student correcting a misread code types over it instead of appending.
+$("#code").addEventListener("input", (e) => {
+  const clean = asCode(e.target.value);
+  if (clean !== e.target.value) e.target.value = clean;
+  // The code is the only thing on this screen now, so the fourth letter moves to the one
+  // button rather than to another box. Not a submit: a misread letter is common enough that
+  // joining should stay a decision.
+  if (clean.length === 4) $("#joinBtn").focus();
+});
+$("#code").addEventListener("focus", (e) => e.target.select());
+$("#code").addEventListener("keydown", (e) => { if (e.key === "Enter") join(); });
+
+$("#team").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#members").focus(); });
+$("#members").addEventListener("keydown", (e) => { if (e.key === "Enter") e.target.blur(); });
+$("#team").addEventListener("input", saveLobbySoon);
+$("#members").addEventListener("input", saveLobbySoon);
+// Whatever is half-typed when the box loses focus is sent at once: the debounce below is to
+// spare the database thirty writes a word, not to hold anything back.
+$("#team").addEventListener("blur", saveLobby);
+$("#members").addEventListener("blur", saveLobby);
+$("#readyBtn").addEventListener("click", toggleReady);
 $("#leave").addEventListener("click", armLeave);
 $("#lock").addEventListener("click", lockIn);
 $("#answer").addEventListener("keydown", (e) => { if (e.key === "Enter") lockIn(); });
@@ -181,7 +239,7 @@ db.ref(".info/connected").on("value", (snap) => {
 });
 
 function show(which) {
-  ["boot", "join", "play", "pick", "wager", "wait"].forEach((id) => {
+  ["boot", "join", "lobby", "play", "pick", "wager", "wait"].forEach((id) => {
     $("#" + id).hidden = id !== which;
   });
 }
@@ -204,11 +262,8 @@ function loadSaved() {
 }
 
 function join() {
-  const code = $("#code").value.trim().toUpperCase();
-  const name = $("#team").value.trim();
-  const members = $("#members").value.trim();
+  const code = asCode($("#code").value);
   if (!/^[A-Z]{4}$/.test(code)) { $("#joinErr").textContent = "Enter the 4-letter room code."; return; }
-  if (!name) { $("#joinErr").textContent = "Enter a team name."; return; }
 
   $("#joinErr").textContent = "";
   $("#joinBtn").disabled = true;
@@ -219,9 +274,11 @@ function join() {
       // stops a mistyped code looking exactly like a room nobody has started yet.
       if (state !== "live") throw new Error("No game with that code. Check the board.");
       const ref = db.ref("rooms/" + code + "/teams").push();
-      // score is left off: database.rules.json requires only the four the buzzer required,
-      // and a missing score reads as 0 everywhere, so joining stays one write.
-      return ref.set({ name: name, members: members, answer: "", locked: false }).then(() => {
+      // Exactly the four fields the create rule demands, and the name is deliberately blank:
+      // naming happens in the lobby. Everywhere the team is shown to somebody else goes
+      // through teamLabel(), so a nameless row reads as joining rather than as a gap.
+      // score is left off - a missing score reads as 0 everywhere, so joining stays one write.
+      return ref.set({ name: "", members: "", answer: "", locked: false }).then(() => {
         localStorage.setItem(STORE, JSON.stringify({ code: code, teamId: ref.key }));
         attach(code, ref.key);
       });
@@ -243,6 +300,7 @@ function attach(code, teamId) {
     }
     $("#whoTeam").textContent = team.name;
     $("#whoCode").textContent = code;
+    $("#lobbyCode").textContent = code;
     $("#pickWho").textContent = team.name;
     $("#waitWho").textContent = team.name;
     $("#wagerWho").textContent = team.name;
@@ -284,6 +342,13 @@ function route() {
     show("wait");
     return;
   }
+
+  // Before the game starts the phone is a lobby rather than a dead buzzer: the team settles
+  // its name, its members and its buzzer here, and says when it is done. Gated on !clue as
+  // well, because a room whose `started` never landed would otherwise strand every student in
+  // here with a clue up on the board. This is board.html's test, not control.html's - the
+  // latter omits `over` and so comes back true once the game has ended.
+  if (!game.started && !clue) { renderLobby(); show("lobby"); return; }
 
   if (clue) {
     // A Daily Double belongs to one team. myClue() is false for nothing else, so this is
@@ -464,6 +529,116 @@ function disarmLeave() {
   $("#leave").classList.remove("arm");
 }
 
+// ---------------------------- the lobby ----------------------------
+
+let lobbyWrite = null;
+let gridBuilt = false;
+
+// Thirty Chromebooks writing on every keystroke is the thing to avoid; the teacher watching a
+// name appear as it is typed is the thing to keep. A short debounce does both, and blur
+// flushes it. Same shape as the theme writer on the control screen.
+function saveLobbySoon() {
+  clearTimeout(lobbyWrite);
+  lobbyWrite = setTimeout(saveLobby, 400);
+}
+
+function saveLobby() {
+  clearTimeout(lobbyWrite);
+  if (!teamRef || !team || team.frozen) return;
+  const name = $("#team").value.trim().slice(0, 40);
+  const members = $("#members").value.trim().slice(0, 200);
+  // The slices match database.rules.json, which rejects the write outright past them.
+  if (name === (team.name || "") && members === (team.members || "")) return;
+  teamRef.update({ name: name, members: members })
+    .catch((err) => { $("#lobbyErr").textContent = "Not saved: " + err.message; });
+}
+
+function toggleReady() {
+  if (!teamRef || !team || team.frozen) return;
+  const next = !team.ready;
+  // Readying up with the name box still blank is the one thing worth refusing: an unnamed
+  // team is exactly the one the teacher cannot do anything about from across the room.
+  if (next && !$("#team").value.trim()) {
+    $("#lobbyErr").textContent = "Give your team a name first.";
+    $("#team").focus();
+    return;
+  }
+  $("#lobbyErr").textContent = "";
+  saveLobby();
+  teamRef.update({ ready: next })
+    .catch((err) => { $("#lobbyErr").textContent = "Not saved: " + err.message; });
+}
+
+function pickBuzzer(id) {
+  if (!teamRef || !team || team.frozen) return;
+  // Picking is also what arms the AudioContext on this device, through the one-shot
+  // pointerdown gate in common.js - so a team that chose a buzzer has working audio before
+  // the first clue, rather than discovering it on the buzz that mattered.
+  // shortcut: every sound is beep() until the real files land. One call site to change.
+  if (!game.muted) beep();
+  teamRef.update({ buzzer: id })
+    .catch((err) => { $("#lobbyErr").textContent = "Not saved: " + err.message; });
+}
+
+function buildBuzzGrid() {
+  if (gridBuilt) return;
+  gridBuilt = true;
+  const grid = $("#buzzGrid");
+  BUZZERS.forEach((g) => {
+    const head = document.createElement("p");
+    head.className = "buzzgroup";
+    head.textContent = g.group;
+    grid.appendChild(head);
+    const row = document.createElement("div");
+    row.className = "buzzrow";
+    g.sounds.forEach((s) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "buzztile";
+      b.dataset.id = s.id;
+      b.textContent = s.label;
+      b.addEventListener("click", () => pickBuzzer(s.id));
+      row.appendChild(b);
+    });
+    grid.appendChild(row);
+  });
+}
+
+// A box the student is typing in is never written over - not by their own keystroke coming
+// back off the database a moment later, and not by the teacher editing the same field.
+function setIfIdle(el, value) {
+  if (document.activeElement !== el) el.value = value;
+}
+
+function renderLobby() {
+  const frozen = !!team.frozen;
+  const ready = !!team.ready;
+
+  setIfIdle($("#team"), team.name || "");
+  setIfIdle($("#members"), team.members || "");
+
+  $("#buzzWrap").hidden = !game.buzzerPick;
+  if (game.buzzerPick) {
+    buildBuzzGrid();
+    [].forEach.call($("#buzzGrid").querySelectorAll(".buzztile"), (b) => {
+      b.classList.toggle("on", b.dataset.id === team.buzzer);
+      b.disabled = frozen;
+    });
+  }
+
+  $("#team").disabled = frozen;
+  $("#members").disabled = frozen;
+  $("#frozenNote").hidden = !frozen;
+  $("#lobbyTitle").textContent = ready ? "Ready" : "Get ready";
+
+  const btn = $("#readyBtn");
+  btn.disabled = frozen;
+  btn.classList.toggle("unready", ready);
+  btn.textContent = frozen ? (ready ? "Ready" : "Waiting for your teacher")
+    : ready ? "Ready - tap to change"
+    : "Ready";
+}
+
 // Leaves the team in the database on purpose: the teacher keeps the row, the score and any
 // locked answer, and can drop it with the x beside its row.
 function toJoinScreen() {
@@ -485,6 +660,13 @@ function toJoinScreen() {
   $("#wagerBox").disabled = false;
   $("#wagerBtn").disabled = false;
   $("#wagerErr").textContent = "";
+  clearTimeout(lobbyWrite);
+  $("#team").value = "";
+  $("#team").disabled = false;
+  $("#members").value = "";
+  $("#members").disabled = false;
+  $("#readyBtn").disabled = false;
+  $("#lobbyErr").textContent = "";
   $("#code").value = "";
   show("join");
 }

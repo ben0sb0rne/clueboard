@@ -168,11 +168,17 @@
   var tree = load();
   if (!get(tree, "rooms/DEMO")) {
     put(tree, "rooms/DEMO/hostSeen", Date.now());
-    [["Fermat", "Ada, Grace", 1200], ["Noether", "Alan, Kurt", 800],
-     ["Ramanujan", "Edsger, Barbara", -400], ["Hypatia", "Tim, Radia", 2000]]
+    // The lobby states are seeded deliberately: one team ready, one still fiddling, one
+    // frozen by the teacher, and one that has joined and not named itself. That is the whole
+    // point of the screen, and it is a nuisance to reproduce by hand every time.
+    [["Fermat", "Ada, Grace", 1200, "duck", true, false],
+     ["Noether", "Alan, Kurt", 800, "gong", false, false],
+     ["Ramanujan", "Edsger, Barbara", -400, "airhorn", true, true],
+     ["", "Tim, Radia", 2000, "", false, false]]
       .forEach(function (t, i) {
         put(tree, "rooms/DEMO/teams/-dseed" + i,
-          { name: t[0], members: t[1], answer: "", locked: false, score: t[2] });
+          { name: t[0], members: t[1], answer: "", locked: false, score: t[2],
+            buzzer: t[3], ready: t[4], frozen: t[5] });
       });
     save(tree);
   }

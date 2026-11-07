@@ -133,6 +133,30 @@ asked them to find on a phone a thing already on the wall in front of them. The 
 in the system font there, not Anton - a webfont on thirty phones for a screen that is up for
 five seconds is not a trade worth making.
 
+**Joining and being ready are two separate acts.** The front page takes the room code and
+nothing else. That drops a team into a lobby, where they settle their name, who is in the
+team and - if the cog has it switched on - which buzzer sound they want, and then press
+`Ready`.
+
+The reason is what the dashboard used to look like during the five minutes before a game. A
+team that had entered the code and a team still arguing about its name were the same row, so
+the only way to tell a tech problem from a naming committee was to walk over. The state line
+now reads `3 of 5 ready`, and the ones that are not are visible as the ones still working.
+It is the pattern a multiplayer lobby uses, for the same reason: you can see that somebody is
+there and fiddling with their loadout rather than wondering whether they loaded at all.
+
+**`Ready` never gates the start.** Press `Start game` with half the room un-readied and the
+game starts. A team can un-ready itself and go back to fiddling for as long as it likes. The
+only thing that stops them is the lock - the padlock at the left of each row, where the
+hand-over icon sits once the game is running - which freezes that team's name, members and
+buzzer where they are. Use it on the team that will not settle, or on a name you would rather
+the class did not read off the board. Locking is gold, not red: it is a thing you chose, not
+a fault.
+
+A team that has joined and not named itself yet reads as `Joining...` in grey italic, on the
+dashboard and on the board's welcome card. That is a display fallback, not a stored name -
+the name field is genuinely empty until the team types one, so there is nothing to delete.
+
 **The buzzer never leaves a student's screen.** It is the one screen a phone sits on for a
 whole lesson, so between clues it stays exactly where it is and goes dead - empty box, grey
 button - rather than being replaced by "Waiting for the next clue...", which is a sentence a
@@ -219,11 +243,18 @@ Things worth knowing that the screen does not say, because a dashboard used duri
 is no place for a paragraph of instructions:
 
 - Tap a team's name to rename it, or its score to correct it. Who is in the team is listed
-  under its name, wrapping onto as many lines as it needs.
+  under its name, wrapping onto as many lines as it needs - tap that to edit it too.
+- Before the game starts, the left-hand column is a padlock per team rather than the
+  hand-over icon, and the answer column holds each team's buzzer with a menu to change it.
+  Both columns go back to their usual jobs the moment the game starts, which is why the
+  padlock cannot simply live beside the hand-over icon: that one is only ever on one row.
 - `Mute all buzzers` in the cog silences the whole room, student devices included, not just
   the dashboard. It is remembered between games.
 - `Buzzers only` in the cog runs the game with no answer boxes on the student devices, except
   on the final clue. Also remembered between games.
+- `Let teams pick their own buzzer sound` in the cog adds a grid of sounds to the lobby, in
+  groups of eight. Off by default, because it is five more minutes a class can spend on
+  something that is not the quiz. Remembered between games.
 - On the final clue, tap a team's answer to put it on the board.
 - While wagers are coming in, the teams column says who is in, never how much. An amount
   there is a number you can read and do nothing with - it cannot go on the board until the
@@ -349,6 +380,12 @@ is 331,776, which sounds like plenty until you remember that a room lingers an h
 host closes and that teachers all start at nine o'clock. A code that is already somebody's
 game sends their class into yours. Teams are pinned to their known
 fields and `buzzedAt` must equal the server clock, so a student cannot fake an earlier buzz.
+
+That pinning is a closed set: `"$other": { ".validate": false }` refuses any field the rules do
+not name, so adding one to a team is a change to `database.rules.json` and a deploy, not just a
+write. `buzzer`, `ready` and `frozen` went in that way. Nothing under `game` needs it - that
+node has no such clause, which is why `buzzerPick` was free. Demo mode validates nothing at
+all, so a missing deploy looks perfect locally and fails silently in a lesson.
 
 **A recycled code is wiped before it is opened on.** An hour without a host makes a room
 reusable, and nothing used to delete what the last game left there - so a code handed back out

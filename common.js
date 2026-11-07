@@ -106,6 +106,51 @@ function mathErrors(text) {
   }).filter(Boolean);
 }
 
+// Placeholder sounds until the real files land. The ids are what gets stored and are meant to
+// be stable; the labels are not. Every one of them plays beep() for now - see the lobby grid.
+// Eight to a group, because eight is what the grid flows in: 8 across, then 4, then 2.
+// Nothing here is from the show: those cues are enforced. See ROADMAP.md.
+const BUZZERS = [
+  { group: "Animals", sounds: [
+    { id: "duck",    label: "Duck" },
+    { id: "cow",     label: "Cow" },
+    { id: "sheep",   label: "Sheep" },
+    { id: "cat",     label: "Cat" },
+    { id: "dog",     label: "Dog" },
+    { id: "chimp",   label: "Chimp" },
+    { id: "rooster", label: "Rooster" },
+    { id: "frog",    label: "Frog" }
+  ] },
+  { group: "Noises", sounds: [
+    { id: "airhorn", label: "Airhorn" },
+    { id: "carhorn", label: "Car horn" },
+    { id: "scratch", label: "Record scratch" },
+    { id: "gong",    label: "Gong" },
+    { id: "boing",   label: "Boing" },
+    { id: "whistle", label: "Whistle" },
+    { id: "bell",    label: "Bell" },
+    { id: "clang",   label: "Clang" }
+  ] }
+];
+
+// Flat lookup, for turning a stored id back into something to show.
+function buzzerLabel(id) {
+  if (!id) return "";
+  for (const g of BUZZERS) {
+    for (const s of g.sounds) if (s.id === id) return s.label;
+  }
+  return id;      // a sound that has since been retired still reads as something
+}
+
+// A team exists before it is named: the code screen creates the row and the lobby is where
+// the name is typed. Everywhere a team is named TO SOMEBODY ELSE - the dashboard, the board's
+// welcome card - goes through here, so a team mid-lobby reads as joining rather than as a
+// blank gap. The lobby's own name box stays genuinely empty, which is why "" is stored rather
+// than a placeholder somebody would have to delete.
+function teamLabel(t) {
+  return (t && t.name) || "Joining...";
+}
+
 function money(n) {
   const v = Number(n) || 0;
   return (v < 0 ? "-$" : "$") + Math.abs(v).toLocaleString("en-US");

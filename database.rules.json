@@ -27,6 +27,10 @@
             "score":    { ".validate": "newData.isNumber()" },
             "wager":    { ".validate": "newData.isNumber()" },
 
+            "buzzer":   { ".validate": "newData.isString() && newData.val().length <= 40" },
+            "ready":    { ".validate": "newData.isBoolean()" },
+            "frozen":   { ".validate": "newData.isBoolean()" },
+
             "$other":   { ".validate": false }
           }
         },

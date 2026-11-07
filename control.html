@@ -88,6 +88,7 @@
       <label class="opt"><input type="checkbox" id="teamsPick"> Let teams pick their own clues</label>
       <label class="opt"><input type="checkbox" id="showCode"> Show the room code on the board</label>
       <label class="opt"><input type="checkbox" id="buzzOnly"> Buzzers only - teams answer out loud</label>
+      <label class="opt"><input type="checkbox" id="buzzPick"> Let teams pick their own buzzer sound</label>
     </div>
     <!-- Five made pairs and then the two colours themselves, in that order, because the
          realistic want is "the green one" rather than a hex code. The board repaints as the
@@ -186,6 +187,7 @@ const SET_KEY = "clueboard-set";           // the raw paste, re-parsed on load
 const PICK_KEY = "clueboard-teams-pick";   // host preference, remembered between games
 const CODE_KEY = "clueboard-show-code";    // the same, for the code in the board's corner
 const BUZZ_KEY = "clueboard-buzzers-only"; // and for a game played without answer boxes
+const PICK_BUZZ_KEY = "clueboard-buzzer-pick"; // whether teams choose their own buzzer sound
 const THEME_KEY = "clueboard-theme";       // the two colours the rest of the palette follows
 const TITLE_KEY = "clueboard-title";       // so a refresh mid-lesson still knows the game
 const STILL_BEATING = 3 * 60 * 1000;
@@ -216,6 +218,9 @@ let showCode = localStorage.getItem(CODE_KEY) === "1";
 // quiz is run in a room where not everybody has a device. The final clue keeps its box, since
 // every team answers that one at once.
 let buzzersOnly = localStorage.getItem(BUZZ_KEY) === "1";
+// Off by default: it is one more thing for a class to spend five minutes on, and most lessons
+// do not want it. With it on, the lobby grows a grid of sounds a team picks from.
+let buzzerPick = localStorage.getItem(PICK_BUZZ_KEY) === "1";
 // Null is Studio Blue: the default lives in palette.css and nothing here repeats it.
 let theme = loadTheme();
 // Kept rather than read off the field at publish time, because openRoom also runs on a
@@ -231,6 +236,7 @@ $("#mute").checked = muted;
 $("#teamsPick").checked = teamsPick;
 $("#showCode").checked = showCode;
 $("#buzzOnly").checked = buzzersOnly;
+$("#buzzPick").checked = buzzerPick;
 applyTheme(theme);      // before the first paint, so this screen never flashes the default
 drawSwatches();
 $("#importBtn").addEventListener("click", importSet);
@@ -244,6 +250,7 @@ $("#mute").addEventListener("change", setMute);
 $("#teamsPick").addEventListener("change", setTeamsPick);
 $("#showCode").addEventListener("change", setShowCode);
 $("#buzzOnly").addEventListener("change", setBuzzersOnly);
+$("#buzzPick").addEventListener("change", setBuzzerPick);
 // input, not change: it fires continuously as the picker is dragged, which is what makes the
 // projector window a live preview rather than an apply-and-see.
 $("#groundPick").addEventListener("input", pickColours);
@@ -525,6 +532,7 @@ function openRoom(code) {
     return gameRef.update({ round: round, grid: roundGrid(clueSet, round), pick: null,
                             teamsPick: teamsPick || null, picker: null, muted: muted || null,
                             showCode: showCode || null, buzzersOnly: buzzersOnly || null,
+                            buzzerPick: buzzerPick || null,
                             theme: theme, title: gameTitle || null });
   }).catch((err) => { alert("Could not start the game: " + err.message); });
 
@@ -699,7 +707,13 @@ function stateText() {
     const stops = introStops(((game.grid || {}).cats) || []);
     return "Intro " + (intro + 1) + " of " + stops.length + " \u00b7 " + (stops[intro] || "");
   }
-  if (!game.started) return (game.title || "Ready") + " \u00b7 not started";
+  if (!game.started) {
+    // The whole point of the lobby: a team still arguing about its name is not a team that
+    // cannot get in, and this is where that difference shows up without walking over.
+    const ready = teams.filter((t) => t.ready).length;
+    return (game.title || "Ready") + " \u00b7 "
+      + (teams.length ? ready + " of " + teams.length + " ready" : "not started");
+  }
   return "Round " + (Number(game.round) || 1) + " \u00b7 " + (game.turn
     ? "up next: " + (moves.teamName(game.turn) || "a team that has left")
     : "nobody up yet");
@@ -793,7 +807,10 @@ function renderTeams(snap) {
       answer: t.answer || "",
       score: Number(t.score) || 0,
       buzzedAt: t.buzzedAt || 0,
-      wager: (t.wager === undefined || t.wager === null) ? null : Number(t.wager)
+      wager: (t.wager === undefined || t.wager === null) ? null : Number(t.wager),
+      ready: !!t.ready,
+      frozen: !!t.frozen,
+      buzzer: t.buzzer || ""
     });
   });
 
@@ -865,6 +882,14 @@ function renderTeamRows() {
   const body = $("#rows");
   const clue = game.clue || null;
   const wagering = !!game.wagering;
+  // The board's test, not the one a few hundred lines up: that one leaves `over` out and so
+  // comes back true the moment a game ends, which would put the lobby back on screen.
+  const pre = !game.started && !clue && !game.over;
+
+  // A menu the host has open is destroyed by a wholesale rebuild, and one student editing
+  // their team name is enough to cause one. Hold the redraw while a menu is open; closing it
+  // calls back here, so the cost is a second of staleness in one cell.
+  if (body.querySelector("select:focus")) return;
   body.textContent = "";
 
   // Checking answers is most of what this screen is for, so the answer being marked against
@@ -899,12 +924,19 @@ function renderTeamRows() {
     // The buzz order and the hand-over icon never want this cell at the same time: order only
     // matters while a clue is open, picking only matters while one is not.
     const numCell = cell(tr, t.buzzedAt ? String(i + 1) : "", "num");
-    if (!clue && t.id === game.turn && !game.teamsPick) {
+    if (pre) {
+      // Before the game there is no buzz order and nothing to hand over, so the column is
+      // free. The lock wants to be on every row, which the board icon never is - it follows
+      // game.turn, and that is assigned at random on the very first team snapshot.
+      numCell.textContent = "";
+      numCell.appendChild(lockButton(t));
+    } else if (!clue && t.id === game.turn && !game.teamsPick) {
       numCell.textContent = "";
       numCell.appendChild(boardButton(t, game.picker === t.id));
     }
 
-    const nameCell = cell(tr, t.name, "name", true);
+    const nameCell = cell(tr, teamLabel(t), "name", true);
+    if (!t.name) nameCell.classList.add("unnamed");
     nameCell.title = "Rename this team";
     nameCell.addEventListener("click", () => renameTeam(t.id, t.name));
     // Who is actually in the team. Collected on the join screen since the buzzer and shown
@@ -914,6 +946,8 @@ function renderTeamRows() {
       const who = document.createElement("span");
       who.className = "members";
       who.textContent = t.members;         // student-typed: textContent, never innerHTML
+      who.title = "Edit who is in this team";
+      who.addEventListener("click", (e) => { e.stopPropagation(); editMembers(t.id, t.members); });
       nameCell.appendChild(who);
     }
 
@@ -932,6 +966,9 @@ function renderTeamRows() {
       ? (hasWagered(t) ? "Wager in" : "")
       : (t.buzzedAt ? t.answer : "");
     const answerCell = cell(tr, answerText, "answer");
+    // Empty until a clue is open, so before the game it holds the team's buzzer and the menu
+    // to change it - for the one that picks a siren and will not be talked out of it.
+    if (pre && game.buzzerPick) answerCell.appendChild(buzzerSelect(t));
     if (clue && (clue.final || clue.dd) && !wagering && hasWagered(t)) {
       const bet = document.createElement("span");
       bet.className = "bet";
@@ -1023,6 +1060,75 @@ function editScore(id, current) {
     .catch((err) => { alert("Could not set that score: " + err.message); });
 }
 
+// Lucide lock / lock-open, built the way boardButton builds its icon: inline, so it takes
+// its colour from the button. The shackle path is the only difference between the two.
+function lockButton(t) {
+  const on = !!t.frozen;
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = on ? "lockbtn on" : "lockbtn";
+  b.title = on ? "Let this team make changes again" : "Lock this team's choices";
+  b.setAttribute("aria-label", b.title);
+
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "2");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("focusable", "false");
+  const shell = document.createElementNS(NS, "rect");
+  shell.setAttribute("x", 3); shell.setAttribute("y", 11);
+  shell.setAttribute("width", 18); shell.setAttribute("height", 11);
+  shell.setAttribute("rx", 2);
+  const shackle = document.createElementNS(NS, "path");
+  shackle.setAttribute("d", on ? "M7 11V7a5 5 0 0 1 10 0v4" : "M7 11V7a5 5 0 0 1 9.9-1");
+  svg.appendChild(shell);
+  svg.appendChild(shackle);
+  b.appendChild(svg);
+
+  b.addEventListener("click", () => {
+    teamsRef.child(t.id).update({ frozen: !on })
+      .catch((err) => { alert("Could not lock the team: " + err.message); });
+  });
+  return b;
+}
+
+// A select rather than the student's grid of sixteen: this is a correction, not a choice, and
+// it has to fit in a table cell beside five other columns.
+function buzzerSelect(t) {
+  const sel = document.createElement("select");
+  sel.className = "buzzsel";
+  sel.title = "Change this team's buzzer";
+  const none = document.createElement("option");
+  none.value = "";
+  none.textContent = "- none -";
+  sel.appendChild(none);
+  BUZZERS.forEach((g) => {
+    const og = document.createElement("optgroup");
+    og.label = g.group;
+    g.sounds.forEach((s) => {
+      const o = document.createElement("option");
+      o.value = s.id;
+      o.textContent = s.label;
+      og.appendChild(o);
+    });
+    sel.appendChild(og);
+  });
+  sel.value = t.buzzer || "";
+  sel.addEventListener("change", () => {
+    teamsRef.child(t.id).update({ buzzer: sel.value })
+      .catch((err) => { alert("Could not change the buzzer: " + err.message); });
+  });
+  // The guard at the top of renderTeamRows holds the table still while this is open, so this
+  // is what lets the held-back snapshot through.
+  sel.addEventListener("blur", renderTeamRows);
+  return sel;
+}
+
 function cell(tr, text, cls, clamp) {
   const td = tr.insertCell();
   td.className = cls;
@@ -1035,6 +1141,16 @@ function cell(tr, text, cls, clamp) {
     td.textContent = text;
   }
   return td;
+}
+
+// Same shape as renameTeam, and update() for the same reason: a set() would drop the other
+// fields the create rule in database.rules.json insists on.
+function editMembers(id, current) {
+  if (!teamsRef) return;
+  const next = (prompt("Who is in this team?", current || "") || "").trim().slice(0, 200);
+  if (next === (current || "")) return;
+  teamsRef.child(id).update({ members: next })
+    .catch((err) => { alert("Could not change the members: " + err.message); });
 }
 
 function renameTeam(id, current) {
@@ -1169,6 +1285,12 @@ function setBuzzersOnly() {
   buzzersOnly = $("#buzzOnly").checked;
   localStorage.setItem(BUZZ_KEY, buzzersOnly ? "1" : "0");
   if (gameRef) gameRef.update({ buzzersOnly: buzzersOnly || null }).catch(() => {});
+}
+
+function setBuzzerPick() {
+  buzzerPick = $("#buzzPick").checked;
+  localStorage.setItem(PICK_BUZZ_KEY, buzzerPick ? "1" : "0");
+  if (gameRef) gameRef.update({ buzzerPick: buzzerPick || null }).catch(() => {});
 }
 
 // Two taps, because each of these stops a lesson: the first arms the button and says so,

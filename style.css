@@ -61,7 +61,8 @@ body.student { height: 100dvh; overflow: hidden; }
   font-size: clamp(17px, 4.6vw, 22px);
   padding: 0.55em 0.6em;
 }
-#joinBtn {
+#joinBtn,
+#readyBtn {
   width: 100%;
   padding: 0.7em;
   font-size: clamp(19px, 5vw, 26px);
@@ -69,31 +70,93 @@ body.student { height: 100dvh; overflow: hidden; }
   color: var(--gap-ink);
   background: var(--value-gold);
 }
-#joinBtn:active { background: var(--value-gold-lit); }
+#joinBtn:active,
+#readyBtn:active { background: var(--value-gold-lit); }
+
+/* ---------- the lobby (index.html, before the game starts) ---------- */
+
+/* The one student screen that can outgrow the phone: sixteen tiles and a soft keyboard do not
+   both fit in 100dvh. The screen itself still does not scroll - the FORM does, inside it, so
+   the room code stays at the top and Ready stays under the thumb however long the grid is. */
+#lobby { overflow: hidden; }
+
+.lobbyhead { display: flex; align-items: baseline; justify-content: space-between; gap: 1em; }
+#lobbyTitle { margin: 0; font-size: clamp(20px, 5.4vw, 30px); }
+.lobbycode {
+  margin: 0;
+  font-size: clamp(13px, 3.4vw, 16px);
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+/* The same monospace the code box uses, for the same reason: it is a code, not a word. */
+#lobbyCode {
+  color: var(--value-gold);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: 0.1em;
+}
+
+/* Takes the slack so Ready sits at the foot of the screen, where Join does on the way in.
+   min-height: 0 is what lets it shrink below its content instead of shoving the button off. */
+.lobbyform { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+
+/* Eight to a group, and eight across where there is room. 4 and 2 are the only other factors
+   of 8, so a group stays a whole number of rows at every width - 3 or 5 across would leave a
+   group straddling a row and the grouping is the point of the grid. */
+.buzzrow { display: grid; grid-template-columns: repeat(8, 1fr); gap: 0.5em; }
+@media (max-width: 820px) { .buzzrow { grid-template-columns: repeat(4, 1fr); } }
+@media (max-width: 430px) { .buzzrow { grid-template-columns: repeat(2, 1fr); } }
+
+.buzzgroup {
+  margin: 1em 0 0.45em;
+  font-size: clamp(11px, 2.9vw, 13px);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--quiet);
+}
+.buzzgroup:first-child { margin-top: 0; }
+
+.buzztile {
+  padding: 0.75em 0.4em;
+  font-size: clamp(12px, 3.1vw, 15px);
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--faint);
+  border-radius: 10px;
+}
+.buzztile.on { color: var(--gap-ink); background: var(--value-gold); }
+.buzztile:disabled { color: var(--off); background: var(--spent); }
+
+.frozennote { margin: 0; font-size: clamp(13px, 3.4vw, 16px); color: var(--value-gold); }
+
+/* Already ready: the button is still the way back, but it stops being the loud thing on the
+   screen, because at that point there is nothing the team has to do. */
+#readyBtn.unready {
+  color: var(--ink);
+  background: var(--faint);
+  box-shadow: inset 0 0 0 2px var(--line);
+}
+#readyBtn.unready:active { background: var(--podium); }
+#readyBtn:disabled { color: var(--off); background: var(--spent); box-shadow: none; }
 
 /* ---------- the landing page (index.html's join screen) ---------- */
 
-/* One screen doing both jobs, for the reason given in index.html. The wordmark holds the
-   top, the two quiet links hold the bottom, and everything between them belongs to the room
-   code. overflow-y because .screen is exactly 100dvh and the body cannot scroll: on a short
-   phone with the keyboard up this scrolls rather than cutting the links off the bottom. */
+/* One screen doing both jobs, for the reason given in index.html. The name holds the top,
+   the two quiet links hold the bottom, and everything between them belongs to the room code.
+   overflow-y because .screen is exactly 100dvh and the body cannot scroll: on a short phone
+   with the keyboard up this scrolls rather than cutting the links off the bottom. */
 .home { gap: 0; overflow-y: auto; }
-.home .wordmark { text-align: center; }
 .home h1 {
+  text-align: center;
   font-size: clamp(30px, 8.5vw, 52px);
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
-.home .tag {
-  margin: 0.35em 0 0;
-  font-size: clamp(13px, 3.6vw, 18px);
-  font-weight: 600;
-  color: var(--muted);
-}
 
 /* Auto margins on all four sides: in this column they swallow every spare pixel above and
-   below, so the code sits in the middle of whatever the wordmark and the links leave, and
+   below, so the code sits in the middle of whatever the name and the links leave, and
    they centre it on a laptop - where a code field the width of the window is not a code
    field. */
 .home .entry { width: 100%; max-width: 26rem; margin: auto; }
@@ -111,25 +174,61 @@ body.student { height: 100dvh; overflow: hidden; }
   paint-order: stroke fill;
 }
 
-/* A cell off the board: a square of blue, the code in gold, no outline on it at all.
-   text-indent puts back the half of the tracking that letter-spacing hangs off the last
-   letter, so four letters sit centred rather than a fifth of a character to the left. */
+/* A cell off the board: a plate of blue just wider than the code, the code in gold, no
+   outline on it at all.
+
+   Monospaced, because a code is not a word: equal widths are what let the four rules below
+   be drawn once in CSS and still sit under the letters.
+
+   Left-aligned, not centred. Centring re-centres the whole string on every keystroke, so the
+   first letter appeared in the middle of the plate and the rest shuffled left as they were
+   typed - the letters only reached the slots once all four were in. Left-aligned inside a
+   gutter sized to the run, a letter lands on its own rule and stays there.
+
+   The two paddings differ by a track because letter-spacing hangs a gap off the FOURTH letter
+   as well, and the caret stands after it. Give the content box only the ink width and the
+   browser scrolls the text left to keep that caret in view, which drags every letter off its
+   rule. padding-right is where that trailing gap lives, so nothing has to scroll; the 2px is
+   the caret itself. The ink is still centred on the plate, because the gutter either side of
+   it is the same. */
 #code {
-  text-align: center;
+  --cell: 1ch;        /* one character: the same for every glyph, this font being monospaced */
+  --track: 0.24em;    /* the gap letter-spacing puts after each one */
+  --gutter: 0.55em;   /* blue either side of the code */
+
+  display: block;
+  width: calc(4 * var(--cell) + 3 * var(--track) + 2 * var(--gutter));
+  max-width: 100%;
+  margin-inline: auto;
+
+  text-align: left;
+  text-indent: 0;
   text-transform: uppercase;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: clamp(40px, 15vw, 68px);
   font-weight: 800;
-  letter-spacing: 0.24em;
-  text-indent: 0.24em;
+  letter-spacing: var(--track);
   line-height: 1.2;
-  padding: 0.22em 0;
+  padding: 0.22em calc(var(--gutter) - var(--track) - 2px) 0.22em var(--gutter);
+
   color: var(--value-gold);
-  background: var(--board-blue);
+  /* Four rules, one period of the gradient each: a cell of ink, then the track blank. They
+     are painted in the field's own background, so the slots cost no markup and stay put as
+     the code is typed over them - where a placeholder would vanish on the first letter. */
+  background-color: var(--board-blue);
+  background-image: repeating-linear-gradient(90deg,
+    var(--off) 0 var(--cell),
+    transparent var(--cell) calc(var(--cell) + var(--track)));
+  background-repeat: no-repeat;
+  /* The tile is the ink, not the content box: the content box carries the trailing track and
+     the caret as well, and a tile that wide starts a fifth rule in the slack. */
+  background-size: calc(4 * var(--cell) + 3 * var(--track)) 0.055em;
+  background-position: left bottom;
+  background-origin: content-box;
+
   border: 0;
   border-radius: 0;
 }
-/* The four dashes are a shape, not type: the board's edge on them reads as grit. */
-#code::placeholder { text-shadow: none; -webkit-text-stroke: 0; }
 /* The focus ring has to be drawn inside: there is no border left to recolour. */
 #code:focus { box-shadow: inset 0 0 0 3px var(--value-gold); }
 
@@ -337,6 +436,9 @@ td.num {
   vertical-align: bottom;
 }
 td.name { cursor: pointer; }
+/* Joined, but still arguing about the name. teamLabel() supplies the word; this is what keeps
+   it from reading as a team that actually chose to be called that. */
+td.name.unnamed > .clamp { color: var(--quiet); font-style: italic; }
 /* Who is in the team, stacked under its name and wrapping as far as it needs. */
 td.name .members {
   display: block;

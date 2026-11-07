@@ -221,7 +221,7 @@ function render() {
   // joined has no use for it, and a game screen is the clue and nothing else.
   $("#cornerCode").hidden = welcoming || !!clue || !game.showCode || over;
   $("#wTeams").textContent = teams.length
-    ? teams.map((t) => t.name).join("  ·  ")
+    ? teams.map(teamLabel).join("  ·  ")
     : "Waiting for teams...";
 
   $("#boardState").hidden = welcoming;

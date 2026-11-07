@@ -818,6 +818,43 @@ body.board {
   box-shadow: none;
 }
 
+/* The lock takes the same cell as the hand-over icon and wears the same box, so the column
+   does not change width when the game starts. On every row, though, where .give is only ever
+   on one - which is the whole reason the two cannot share the cell. */
+.control button.lockbtn {
+  display: block;
+  width: 1.9em;
+  height: 1.9em;
+  padding: 0.3em;
+  border-radius: 8px;
+  color: var(--off);
+  background: none;
+  box-shadow: inset 0 0 0 2px var(--line);
+}
+.control button.lockbtn svg { display: block; width: 100%; height: 100%; }
+.control button.lockbtn:hover { color: var(--ink); box-shadow: inset 0 0 0 2px var(--muted); }
+/* Locked is gold, not red: it is a thing the teacher chose, not a fault. */
+.control button.lockbtn.on {
+  color: var(--gap-ink);
+  background: var(--value-gold);
+  box-shadow: none;
+}
+
+/* The buzzer menu, holding the answer column until there is an answer to put in it. */
+.control select.buzzsel {
+  width: 100%;
+  font: inherit;
+  font-size: 0.62em;
+  font-weight: 600;
+  padding: 0.3em 0.4em;
+  color: var(--ink);
+  background: var(--faint);
+  border: 0;
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 2px var(--line);
+}
+.control select.buzzsel:focus { outline: none; box-shadow: inset 0 0 0 2px var(--value-gold); }
+
 /* The answer and its buttons sit a third of the screen apart, which is where a tired eye
    slips a row. Lighting the whole row is the cheap half of that fix. */
 .control tbody tr:not(.keyrow):hover td:not(.onboard) { background: var(--faint); }
