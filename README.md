@@ -210,24 +210,40 @@ The control screen is built around checking answers, which is most of what you d
 The clue runs full width across the top, and the correct answer sits at the head of the same
 column the teams' submissions are in, so marking is one glance down a column.
 
-**You can run a whole game from the board alone.** `Run from the board`, beside `Open
-projector`, hands the game to the projector: click a cell to open a clue, mark a team on its
-own podium, and everything else is in a bar that comes up when the mouse moves and goes a few
-seconds later, the way a video player's does. For all but a handful of seconds in a lesson
-there is nothing on screen but the show.
+**One screen runs a whole game.** `Run from the board`, beside `Open projector`, turns the
+tab you are in into the board: click a cell to open a clue, mark a team on its own podium, and
+everything else is in a bar that comes up when the mouse moves and goes a few seconds later,
+the way a video player's does. For all but a handful of seconds in a lesson there is nothing
+on screen but the show.
+
+The two buttons are the two answers to the same question. **Two screens**: `Open projector`
+puts the board in its own window, you drag it across, and you keep the dashboard in front of
+you. **One screen** - an iPad mirrored to the TV, a laptop with no second output - is
+`Run from the board`. Take one or the other, never both.
 
 **It reveals first and marks second**, which is the opposite way round from the control
 screen. There is nowhere private on a projected board, so the answer going up is what you
 mark against. That is a change to how the game plays, and it is deliberate.
 
-It is a flag on the room rather than a different address, so a board already dragged onto the
-projector follows the button without being reopened, and you can hand the game back mid-
-lesson. A board can only host if **that device** has the clue set - it reads it from its own
-storage, the same place the control screen keeps it, and a board opened anywhere else has no
-clue text to publish and no answers to reveal. That is the gate, not a permission.
+`Dashboard`, at the left of that bar, is the way back, and it is how you reach the things the
+board has no equivalent of: renaming a team, its members, correcting a score, removing a team,
+and everything behind the cog. Mid-clue is fine - going back does not disturb the game, which
+lives in the room rather than in either screen.
 
-**The control screen opens on a phone**, which is the fallback for a teacher who cannot
-extend their display. Below 700px a team stops being a row and becomes a card: name, score
+It is `?host=1` on the address rather than a flag on the room, because the mode belongs to
+the tab that is in it: nothing is written, and no room is left carrying a setting that outlives
+the lesson. A board can only host if **that device** has the clue set - it reads it from its
+own storage, the same place the dashboard keeps it - so the button is on the dashboard, which
+is the screen that has it. A board opened anywhere else has no clue text to publish and no
+answers to reveal. That is the gate, not a permission.
+
+Three buttons leave the bar the moment they have nothing left to do, because on a projected
+board a button that cannot be pressed is not a hint - it is a thing the class is reading.
+`Reveal answer` goes when the answer is up, and the timer and `Back to grid` go once a final
+clue has been revealed, which leaves `End the game` on its own.
+
+**The control screen also opens on a phone**, which is the other way to run a lesson without
+a second display: the phone in your hand is the dashboard and the laptop stays on the board. Below 700px a team stops being a row and becomes a card: name, score
 and the two scoring buttons on one line, the answer across the full width underneath. Six
 columns on a 390px screen put the deduct button off the right edge and gave the answer six
 characters a line, so the fallback was not one.

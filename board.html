@@ -61,17 +61,23 @@
 
 <footer id="podiums"></footer>
 
-<!-- Board-only mode. The teacher is running the lesson from the projector with nothing else
-     open, so the controls have to be here - and this is the one screen the whole class is
-     looking at, so they cannot simply sit on it. The bar comes up when the mouse moves and
-     goes again a few seconds later, the way a video player's does: for all but a handful of
-     seconds in a lesson there is nothing here to press.
+<!-- One-screen mode, reached by "Run from the board" on the dashboard, which sends this tab
+     here with host=1. It is for a teacher who cannot extend their display - an iPad mirrored
+     to the TV is one screen, and so is a laptop with no second output - so the board and the
+     controls have to be the same page. With two screens you leave this off and use the
+     dashboard, which is what the second screen is for.
+     This is the one screen the whole class is looking at, so the controls cannot simply sit
+     on it. The bar comes up when the mouse moves and goes again a few seconds later, the way
+     a video player's does: for all but a handful of seconds in a lesson there is nothing
+     here to press. Dashboard is the way back, because renaming, members, removing a team and
+     the settings all live over there.
      Clues are opened by clicking the cell and teams are marked on their own podium, which
      is the half of this that needs no chrome at all. -->
 <div id="hostbar" hidden>
   <p class="hstate" id="hostState"></p>
   <p class="herr" id="hostErr"></p>
   <div class="hacts">
+    <button id="hDash" class="quiet">Dashboard</button>
     <button id="hStart" class="quiet" hidden>Start game</button>
     <button id="hIntro" class="act" hidden>Start intro</button>
     <button id="hNext" class="act" hidden>Next</button>
@@ -101,6 +107,7 @@
 <script src="common.js"></script>
 <script>
 const $ = (s) => document.querySelector(s);
+const hostHere = new URL(location).searchParams.get("host") === "1";
 const code = (new URL(location).searchParams.get("room") || "")
   .toUpperCase().replace(/[^A-Z]/g, "").slice(0, 4);
 
@@ -236,7 +243,7 @@ function render() {
   renderThink();
   renderResults();
   // Last, because it reads what everything above has just settled.
-  setHosting(!!game.hostBoard && !!clueSet && !!code);
+  setHosting(hostHere && !!clueSet && !!code);
   renderHostBar();
 }
 
@@ -299,9 +306,13 @@ function renderHostBar() {
   show("#hIntro", pre);
   show("#hNext", introing);
   show("#hShow", wagering);
-  show("#hTimer", !!clue && !!clue.final && !wagering);
-  show("#hReveal", !!clue && !wagering);
-  show("#hBack", !!clue);
+  // Each of these goes the moment it has nothing left to do. On a projected board a button
+  // that cannot be pressed is not a hint, it is a thing the class is looking at: the timer
+  // has no question left to time once the answer is up, and after a final there is no board
+  // to go back to.
+  show("#hTimer", !!clue && !!clue.final && !wagering && !game.reveal);
+  show("#hReveal", !!clue && !wagering && !game.reveal);
+  show("#hBack", !!clue && !(clue.final && game.reveal));
   // Where the game can go next only belongs on screen when it is not in the middle of
   // something. Ending it is also offered straight after a final clue, which is what follows
   // one - there is no board to go back to.
@@ -311,12 +322,10 @@ function renderHostBar() {
 
   $("#hRound").textContent = "Go to round " + other;
   if (clue) {
-    $("#hReveal").disabled = !!game.reveal;
-    $("#hReveal").textContent = game.reveal ? "Answer is showing" : "Reveal answer";
     // Reveal first, then mark. There is nowhere private on a projected board, so the answer
-    // going up is what the teacher marks against - the opposite way round from the control
-    // screen, where it sits on a second display only they can see.
-    setGold($("#hReveal"), !wagering && !game.reveal);
+    // going up is what the host marks against - the opposite way round from the dashboard,
+    // where it sits on a second display only they can see.
+    setGold($("#hReveal"), !wagering);
     setGold($("#hBack"), !!game.reveal && !clue.final);
     setGold($("#hEnd"), !!clue.final && !!game.reveal);
     $("#hTimer").textContent = game.timerEnds && game.timerEnds > serverNow()
@@ -342,6 +351,9 @@ function hostState(clue, intro, over) {
   return "Round " + (Number(game.round) || 1);
 }
 
+$("#hDash").addEventListener("click", () => {
+  location.href = "control.html?room=" + code + (window.DEMO ? "&demo=1" : "");
+});
 $("#hStart").addEventListener("click", () => moves.start(null));
 $("#hIntro").addEventListener("click", () => moves.start(0));
 $("#hNext").addEventListener("click", () => moves.nextIntro());

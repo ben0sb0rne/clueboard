@@ -70,12 +70,12 @@
       </svg><span>Edit Game</span>
     </button>
     <button id="openBoard" class="quiet">Open projector</button>
-    <!-- Board-only mode, next to the button that opens the board, because that is what it
-         is about. It is a flag on the room rather than a different URL, so a board that is
-         already open and dragged onto the projector follows it without being reopened -
-         which is the only version of a toggle that is any use mid-lesson. -->
-    <button id="hostBoard" class="quiet" aria-pressed="false"
-      title="Run the game from the board itself: choose clues on it, mark on the podiums"
+    <!-- One screen, for a teacher who cannot extend their display. This tab becomes the
+         board, with the controls on it; Dashboard there comes back. Next to the button that
+         opens the board because they are the two answers to the same question - two screens
+         or one - and you take one or the other, never both. -->
+    <button id="hostBoard" class="quiet"
+      title="One screen: turn this tab into the board and choose clues on it"
       >Run from the board</button>
   </header>
 
@@ -243,7 +243,7 @@ $("#sampleBtn").addEventListener("click", loadSample);
 $("#reimportBtn").addEventListener("click", () => showSetup(true));
 $("#createBtn").addEventListener("click", createRoom);
 $("#openBoard").addEventListener("click", openBoardWindow);
-$("#hostBoard").addEventListener("click", toggleHostBoard);
+$("#hostBoard").addEventListener("click", runFromBoard);
 $("#cog").addEventListener("click", togglePanel);
 $("#mute").addEventListener("change", setMute);
 $("#teamsPick").addEventListener("change", setTeamsPick);
@@ -568,10 +568,13 @@ function openBoardWindow() {
 // The board needs this device's clue set to host, and it reads it from localStorage, so
 // this only ever makes sense on a board opened from this machine. A board on another device
 // ignores the flag, which is the gate rather than a permission.
-function toggleHostBoard() {
-  if (!moves) return;
-  moves.gameRef.child("hostBoard").set(game.hostBoard ? null : true)
-    .catch((err) => { alert("Could not hand the game to the board: " + err.message); });
+// Same tab, not a second window. A teacher who cannot extend their display has one screen -
+// an iPad mirrored to the TV, a laptop with no second output - and what they need is for
+// this one to become the board. It writes nothing: the mode belongs to the tab that is in
+// it, so it travels in the URL and leaves no flag behind in a room to go stale.
+function runFromBoard() {
+  if (!roomCode) return;
+  location.href = "board.html?room=" + roomCode + "&host=1" + (window.DEMO ? "&demo=1" : "");
 }
 
 function markActive() {
@@ -644,11 +647,6 @@ function renderGame(snap) {
   $("#endBtn").hidden = !(clue && clue.final && game.reveal);
   $("#closeBtn").hidden = !over;
   $("#endGame").hidden = over;
-  // Pressed, not a second style of button: it is a mode this screen is in, and the board is
-  // where the game is being run from while it is on.
-  const handed = !!game.hostBoard;
-  $("#hostBoard").setAttribute("aria-pressed", String(handed));
-  setAct($("#hostBoard"), handed);
   $("#roundBtn").textContent = "Go to round " + (round === 2 ? 1 : 2);
 
   if (introing) {
