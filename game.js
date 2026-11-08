@@ -79,8 +79,16 @@ function hostMoves(ctx) {
     });
   }
 
+  // Someone has to pick first and nothing before now decides it, so pick at random - from
+  // the teams that are actually in, because a team still in the lobby cannot pick and would
+  // own a Daily Double nobody could answer. Drawn here rather than from a listener: this is
+  // the moment the question is asked, and it is one write. Only if nobody holds the turn
+  // already, so starting again can never re-roll it mid-game.
   function start(intro) {
-    gameRef.update({ started: true, intro: intro }).catch(caught("start the game"));
+    var able = ctx.teams().filter(function (t) { return t.ready; });
+    var first = able.length ? able[Math.floor(Math.random() * able.length)].id : null;
+    gameRef.update({ started: true, intro: intro, turn: ctx.game().turn || first || null })
+      .catch(caught("start the game"));
   }
 
   function nextIntro() {

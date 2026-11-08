@@ -277,6 +277,29 @@ tests["extra final rows are reported rather than silently dropped"] = function (
   assert.ok(one.indexOf("final") === -1, "one final must not be reported: " + one);
 };
 
+// The rule that decides whether a student sees the buzzer or the name box. Three booleans,
+// so the whole table fits - and getting one of them wrong locks a class out of its own game.
+var CLUE = { category: "SLOPE & INTERCEPT", value: 200 };
+
+tests["a team that has not pressed Ready is in the lobby, whatever else is happening"] = function () {
+  assert.strictEqual(C.inLobby({}, {}), true);                                   // nothing yet
+  assert.strictEqual(C.inLobby({ started: true }, { ready: false }), true);      // joined late
+  assert.strictEqual(C.inLobby({ started: true, clue: CLUE }, {}), true);        // mid-clue
+  assert.strictEqual(C.inLobby({ clue: CLUE }, { ready: false }), true);
+};
+
+tests["a ready team is in the lobby until the game starts, and out of it after"] = function () {
+  assert.strictEqual(C.inLobby({}, { ready: true }), true);
+  assert.strictEqual(C.inLobby({ started: true }, { ready: true }), false);
+  assert.strictEqual(C.inLobby({ started: true, clue: CLUE }, { ready: true }), false);
+};
+
+tests["a clue on the board lets a ready team through, even if started never landed"] = function () {
+  // The guard. Without it one dropped write strands the whole class in the lobby with the
+  // clue already up, and nothing on their phones says why.
+  assert.strictEqual(C.inLobby({ clue: CLUE }, { ready: true }), false);
+};
+
 var failed = 0;
 Object.keys(tests).forEach(function (name) {
   try {

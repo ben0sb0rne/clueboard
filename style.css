@@ -397,6 +397,13 @@ td {
    however many lines either runs to. The controls are not read, they are hit: they centre
    on the row instead of hanging off the top of a two-line one. */
 td.num, td.mark, td.rm { vertical-align: middle; }
+/* With no clue open the answer column is empty, so the row is as tall as the +/- buttons and
+   nothing else - and a first baseline then leaves the name floating near the top of a row it
+   does not fill. Centre the reading columns while that is true. `inclue` puts the shared
+   baseline back the moment there are answers to read down, which is the case it was for. */
+body:not(.inclue) td.name,
+body:not(.inclue) td.score,
+body:not(.inclue) td.answer { vertical-align: middle; }
 tr.buzzed { background: var(--faint); }
 tr.buzzed .name { font-weight: 800; }
 /* Everything shrinks to its content except the answer, which takes the rest. The name is
@@ -449,6 +456,9 @@ td.name .members {
   color: var(--muted);
   overflow-wrap: break-word;
 }
+/* Nothing typed yet: the same grey italic the unnamed team reads in, so an empty list is
+   plainly a prompt rather than a member called "+ members". */
+td.name .members.none { color: var(--quiet); font-style: italic; }
 td.answer { font-weight: 600; }
 .empty { color: var(--muted); font-size: clamp(18px, 2.2vw, 28px); padding: 1.5em 0; }
 
@@ -464,7 +474,8 @@ td.answer { font-weight: 600; }
    beside it. It was a bare glyph floating at a size of its own. */
 #cog {
   display: flex;
-  padding: 0.6em;
+  align-items: center;
+  gap: 0.5em;
 }
 #cog svg { display: block; width: 1.25em; height: 1.25em; }
 #cog[aria-expanded="true"] { color: var(--ink); box-shadow: inset 0 0 0 2px var(--muted); }
@@ -655,6 +666,49 @@ body.editing .rm { display: table-cell; }
   font-size: clamp(18px, 5vw, 26px);
   font-weight: 600;
   color: var(--muted);
+}
+
+/* The end of the game, and the one moment a student screen is a show rather than a calm
+   surface - the rule that strips motion out of a question does not apply once there is no
+   question left. A board tile in the hand: board blue, the lighter blue as its edge. The
+   name lands, then the money, and that is the whole card.
+
+   Opacity only. It composites on its own, which is what keeps it smooth on the oldest phone
+   in the room, and it is the first animation on this sheet - hence the reduced-motion block
+   at the bottom, which there was nothing to write until now. */
+.result {
+  margin: auto;
+  width: min(100%, 24rem);
+  padding: clamp(1.6em, 8vw, 2.6em) 1.1em;
+  text-align: center;
+  background: var(--board-blue);
+  border: 3px solid var(--board-blue-lit);
+  animation: resultIn 500ms ease-out backwards;
+}
+/* Each carries its own delay rather than inheriting a shared one: `.result p` is the more
+   specific selector, so an `animation` shorthand there resets every delay set below it. */
+.resultwho {
+  margin: 0;
+  animation: resultIn 1100ms ease-out 150ms backwards;
+  font-size: clamp(19px, 5.4vw, 27px);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  text-wrap: balance;
+  color: var(--ink);
+}
+.resultscore {
+  margin: 0.18em 0 0;
+  animation: resultIn 1100ms ease-out 850ms backwards;
+  font-size: clamp(42px, 16vw, 78px);
+  font-weight: 800;
+  line-height: 1;
+  color: var(--value-gold);
+}
+@keyframes resultIn { from { opacity: 0; } to { opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .result, .resultwho, .resultscore { animation: none; }
 }
 
 /* The wager box is the answer box with a dollar sign in it, so a number typed into an empty

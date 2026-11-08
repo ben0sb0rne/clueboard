@@ -149,6 +149,22 @@ function stake(clue, team) {
   return Number(clue.value) || 0;
 }
 
+// Who is still in the lobby. One rule, and it decides the whole of what a student sees: the
+// name box, or the buzzer. Two halves, and both are load-bearing.
+//
+// Before the game there is nothing else to show. And a team that has not pressed Ready has
+// not named itself - toggleReady refuses a blank name - so this is what catches the team
+// joining after the intro has started, who used to arrive as "Joining..." and was never
+// prompted out of it again.
+//
+// The !clue half is the guard: a room whose `started` write never landed would otherwise
+// hold a ready team in here with a clue already on the board, which is the whole class.
+//
+// Says nothing about a game that is over - route() deals with that before it asks.
+function inLobby(game, team) {
+  return (!game.started && !game.clue) || !team.ready;
+}
+
 // The cap on a wager: the larger of what a team already has and the top value on the board.
 // Taking the larger is what lets a team on zero, or in the red, still play - capping at the
 // score alone would lock them out, and a classroom has no reason to do that.
@@ -198,6 +214,6 @@ if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     parseClueSet: parseClueSet, roundGrid: roundGrid, cellKey: cellKey,
     clueAt: clueAt, clueCount: clueCount, ROUND_VALUES: ROUND_VALUES,
-    wagerCap: wagerCap, readWager: readWager, stake: stake
+    wagerCap: wagerCap, readWager: readWager, stake: stake, inLobby: inLobby
   };
 }

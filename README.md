@@ -145,13 +145,20 @@ now reads `3 of 5 ready`, and the ones that are not are visible as the ones stil
 It is the pattern a multiplayer lobby uses, for the same reason: you can see that somebody is
 there and fiddling with their loadout rather than wondering whether they loaded at all.
 
-**`Ready` never gates the start.** Press `Start game` with half the room un-readied and the
-game starts. A team can un-ready itself and go back to fiddling for as long as it likes. The
-only thing that stops them is the lock - the padlock at the left of each row, where the
+**`Ready` never gates the start, and it is the only way in.** Press `Start game` with half
+the room un-readied and the game starts - the teacher waits for nobody. What `Ready` holds up
+is that team's own buzzer: a team that has not pressed it stays in the lobby, and the lobby
+refuses a blank name. So every team that reaches the board is a named one, and a team joining
+late - after the intro, or after the first clue - is asked who it is instead of landing on a
+buzzer nobody can put a name to. Before the start a team can un-ready itself and go back to
+fiddling for as long as it likes.
+
+The only thing that stops them is the lock - the padlock at the left of each row, where the
 hand-over icon sits once the game is running - which freezes that team's name, members and
 buzzer where they are. Use it on the team that will not settle, or on a name you would rather
 the class did not read off the board. Locking is gold, not red: it is a thing you chose, not
-a fault.
+a fault. **It lapses when the game starts**, because the padlock is only drawn before then:
+a team that was locked and never readied would otherwise have nobody left who could let it in.
 
 A team that has joined and not named itself yet reads as `Joining...` in grey italic, on the
 dashboard and on the board's welcome card. That is a display fallback, not a stored name -
@@ -335,19 +342,20 @@ npx firebase-tools projects:create clueboard --display-name Clueboard
 ```
 
 Project ids are global, not per-account, so `clueboard` may already belong to a stranger. If
-the CLI refuses it, add a short suffix and use that everywhere below - which is what the
+the CLI refuses it, add a short suffix and put that id in `.firebaserc` - which is what the
 console did on its own when it named the buzzer's project `buzzer-7cbfd`.
 
 Create the Realtime Database once in the console (**Databases & Storage -> Realtime Database ->
 Create Database**, nearest region, **locked mode** - the next step replaces the rules). Then:
 
 ```bash
-npx firebase-tools use clueboard && npx firebase-tools deploy --only database
+npx firebase-tools deploy --only database
 ```
 
-That publishes `database.rules.json` from this repo. **Nothing is pasted into the console**,
-which is the one process difference from the buzzer: the rules are a version-controlled file,
-so a rules change is a commit and a deploy rather than a hand-edit someone has to remember.
+That publishes `database.rules.json` from this repo; the project id comes from `.firebaserc`,
+so there is no `use` step. **Nothing is pasted into the console**, which is the one process
+difference from the buzzer: the rules are a version-controlled file, so a rules change is a
+commit and a deploy rather than a hand-edit someone has to remember.
 
 Fill `firebase-config.js` from:
 

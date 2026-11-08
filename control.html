@@ -62,12 +62,12 @@
          Lucide's own gear, pasted from icons/settings.svg: it has to be inline to take its
          colour from the button, and an <img> cannot. icons/ holds the files and the ISC
          licence; copy the next one in the same way. -->
-    <button id="cog" class="quiet" aria-label="Settings" aria-expanded="false" title="Settings">
+    <button id="cog" class="quiet" aria-expanded="false" title="Settings, colours, and removing a team">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
         <path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"></path>
         <circle cx="12" cy="12" r="3"></circle>
-      </svg>
+      </svg><span>Edit Game</span>
     </button>
     <button id="openBoard" class="quiet">Open projector</button>
     <!-- Board-only mode, next to the button that opens the board, because that is what it
@@ -75,7 +75,7 @@
          already open and dragged onto the projector follows it without being reopened -
          which is the only version of a toggle that is any use mid-lesson. -->
     <button id="hostBoard" class="quiet" aria-pressed="false"
-      title="Run the game from the board itself: click clues on it, mark on the podiums"
+      title="Run the game from the board itself: choose clues on it, mark on the podiums"
       >Run from the board</button>
   </header>
 
@@ -153,7 +153,7 @@
     <table>
       <thead>
         <tr>
-          <th class="num">#</th>
+          <th class="num"></th>
           <th class="name">Team</th>
           <th class="score">Score</th>
           <th class="answer">Answer</th>
@@ -205,7 +205,6 @@ let teamsRef = null;
 let gameRef = null;
 let clueSet = null;
 let game = {};              // last snapshot of rooms/<code>/game
-let gameLoaded = false;     // the game node has been read at least once
 let teams = [];
 let moves = null;           // the host's moves on this room, from game.js; null with no room
 let buzzedIds = null;       // null until the first snapshot, so reopening a room does not beep
@@ -363,11 +362,23 @@ function createRoom() {
   }
   $("#titleErr").textContent = "";
   localStorage.setItem(TITLE_KEY, gameTitle);
+  // Four round-trips happen before the dashboard appears: a code is checked free, and
+  // whatever an old game left on it is cleared. Measured at about 300ms on a good connection
+  // and nothing on screen changes for any of it, so the button has to say so - on a school
+  // network a disabled button still reading "Create room" is indistinguishable from a click
+  // that never landed. There is no work in the wait, only distance, so this is the fix.
+  // Read, not retyped: renaming this button in the markup would otherwise be quietly undone
+  // the first time anyone opened a room.
+  const label = $("#createBtn").textContent;
   $("#createBtn").disabled = true;
+  $("#createBtn").textContent = "Opening...";
   freeCode(4)
     .then(openRoom)
     .catch((err) => { $("#titleErr").textContent = "Could not open a room: " + err.message; })
-    .finally(() => { $("#createBtn").disabled = false; });
+    .finally(() => {
+      $("#createBtn").disabled = false;
+      $("#createBtn").textContent = label;
+    });
 }
 
 // A code nobody else is using. Four letters out of twenty-four is 331,776, which sounds like
@@ -584,7 +595,6 @@ function tickIdle() {
 
 function renderGame(snap) {
   game = snap.val() || {};
-  gameLoaded = true;
   // Something moved in this room, so somebody is running it - this screen, a team picking a
   // clue, or a board being driven from the projector. Without this the idle timer only ever
   // saw pointers on this page, and would end a game being run entirely from the board.
@@ -689,6 +699,10 @@ function setAct(btn, primary) {
   btn.classList.toggle("quiet", !primary);
 }
 
+// A team still in the lobby cannot pick a clue, cannot wager and cannot own a Daily Double,
+// so three separate questions all come down to this one.
+function playing() { return teams.filter((t) => t.ready); }
+
 // Where the game is, in one line, in the one place the dashboard puts it. It reads the
 // room rather than taking arguments, because the teams listener needs it too and knows none
 // of renderGame's working.
@@ -710,7 +724,7 @@ function stateText() {
   if (!game.started) {
     // The whole point of the lobby: a team still arguing about its name is not a team that
     // cannot get in, and this is where that difference shows up without walking over.
-    const ready = teams.filter((t) => t.ready).length;
+    const ready = playing().length;
     return (game.title || "Ready") + " \u00b7 "
       + (teams.length ? ready + " of " + teams.length + " ready" : "not started");
   }
@@ -721,10 +735,10 @@ function stateText() {
 
 /* ---------- wagers ---------- */
 
-// Who owes a wager: Final is everyone's, a Daily Double is only its owner's.
+// Who owes a wager: Final is every team that is in, a Daily Double is only its owner's.
 function owing(clue) {
   if (!clue) return [];
-  if (clue.final) return teams;
+  if (clue.final) return playing();
   if (clue.dd) return teams.filter((t) => t.id === clue.owner);
   return [];
 }
@@ -827,17 +841,6 @@ function renderTeams(snap) {
   }
   buzzedIds = nowBuzzed;
 
-  // Someone has to pick first and nothing has happened yet to decide it, so pick at random.
-  // After this, turn only ever moves to whichever team the teacher last awarded.
-  //
-  // gameLoaded matters: the teams listener is registered first and so fires first, and
-  // without this a refresh mid-game would reassign the turn at random before the real one
-  // had even arrived.
-  if (gameRef && gameLoaded && teams.length && !game.turn) {
-    gameRef.child("turn").set(teams[Math.floor(Math.random() * teams.length)].id)
-      .catch(() => {});
-  }
-
   renderTeamRows();
   // A team joining or being renamed changes the line, and this listener fires on its own.
   $("#stateLine").textContent = stateText();
@@ -854,7 +857,7 @@ function boardButton(t, has) {
   const b = document.createElement("button");
   b.className = "give" + (has ? " has" : "");
   b.title = has
-    ? t.name + " has the board - tap to take it back"
+    ? t.name + " has the board - take it back"
     : "Let " + t.name + " pick the next clue";
   b.setAttribute("aria-label", b.title);
   const NS = "http://www.w3.org/2000/svg";
@@ -906,7 +909,7 @@ function renderTeamRows() {
   cell(kr, "", "name");
   // The label sits in the column to the left, so the answer itself starts on exactly the
   // same edge as every submission under it.
-  cell(kr, "Correct answer", "score keylbl");
+  cell(kr, showing ? "Correct answer" : " ", "score keylbl");
   const ka = kr.insertCell();
   ka.className = "answer keyans";
   // A space, not nothing: an empty cell is no height at all, and the row would collapse to
@@ -927,7 +930,7 @@ function renderTeamRows() {
     if (pre) {
       // Before the game there is no buzz order and nothing to hand over, so the column is
       // free. The lock wants to be on every row, which the board icon never is - it follows
-      // game.turn, and that is assigned at random on the very first team snapshot.
+      // game.turn, and nobody holds that until the game starts.
       numCell.textContent = "";
       numCell.appendChild(lockButton(t));
     } else if (!clue && t.id === game.turn && !game.teamsPick) {
@@ -936,20 +939,26 @@ function renderTeamRows() {
     }
 
     const nameCell = cell(tr, teamLabel(t), "name", true);
-    if (!t.name) nameCell.classList.add("unnamed");
-    nameCell.title = "Rename this team";
+    // Grey italic already means "not a team you can do anything with yet". A team still in
+    // the lobby once the game is running is that same thing from this side of the room - a
+    // row that cannot buzz - so it reads the same way rather than inventing a second mark.
+    // Not once it is over: the scores screen keeps every team and there is no lobby left.
+    const held = !t.name || (game.started && !game.over && !t.ready);
+    if (held) nameCell.classList.add("unnamed");
+    nameCell.title = held ? "Still in the lobby - rename this team" : "Rename this team";
     nameCell.addEventListener("click", () => renameTeam(t.id, t.name));
     // Who is actually in the team. Collected on the join screen since the buzzer and shown
     // nowhere until now, which made the field look like a question nobody read. It wraps
     // onto as many lines as it needs: a cut-off list of names is no use for calling on one.
-    if (t.members) {
-      const who = document.createElement("span");
-      who.className = "members";
-      who.textContent = t.members;         // student-typed: textContent, never innerHTML
-      who.title = "Edit who is in this team";
-      who.addEventListener("click", (e) => { e.stopPropagation(); editMembers(t.id, t.members); });
-      nameCell.appendChild(who);
-    }
+    // Always here, not only once a team has filled it in: when this was gated on t.members
+    // there was no way to start a list, so a team that skipped the box on its phone could
+    // never be given one from this side.
+    const who = document.createElement("span");
+    who.className = t.members ? "members" : "members none";
+    who.textContent = t.members || "+ members";   // student-typed: textContent, never innerHTML
+    who.title = t.members ? "Edit who is in this team" : "Add who is in this team";
+    who.addEventListener("click", (e) => { e.stopPropagation(); editMembers(t.id, t.members); });
+    nameCell.appendChild(who);
 
     const scoreCell = cell(tr, money(t.score), "score");
     scoreCell.title = "Correct this score";
@@ -1168,11 +1177,10 @@ function removeTeam(id) {
   updates[base + "/teams/" + id] = null;
   // Written in the same update as the removal, so the turn can never be left pointing at a
   // team that is gone - a Daily Double picked after that would belong to nobody, and the
-  // cell would already be spent. The replacement is chosen here rather than left to the
-  // random-picker in renderTeams: that runs before renderGame and so still sees the old
-  // turn, and would never fire.
+  // cell would already be spent. Nothing else would fix it: the turn is drawn once, when
+  // the game starts.
   if (game.turn === id) {
-    const rest = teams.filter((t) => t.id !== id);
+    const rest = playing().filter((t) => t.id !== id);
     updates[base + "/game/turn"] = rest.length
       ? rest[Math.floor(Math.random() * rest.length)].id
       : null;
@@ -1293,14 +1301,14 @@ function setBuzzerPick() {
   if (gameRef) gameRef.update({ buzzerPick: buzzerPick || null }).catch(() => {});
 }
 
-// Two taps, because each of these stops a lesson: the first arms the button and says so,
+// Two presses, because each of these stops a lesson: the first arms the button and says so,
 // the second does it, and it disarms itself after four seconds. The same shape as leaving a
 // room on a student device, and now shared by the three buttons that need it.
 const armTimers = {};
 function arm(btn, label, run) {
   if (!armTimers[btn.id]) {
     armTimers[btn.id] = setTimeout(() => disarm(btn, label), 4000);
-    btn.textContent = "Tap again";
+    btn.textContent = "Confirm";
     btn.classList.add("danger");
     return;
   }
@@ -1314,6 +1322,15 @@ function disarm(btn, label) {
   btn.classList.remove("danger");
 }
 
+// Teams go child by child because the rules put .write on teams/$teamId and not on teams, so
+// clearing the collection itself is refused.
+//
+// The chain looks like three round-trips that could be one Promise.all, and it was measured:
+// interleaved against this version on a seeded room, parallel ran 343ms to this one's 297ms.
+// The database serialises them at its end whatever order they are sent in, so the only thing
+// firing them at once changes is which of teams, game and hostSeen survives a wipe that dies
+// half way - and hostSeen last is the order worth having, since the room reads as live until
+// its contents are actually gone. Create room pays for this wait; the button says so.
 function wipeRoom(code) {
   const ref = db.ref("rooms/" + code + "/teams");
   return ref.once("value").then((snap) => {
@@ -1381,7 +1398,6 @@ function closeRoom() {
     buzzedIds = null;
     teams = [];
     game = {};
-    gameLoaded = false;
     $("#rows").textContent = "";
     $("#panel").hidden = true;
     $("#cog").setAttribute("aria-expanded", "false");

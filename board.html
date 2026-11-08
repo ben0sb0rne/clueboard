@@ -198,7 +198,10 @@ if (!code) {
         answer: t.answer || "",
         score: Number(t.score) || 0,
         buzzedAt: t.buzzedAt || 0,
-        wager: (t.wager === undefined || t.wager === null) ? null : Number(t.wager)
+        wager: (t.wager === undefined || t.wager === null) ? null : Number(t.wager),
+        // Shown nowhere. The board can start the game, and start() draws the first pick
+        // from the teams that are in.
+        ready: !!t.ready
       });
     });
     render();
@@ -349,13 +352,13 @@ $("#hBack").addEventListener("click", () => moves.dismiss());
 $("#hRound").addEventListener("click",
   () => moves.setRound(Number(game.round) === 2 ? 1 : 2));
 $("#hFinal").addEventListener("click", () => moves.startFinal());
-// Two taps, as on the control screen: it stops the lesson.
+// Two presses, as on the control screen: it stops the lesson.
 let endArmed = null;
 $("#hEnd").addEventListener("click", () => {
   if (!endArmed) {
     endArmed = setTimeout(() => { endArmed = null; $("#hEnd").textContent = "End the game"; },
                           4000);
-    $("#hEnd").textContent = "Tap again";
+    $("#hEnd").textContent = "Confirm";
     return;
   }
   clearTimeout(endArmed);
@@ -386,6 +389,10 @@ function renderResults() {
   const place = placeOf(order);
   const wrap = $("#resultList");
   wrap.textContent = "";
+  // Rows divide the list evenly, so two teams get half a projector each. The type has to grow
+  // with them or a huge card holds small writing. Six is the size the clamps above were drawn
+  // for, and the cap stops a two-team finish becoming a billboard.
+  wrap.style.setProperty("--rscale", Math.min(2.4, Math.max(1, 6 / order.length)).toFixed(2));
   order.forEach((t, i) => {
     const row = document.createElement("div");
     row.className = "result" + (place[t.id] === 1 ? " first" : "");

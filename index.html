@@ -85,7 +85,7 @@
   </div>
 
   <p id="lobbyErr" class="err"></p>
-  <p id="frozenNote" class="frozennote" hidden>Your teacher has locked this in.</p>
+  <p id="frozenNote" class="frozennote" hidden>Your setup has been locked</p>
   <button id="readyBtn">Ready</button>
 </main>
 
@@ -95,7 +95,7 @@
     <span id="playScore" class="score"></span>
     <button id="leave" class="leave" title="Change room">
       <span id="leaveIdle">Room <b id="whoCode"></b></span>
-      <span id="leaveArm" hidden>Tap again to leave</span>
+      <span id="leaveArm" hidden>Leave this room?</span>
     </button>
   </div>
 
@@ -148,6 +148,16 @@
     <span id="waitScore" class="score"></span>
   </div>
   <p class="waitmsg" id="waitMsg"></p>
+</main>
+
+<!-- The end of the game. It used to be one grey sentence on the waiting screen, which is the
+     screen that means "nothing to do" - so the finish of a whole lesson read as another lull.
+     The board has the podiums; this is the same result in the student's hand. -->
+<main id="results" class="screen" hidden>
+  <div class="result">
+    <p class="resultwho" id="resultWho"></p>
+    <p class="resultscore" id="resultScore"></p>
+  </div>
 </main>
 
 <script src="https://www.gstatic.com/firebasejs/12.0.0/firebase-app-compat.js"></script>
@@ -239,7 +249,7 @@ db.ref(".info/connected").on("value", (snap) => {
 });
 
 function show(which) {
-  ["boot", "join", "lobby", "play", "pick", "wager", "wait"].forEach((id) => {
+  ["boot", "join", "lobby", "play", "pick", "wager", "wait", "results"].forEach((id) => {
     $("#" + id).hidden = id !== which;
   });
 }
@@ -334,21 +344,22 @@ function route() {
   renderPlay();
   const clue = game.clue;
 
-  // The game is over and the results are on the board. Nothing left to do on a phone, so it
-  // says so rather than leaving a dead buzzer up for the rest of break.
+  // The game is over and the scores are on the board. Nothing left to do on a phone, so the
+  // team's own name and final total get the screen to themselves rather than a dead buzzer.
+  //
+  // Not teamLabel(): its "Joining..." is written for the host's table and the board's welcome
+  // list, where a team really is mid-join. At the end of the game it would be a lie.
   if (game.over) {
-    $("#waitMsg").textContent = "That is the game. " + money(team.score || 0)
-      + " - look up for the results.";
-    show("wait");
+    $("#resultWho").textContent = team.name || "Your team";
+    $("#resultScore").textContent = money(team.score || 0);
+    show("results");
     return;
   }
 
-  // Before the game starts the phone is a lobby rather than a dead buzzer: the team settles
-  // its name, its members and its buzzer here, and says when it is done. Gated on !clue as
-  // well, because a room whose `started` never landed would otherwise strand every student in
-  // here with a clue up on the board. This is board.html's test, not control.html's - the
-  // latter omits `over` and so comes back true once the game has ended.
-  if (!game.started && !clue) { renderLobby(); show("lobby"); return; }
+  // Before the game starts, and for anyone who has not pressed Ready, the phone is a lobby
+  // rather than a dead buzzer: the team settles its name, its members and its buzzer here,
+  // and says when it is done. The rule is inLobby() in clues.js, where it is tested.
+  if (inLobby(game, team)) { renderLobby(); show("lobby"); return; }
 
   if (clue) {
     // A Daily Double belongs to one team. myClue() is false for nothing else, so this is
@@ -367,8 +378,8 @@ function route() {
       // so without the sending check the screen would say "locked" to a student whose wager
       // is still sitting on a school network.
       if (hasWagered() && sending !== "wager") {
-        $("#waitMsg").textContent = "Wager locked: " + money(team.wager)
-          + ". Waiting for the other teams...";
+        $("#waitMsg").textContent = money(team.wager)
+          + " wager locked. Waiting for the other teams...";
         show("wait");
         return;
       }
@@ -542,9 +553,14 @@ function saveLobbySoon() {
   lobbyWrite = setTimeout(saveLobby, 400);
 }
 
+// The teacher's padlock is a pre-game tool - control.html only draws it before the start, so
+// afterwards there is nobody left who can take it off. Letting it lapse at the start is what
+// keeps a locked team that never pressed Ready from being shut out of the whole lesson.
+function hostLocked() { return !!(team && team.frozen) && !game.started; }
+
 function saveLobby() {
   clearTimeout(lobbyWrite);
-  if (!teamRef || !team || team.frozen) return;
+  if (!teamRef || !team || hostLocked()) return;
   const name = $("#team").value.trim().slice(0, 40);
   const members = $("#members").value.trim().slice(0, 200);
   // The slices match database.rules.json, which rejects the write outright past them.
@@ -554,12 +570,12 @@ function saveLobby() {
 }
 
 function toggleReady() {
-  if (!teamRef || !team || team.frozen) return;
+  if (!teamRef || !team || hostLocked()) return;
   const next = !team.ready;
   // Readying up with the name box still blank is the one thing worth refusing: an unnamed
   // team is exactly the one the teacher cannot do anything about from across the room.
   if (next && !$("#team").value.trim()) {
-    $("#lobbyErr").textContent = "Give your team a name first.";
+    $("#lobbyErr").textContent = "Team name required";
     $("#team").focus();
     return;
   }
@@ -570,12 +586,16 @@ function toggleReady() {
 }
 
 function pickBuzzer(id) {
-  if (!teamRef || !team || team.frozen) return;
+  if (!teamRef || !team || hostLocked()) return;
   // Picking is also what arms the AudioContext on this device, through the one-shot
   // pointerdown gate in common.js - so a team that chose a buzzer has working audio before
   // the first clue, rather than discovering it on the buzz that mattered.
+  //
+  // Silent while a clue is up: the grid is reachable mid-game now, and a late joiner tapping
+  // through the tiles would sound every one across a room that is thinking. Audio is armed
+  // by the tap either way, so the line above still holds.
   // shortcut: every sound is beep() until the real files land. One call site to change.
-  if (!game.muted) beep();
+  if (!game.muted && !game.clue) beep();
   teamRef.update({ buzzer: id })
     .catch((err) => { $("#lobbyErr").textContent = "Not saved: " + err.message; });
 }
@@ -611,7 +631,7 @@ function setIfIdle(el, value) {
 }
 
 function renderLobby() {
-  const frozen = !!team.frozen;
+  const frozen = hostLocked();
   const ready = !!team.ready;
 
   setIfIdle($("#team"), team.name || "");
@@ -629,13 +649,19 @@ function renderLobby() {
   $("#team").disabled = frozen;
   $("#members").disabled = frozen;
   $("#frozenNote").hidden = !frozen;
-  $("#lobbyTitle").textContent = ready ? "Ready" : "Get ready";
+  // A team that lands here mid-game is not getting ready, it is late: say the one thing it
+  // has to do, and make the button the way in rather than another thing to be ready for.
+  $("#lobbyTitle").textContent = ready ? "Ready"
+    : !game.started ? "Get ready"
+    : team.name ? "The game has started"
+    : "Name your team";
 
   const btn = $("#readyBtn");
   btn.disabled = frozen;
   btn.classList.toggle("unready", ready);
-  btn.textContent = frozen ? (ready ? "Ready" : "Waiting for your teacher")
-    : ready ? "Ready - tap to change"
+  btn.textContent = frozen ? (ready ? "Ready" : "Waiting for the host")
+    : ready ? "Ready - change it"
+    : game.started ? "Join the game"
     : "Ready";
 }
 
@@ -685,7 +711,7 @@ function renderPlay() {
   const box = $("#answer");
   const btn = $("#lock");
   const typing = typingOn();
-  const live = !!game.clue && !game.wagering;
+  const live = !!game.clue && !game.wagering && !game.reveal;
   // Optimistic: Firebase fires a listener on the local write before the server has it, so
   // the press has to show as locked on its own rather than waiting for the echo.
   const locked = !!(team && team.locked) || sending === "answer";
@@ -719,8 +745,10 @@ function lockIn() {
   if (!teamRef || sending) return;
   // The real guard on a buzz, rather than trusting that the button was disabled: between
   // clues there is nothing to ring in to, and a write here would put a team in the order for
-  // a question that is not open.
-  if (!game.clue || game.wagering) return;
+  // a question that is not open. Once revealed, the answer is on the projector - a buzz
+  // after that is a team copying it down, so the clue is closed to new answers even though
+  // it is still on screen. reveal is cleared by every route out of a clue.
+  if (!game.clue || game.wagering || game.reveal) return;
   const typing = typingOn();
   const answer = $("#answer").value.trim();
   if (typing && !answer) return;       // empty box does nothing; with no box, the buzz is all

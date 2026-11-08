@@ -451,7 +451,6 @@ body.board {
      the places arrive into the space above it. */
   flex: 1 1 0;
   min-height: 0;
-  max-height: clamp(60px, 15vh, 190px);
   display: flex;
   align-items: center;
   gap: 2vw;
@@ -470,14 +469,14 @@ body.board {
   flex: 0 0 auto;
   min-width: 2ch;
   text-align: center;
-  font-size: clamp(22px, 3.4vw, 64px);
+  font-size: calc(clamp(22px, 3.4vw, 64px) * var(--rscale, 1));
   font-weight: 700;
   color: var(--quiet);
 }
 .board .result.first .rplace { color: var(--value-gold); }
 .board .rwho { flex: 1; min-width: 0; }
 .board .rname {
-  font-size: clamp(18px, 2.8vw, 54px);
+  font-size: calc(clamp(18px, 2.8vw, 54px) * var(--rscale, 1));
   font-weight: 700;
   line-height: 1.05;
   letter-spacing: 0.02em;
@@ -488,7 +487,7 @@ body.board {
 }
 .board .rmembers {
   margin-top: 0.2em;
-  font-size: clamp(11px, 1.3vw, 24px);
+  font-size: calc(clamp(11px, 1.3vw, 24px) * var(--rscale, 1));
   line-height: 1.25;
   color: var(--pale);
   overflow: hidden;
@@ -498,7 +497,7 @@ body.board {
 }
 .board .rscore {
   flex: 0 0 auto;
-  font-size: clamp(22px, 3.2vw, 60px);
+  font-size: calc(clamp(22px, 3.2vw, 60px) * var(--rscale, 1));
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: #fff;
@@ -787,8 +786,7 @@ body.board {
 /* Holding its space with nothing in it, so that opening a clue does not push every team
    down a row. The border goes too: a green rule under an empty gap is a thing on screen. */
 .control tr.keyrow.off td {
-  visibility: hidden;
-  background: none;
+  background: var(--faint);
   border-bottom-color: transparent;
 }
 
