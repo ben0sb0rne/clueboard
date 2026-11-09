@@ -786,7 +786,9 @@ function renderClue(clue) {
   }
 
   const key = clue.final ? "final" : clue.cat + "-" + clue.row;
-  const fresh = key !== shownKey;
+  // A clue reopened while it is still shrinking back is as new as one that never left: it
+  // has the same key, and without this the shrink's timer would hide it a moment later.
+  const fresh = key !== shownKey || !!shrinkTimer;
   shownKey = key;
 
   // Three things this panel can be showing, and the room decides which: a Daily Double splash
@@ -905,13 +907,19 @@ function clearMovers() {
 function openAnswer(ansEl, text) {
   const moving = movers(ansEl);
   const before = moving.map((el) => el.getBoundingClientRect().top);
+  // Revealed during the expand, everything is measured inside a panel that is still scaled
+  // down, but the transform below is in the panel's own pixels, so each move is divided by
+  // the panel's scale - read the way boxTransform sets it. 1 while hidden, measuring nothing.
+  const panel = $("#cluePanel");
+  const scale = panel.getBoundingClientRect().height /
+    panel.parentElement.getBoundingClientRect().height || 1;
 
   mathText(ansEl, text);
   ansEl.style.transition = "none";
   ansEl.style.opacity = "0";
   ansEl.hidden = false;
 
-  const shifts = moving.map((el, i) => before[i] - el.getBoundingClientRect().top);
+  const shifts = moving.map((el, i) => (before[i] - el.getBoundingClientRect().top) / scale);
   moving.forEach((el, i) => {
     el.style.transition = "none";
     el.style.transform = "translateY(" + shifts[i] + "px)";
@@ -1020,9 +1028,12 @@ function raiseIntro(delay) {
 function expandFrom(panel, cat, row) {
   const cell = cellEls[cat] && cellEls[cat][row];
   // A clue picked while the last one is still shrinking: drop the pending hide, or it fires
-  // mid-expand and blanks the new clue.
+  // mid-expand and blanks the new clue. Drop the shrink's own transform and fade with it, on
+  // every way out of here: the final has no cell to grow from, and it opened on a panel still
+  // faded out in the last clue's cell.
   clearTimeout(shrinkTimer);
   shrinkTimer = null;
+  panel.style.transition = panel.style.transform = panel.style.opacity = "";
   panel.hidden = false;
   panel.classList.remove("settled");
 
