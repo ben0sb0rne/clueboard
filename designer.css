@@ -1,5 +1,6 @@
 /* The designer: one app card - the file and its history, the round tabs, and the board-shaped
-   grid with an editor that opens beside it - and a collapsed preview of the .xlsx under it.
+   grid with an editor that opens beside it. The .xlsx preview moved to the host screen, where
+   the whole set is read and corrected before a game.
    The colours are palette.css and the two buttons are board.css's, both loaded first; this
    page does not load style.css, whose table and button rules belong to the other screens.
    One dark theme on purpose: the designer belongs to the show's world, like the control
@@ -12,18 +13,8 @@
   --paper: #fff;
   --screen-black: #000;
   --shade: rgba(0, 0, 0, 0.5);
-  /* The preview is a spreadsheet, so it is drawn as one: light, whatever the page is. */
-  --xl-bg: #fff;
-  --xl-ink: #1f2328;
-  --xl-grid: #dadde3;
-  --xl-head: #f2f3f5;
-  --xl-hdr: #f8f9fb;
-  --xl-headink: #5d6370;
-  --xl-bar: #2b3a67;
-  --xl-link: #1a56c4;
   --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  --font-sheet: Aptos, Calibri, Carlito, -apple-system, "Segoe UI", sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -50,9 +41,6 @@ kbd { padding: 1px 6px; border-radius: 5px; background: var(--gap-ink); box-shad
 
 /* ---------- outside the designer: the way home, and help ---------- */
 .pagehead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.logo { display: inline-flex; align-items: center; gap: 9px; margin-left: -8px; padding: 6px 8px; border-radius: 10px; font-size: 18px; font-weight: 800; color: var(--ink); text-decoration: none; }
-.logo svg { color: var(--value-gold); }
-.logo:hover { background: var(--faint); }
 .helpicon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; color: var(--muted); }
 .helpicon:hover, .helpicon[aria-expanded="true"] { color: var(--ink); }
 
@@ -232,6 +220,9 @@ body.dragging, body.dragging * { cursor: grabbing !important; user-select: none;
 .drop p { display: flex; align-items: center; gap: 10px; margin: 0; }
 .drop svg { flex: none; color: var(--quiet); }
 .linkbtn { color: var(--value-gold); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+/* Beside Open file it must not read as a second Save, so in the toolbar it is quiet, not gold. */
+.toolbar .linkbtn { color: var(--muted); font-weight: 600; font-size: 14px; white-space: nowrap; }
+.toolbar .linkbtn:hover { color: var(--ink); }
 .linkrow { display: flex; align-items: center; gap: 8px; }
 .linkrow svg { flex: none; color: var(--quiet); }
 .field .linkrow input { padding: 7px 10px; font-size: 14px; }
@@ -276,28 +267,6 @@ body.dragging, body.dragging * { cursor: grabbing !important; user-select: none;
 .preview img { max-width: 72%; max-height: 50cqh; border-radius: 4px; background: var(--paper); }
 .preview .pv-vid { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 8px; font-size: 15px; background: var(--screen-black); }
 
-/* ---------- the .xlsx, collapsed until asked for ---------- */
-.sheet { border-radius: 14px; background: var(--surround); box-shadow: 0 0 0 2px var(--line); }
-.sheet > summary { display: flex; align-items: center; gap: 10px; padding: 12px 16px; list-style: none; cursor: pointer; font-weight: 700; color: var(--muted); }
-.sheet > summary::-webkit-details-marker { display: none; }
-.sheet > summary:hover, .sheet[open] > summary { color: var(--ink); }
-.sheet .chev { display: inline-grid; margin-left: auto; transition: transform 0.15s ease; }
-.sheet[open] .chev { transform: rotate(180deg); }
-.xl { margin: 0 16px 16px; overflow: hidden; border-radius: 12px; font-family: var(--font-sheet); font-size: 13px; color: var(--xl-ink); background: var(--xl-bg); }
-.xlbar { padding: 9px 14px; font-family: var(--font-ui); font-size: 13px; font-weight: 600; color: var(--xl-bg); background: var(--xl-bar); }
-.xlscroll { overflow-x: auto; }
-.xl table { width: 100%; min-width: 1000px; border-collapse: collapse; table-layout: fixed; }
-.xl th, .xl td { padding: 5px 7px; border: 1px solid var(--xl-grid); text-align: left; vertical-align: top; overflow-wrap: anywhere; }
-.xl thead th { padding: 3px; font-size: 12px; font-weight: 500; text-align: center; color: var(--xl-headink); background: var(--xl-head); }
-.xl td.rn { font-size: 12px; text-align: center; color: var(--xl-headink); background: var(--xl-head); }
-.xl tr.hdr td:not(.rn) { font-weight: 700; background: var(--xl-hdr); }
-.xl td.n { text-align: right; font-variant-numeric: tabular-nums; }
-.xl td img { display: block; width: auto; max-width: 100%; height: 46px; }
-.xl .lnk { color: var(--xl-link); text-decoration: underline; }
-.xl td.helphead { font-size: 15px; font-weight: 700; }
-.xltabs { display: flex; gap: 2px; padding: 0 10px; overflow-x: auto; font-family: var(--font-ui); background: var(--xl-head); border-top: 1px solid var(--xl-grid); }
-.xltab { padding: 8px 16px; font-size: 12px; font-weight: 600; white-space: nowrap; color: var(--xl-headink); border-bottom: 3px solid transparent; }
-.xltab[aria-current="true"] { color: var(--xl-bar); background: var(--xl-bg); border-bottom-color: var(--xl-bar); }
 
 .toast {
   position: fixed;
@@ -341,5 +310,5 @@ dialog p { margin: 0 0 20px; color: var(--muted); }
   .status, .toolbar button.act { width: 140px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .switch input::after, .sheet .chev { transition: none; }
+  .switch input::after { transition: none; }
 }

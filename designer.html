@@ -47,6 +47,7 @@
       <label class="titlefield"><span class="sr">Game title</span><input id="title" type="text" maxlength="60" autocomplete="off" placeholder="Untitled game"></label>
       <button type="button" class="quiet lg" id="openBtn" data-ico="open">Open file</button>
       <input type="file" id="openIn" accept=".xlsx,.csv,.tsv,.txt" hidden>
+      <button type="button" class="linkbtn" id="templateBtn">Download a blank template</button>
       <span class="sep" aria-hidden="true"></span>
       <button type="button" class="iconbtn" id="undoBtn" data-ico="undo" aria-label="Undo"></button>
       <button type="button" class="iconbtn" id="redoBtn" data-ico="redo" aria-label="Redo"></button>
@@ -98,14 +99,6 @@
     </div>
   </section>
 
-  <details class="sheet" id="sheetBox">
-    <summary><span data-ico="grid"></span>Preview .xlsx<span class="chev" data-ico="down"></span></summary>
-    <div class="xl">
-      <div class="xlbar" id="xlName"></div>
-      <div class="xlscroll"><table id="xlTable"></table></div>
-      <div class="xltabs" id="xlTabs" aria-label="Sheet tabs"></div>
-    </div>
-  </details>
 </div>
 <dialog id="leaveDlg" aria-labelledby="leaveTitle">
   <h2 id="leaveTitle">Save first?</h2>
@@ -174,7 +167,7 @@
 
   const grid = $("#grid"), work = $("#work"), ed = $("#editor"), tabsEl = $("#tabs"), addMenu = $("#addMenu"), marker = $("#marker");
   const titleEl = $("#title"), statusEl = $("#status"), undoBtn = $("#undoBtn"), redoBtn = $("#redoBtn"), helpBtn = $("#helpBtn"), help = $("#help");
-  const toastEl = $("#toast"), liveEl = $("#live"), drop = $("#drop"), sheetBox = $("#sheetBox");
+  const toastEl = $("#toast"), liveEl = $("#live"), drop = $("#drop");
   const sqMenu = $("#sqMenu"), sqMenuBtn = $("#sqMenuBtn"), leaveDlg = $("#leaveDlg");
   const f = { cat: $("#fCat"), clue: $("#fClue"), answer: $("#fAnswer"), link: $("#fLink"), dd: $("#fDD"), file: $("#fileIn") };
 
@@ -1067,54 +1060,6 @@
   window.addEventListener("dragover", (e) => { if (hasFiles(e)) e.preventDefault(); });
   window.addEventListener("drop", (e) => { if (hasFiles(e)) e.preventDefault(); });
 
-  /* ---------- the .xlsx preview: setToTables, the same tables Save writes ---------- */
-
-  let sheetTab = 0;
-  function renderSheet() {
-    $("#xlName").textContent = fileName();
-    const tables = setToTables(state);
-    const ids = state.rounds.map((R, i) => i).concat(state.final ? ["final"] : [], ["help"]);
-    if (ids.indexOf(sheetTab) === -1) sheetTab = 0;
-    $("#xlTabs").innerHTML = tables.map((t, k) => `<button type="button" class="xltab" data-tab="${ids[k]}"${ids[k] === sheetTab ? ' aria-current="true"' : ""}>${esc(t.name)}</button>`).join("");
-    const table = tables[ids.indexOf(sheetTab)];
-    // A picture is not in its cell; it sits over its clue's row, so the preview draws it there.
-    const pictureAt = (row) => {
-      if (row < 1) return null;
-      if (sheetTab === "final") return state.final.media;
-      const R = state.rounds[sheetTab], n = R.prices.length, s = R.cells[Math.floor((row - 1) / n)][(row - 1) % n];
-      return s && s.media;
-    };
-    const cell = (v, row, col) => {
-      if (row > 0 && col === (sheetTab === "final" ? 3 : 4)) {
-        const m = pictureAt(row), src = pictureSrc(m);
-        if (src) return `<img src="${esc(src)}" alt="">`;
-        if (m && m.url) return `<span class="lnk">${esc(m.url)}</span>`;
-        return "";
-      }
-      return row > 0 && typeof v === "number" ? money(v) : esc(v);
-    };
-    const widths = sheetTab === "final" ? [150, 330, 150, 150, 76, 100] : [150, 76, 330, 150, 150, 100];
-    let h = '<colgroup><col style="width:40px">' + widths.map((w) => `<col style="width:${w}px">`).join("") + "</colgroup>";
-    h += "<thead><tr><th></th>" + "ABCDEF".split("").map((x) => `<th>${x}</th>`).join("") + "</tr></thead><tbody>";
-    table.rows.forEach((row, i) => {
-      if (sheetTab === "help") {
-        h += `<tr><td class="rn">${i + 1}</td><td colspan="6"${i === 0 ? ' class="helphead"' : ""}>${esc(row[0])}</td></tr>`;
-        return;
-      }
-      const cells = row.concat(Array(6 - row.length).fill(""));
-      h += `<tr${i === 0 ? ' class="hdr"' : ""}><td class="rn">${i + 1}</td>` +
-        cells.map((v, j) => `<td${j === 1 && i > 0 && sheetTab !== "final" ? ' class="n"' : ""}>${cell(v, i, j)}</td>`).join("") + "</tr>";
-    });
-    $("#xlTable").innerHTML = h + "</tbody>";
-  }
-  $("#xlTabs").addEventListener("click", (e) => {
-    const b = e.target.closest(".xltab");
-    if (!b) return;
-    sheetTab = /^\d+$/.test(b.dataset.tab) ? +b.dataset.tab : b.dataset.tab;
-    renderSheet();
-  });
-  sheetBox.addEventListener("toggle", () => { if (sheetBox.open) renderSheet(); });
-
   /* ---------- top bar, keys, toast ---------- */
 
   function renderTop() {
@@ -1126,7 +1071,6 @@
     redoBtn.disabled = !future.length;
   }
   function after() {
-    if (sheetBox.open) renderSheet();
     renderTop();
     store();
   }
@@ -1181,13 +1125,7 @@
   function save() {
     const rev = state.rev, set = structuredClone({ title: state.title, rounds: state.rounds, final: state.final });
     return writeXlsx(set).then(({ blob, missing }) => {
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = fileName();
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(a.href), 60000);   // long enough for any browser to have read it
+      downloadBlob(blob, fileName());
       savedRev = rev;
       savedAt = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
       after();
@@ -1196,6 +1134,12 @@
     }, (err) => { toast("Could not save: " + err.message, 8000); throw err; });
   }
   $("#saveBtn").addEventListener("click", () => { save().catch(() => {}); });
+  // The same shape as a new game, empty, for writing a set somewhere else - by hand in a
+  // spreadsheet, or by an AI asked to fill it in - and opening it here or on the host screen.
+  $("#templateBtn").addEventListener("click", () => {
+    downloadTemplate().then(() => toast(`Saved “${TEMPLATE_NAME}” to your downloads.`, 4500),
+      (err) => toast("Could not make the template: " + err.message, 8000));
+  });
 
   // Unsaved work asks first, with three answers: save it, keep it, or let it go. The same
   // question guards the logo and Open file, worded for each.

@@ -474,6 +474,26 @@ function openGameFile(file) {
   });
 }
 
+// A finished file handed to the browser as a download: the designer's Save and the blank
+// template both end here. The URL is let go a minute later, long enough for any browser to
+// have read it.
+function downloadBlob(blob, name) {
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(function () { URL.revokeObjectURL(a.href); }, 60000);
+}
+
+// The blank template: an empty game written exactly as Save writes a full one, so the file a
+// teacher fills in is the file both screens open.
+var TEMPLATE_NAME = "Clueboard template.xlsx";
+function downloadTemplate() {
+  return writeXlsx(blankSet()).then(function (out) { downloadBlob(out.blob, TEMPLATE_NAME); });
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = { crc32: crc32, zipStored: zipStored, unzip: unzip, writeXlsx: writeXlsx, colName: colName };
 }

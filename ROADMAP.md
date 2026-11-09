@@ -46,7 +46,8 @@ been seen on either.
    2026. CSV and TSV import stays as the fast path for anyone who already has a spreadsheet.
    What was settled, and is not to be reopened:
    - **The save is an .xlsx file**, which is decision 2 above made concrete. Opening `.csv`
-     and `.tsv` still works, and so does the paste box. A copy is kept on the device as you
+     and `.tsv` still works; the host screen's paste box went in November 2026, when the blank
+     template made a file the easy way in. A copy is kept on the device as you
      work, as a safety net only.
    - **The format**: a tab per round in play order, then `Final Clue`, then `Help`; one row
      per square in board order, empty squares included; Category, Clue and Answer as Text

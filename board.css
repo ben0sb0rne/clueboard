@@ -530,45 +530,30 @@ body.board {
   pointer-events: none;
 }
 
-/* ---------- the control screen's game half ---------- */
+/* ---------- shared by the host screens ---------- */
 
-.control #tsv {
-  display: block;
-  width: min(100%, 70ch);
-  height: 34vh;
-  margin-bottom: 0.9em;
-  padding: 0.7em;
-  font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
-  color: var(--ink);
-  background: var(--gap-ink);
-  border: 2px solid var(--line);
-  border-radius: 12px;
-  resize: vertical;
-  white-space: pre;
-  overflow-wrap: normal;
-  overflow-x: auto;
-}
-.control .field {
-  display: block;
-  max-width: 42ch;
-  margin: 0 0 1.4em;
-  font-size: clamp(13px, 1.4vw, 16px);
+/* The way back to the front page, the same on the designer and the host screen. */
+.logo { display: inline-flex; align-items: center; gap: 9px; margin-left: -8px; padding: 6px 8px; border-radius: 10px; font-size: 18px; font-weight: 800; color: var(--ink); text-decoration: none; }
+.logo svg { color: var(--value-gold); }
+.logo:hover { background: var(--faint); }
+/* An action that reads as a line of text rather than as one more button: a download, or
+   another way in. A button all the same, because it does something rather than go somewhere. */
+.linkbtn {
+  padding: 0;
+  font: inherit;
   font-weight: 600;
   color: var(--muted);
+  background: none;
+  border: 0;
+  border-radius: 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
 }
-.control .field input {
-  display: block;
-  width: 100%;
-  box-sizing: border-box;
-  margin-top: 0.35em;
-  padding: 0.6em 0.7em;
-  font: inherit;
-  font-size: clamp(17px, 2vw, 23px);
-  font-weight: 700;
-  color: var(--ink);
-  border: 2px solid var(--line);
-  border-radius: 12px;
-}
+.linkbtn:hover { color: var(--ink); }
+
+/* ---------- the control screen's game half ---------- */
+
 /* Two kinds of button on the host screens: the one to press, and everything else. This is
    what the eight per-id rules it replaces could not be - each of those had its own size, so
    no two rows of buttons lined up. The designer is a host screen too, and sizes its own on
@@ -632,13 +617,44 @@ body.board {
   align-items: center;
   gap: 0.6em;
 }
-/* The setup screen is read sitting down, before a lesson, and has room to be larger. */
-.control #setup .acts { justify-content: flex-start; }
-.control #setup button.act,
-.control #setup button.quiet {
-  padding: 0.7em 1.4em;
-  font-size: clamp(17px, 2vw, 24px);
+/* The setup screen. With no set, one prompt in the middle of the page. With one, its title,
+   what is in it and the two ways on in a line across the top, and the sheet under them. */
+.control .setuphead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.8em 1.4em;
+  margin-bottom: 1.2vh;
 }
+.control .setuphead .logo { font-size: 20px; }
+.control .setupbar { display: flex; flex: 1; flex-wrap: wrap; align-items: center; gap: 0.8em 1.4em; }
+.control .setupbar input {
+  flex: 0 1 22em;
+  min-width: 10em;
+  padding: 0.5em 0.7em;
+  font-size: clamp(16px, 1.7vw, 20px);
+  font-weight: 700;
+  color: var(--ink);
+}
+.control .setsum { color: var(--muted); font-size: clamp(14px, 1.3vw, 17px); }
+.control .setupbar .acts { margin-left: auto; }
+.control .setupempty {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  min-height: 64vh;
+  text-align: center;
+}
+.control .setupempty h1 { margin: 0 0 0.2em; }
+/* Read sitting down, before a lesson, so the one button there is is the larger kind. */
+.control .loadset { display: flex; flex-direction: column; align-items: center; gap: 0.8em; }
+.control .loadset button.act { padding: 0.7em 1.6em; font-size: clamp(17px, 2vw, 24px); }
+.control .loadset .linkbtn,
+.control .setupempty .alt { font-size: clamp(14px, 1.3vw, 16px); }
+.control .setupempty .alt { margin: 1.2em 0 0; color: var(--quiet); }
+.control .setnote { margin: 0 0 0.6em; font-size: clamp(13px, 1.2vw, 15px); color: var(--quiet); }
+.control .setnote b { color: var(--good); }
+.control .setnote b.bad { color: var(--red); }
 .control .warnings {
   margin: 0 0 1.2em;
   padding-left: 1.2em;
@@ -648,49 +664,101 @@ body.board {
   line-height: 1.5;
 }
 
-/* Reading the whole set before the lesson. Closed by default - it is only worth opening when
-   something is wrong, and the summary line says so without opening it. */
-.control .check { max-width: 80ch; margin: 0 0 1.4em; }
-.control .check > summary {
-  cursor: pointer;
-  font-size: clamp(14px, 1.5vw, 18px);
-  font-weight: 700;
-  color: var(--muted);
-}
-.control .check.bad > summary { color: var(--red); }
-.control #checkList {
-  margin-top: 0.8em;
-  max-height: 50vh;
-  overflow-y: auto;
-  border: 2px solid var(--line);
+/* The sheet: the whole set as the designer saves it. A spreadsheet, so drawn as one - light,
+   whatever the page is - with its cells reset from the teams table's page-wide td and th. */
+.control .xl {
+  --xl-bg: #fff;
+  --xl-ink: #1f2328;
+  --xl-grid: #dadde3;
+  --xl-head: #f2f3f5;
+  --xl-hdr: #f8f9fb;
+  --xl-headink: #5d6370;
+  --xl-bar: #2b3a67;
+  --xl-link: #1a56c4;
+  --xl-bad: #fde8ea;
+  overflow: hidden;
   border-radius: 12px;
+  box-shadow: 0 0 0 2px var(--line);
+  font: 13px/1.35 Aptos, Calibri, Carlito, -apple-system, "Segoe UI", sans-serif;
+  color: var(--xl-ink);
+  background: var(--xl-bg);
 }
-.control .chrow { padding: 0.7em 0.9em; border-top: 1px solid var(--line); }
-.control .chrow:first-child { border-top: 0; }
-.control .chtag {
-  margin: 0 0 0.25em;
+.control .xlbar {
+  padding: 9px 14px;
+  font: 600 13px/1.3 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
+  color: var(--xl-bg);
+  background: var(--xl-bar);
+}
+.control .xlscroll { overflow: auto; max-height: 66vh; }
+.control .xl table { width: 100%; min-width: 1000px; border-collapse: collapse; table-layout: fixed; }
+.control .xl table th,
+.control .xl table td {
+  padding: 5px 7px;
+  border: 1px solid var(--xl-grid);
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+  font: inherit;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--xl-ink);
+}
+.control .xl table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 3px;
   font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--muted);
+  font-weight: 500;
+  text-align: center;
+  color: var(--xl-headink);
+  background: var(--xl-head);
 }
-.control .chq { margin: 0; font-size: clamp(14px, 1.5vw, 17px); line-height: 1.4; }
-.control .cha {
-  margin: 0.15em 0 0;
-  font-size: clamp(14px, 1.5vw, 17px);
-  font-weight: 700;
-  color: var(--good);
-  line-height: 1.4;
+.control .xl table td.rn { font-size: 12px; text-align: center; color: var(--xl-headink); background: var(--xl-head); }
+.control .xl table tr.hdr td:not(.rn) { font-weight: 700; background: var(--xl-hdr); }
+.control .xl table td.n { text-align: right; font-variant-numeric: tabular-nums; }
+.control .xl table td img { display: block; width: auto; max-width: 100%; height: 46px; }
+.control .xl table td.helphead { font-size: 15px; font-weight: 700; }
+.control .xl .lnk { color: var(--xl-link); text-decoration: underline; }
+.control .xl table td[contenteditable] { cursor: text; }
+.control .xl table td[contenteditable]:focus { outline: 2px solid #1a73e8; outline-offset: -2px; }
+/* What would go wrong on the projector. The reason is the cell's tooltip. */
+.control .xl table td.bad { background: var(--xl-bad); box-shadow: inset 0 0 0 2px var(--red); }
+/* The teams table's hover is written for the whole page; under the mouse the sheet keeps its
+   own colours. */
+.control .xl tbody tr:hover td:not(.onboard):not(.rn):not(.bad) { background: var(--xl-bg); }
+.control .xl tbody tr.hdr:hover td:not(.onboard):not(.rn) { background: var(--xl-hdr); }
+.control .xl tbody tr:hover td.rn:not(.onboard) { background: var(--xl-head); }
+.control .xl tbody tr:hover td.bad:not(.onboard) { background: var(--xl-bad); }
+.control .xltabs {
+  display: flex;
+  gap: 2px;
+  padding: 0 10px;
+  overflow-x: auto;
+  background: var(--xl-head);
+  border-top: 1px solid var(--xl-grid);
 }
-.control .chrow img {
-  display: block;
-  margin-top: 0.5em;
-  max-width: 220px;
-  max-height: 120px;
-  border-radius: 8px;
+/* A spreadsheet's sheet tabs: square, and the one that is up underlined - drawn as an inset
+   shadow inside the padding, so every tab is the same height whether it is up or not. */
+.control .xltab {
+  padding: 8px 16px 11px;
+  font: 600 12px/1.3 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
+  white-space: nowrap;
+  color: var(--xl-headink);
+  background: none;
+  border-radius: 0;
 }
-.control .cherr { margin: 0.3em 0 0; font-size: 13px; color: var(--red); }
+.control .xltab[aria-current="true"] { color: var(--xl-bar); background: var(--xl-bg); box-shadow: inset 0 -3px 0 var(--xl-bar); }
+/* On a phone the teams table turns into cards, by rules written for every table on the page;
+   the sheet stays a sheet, and scrolls sideways. */
+@media (max-width: 700px) {
+  .control .xl table { display: table; }
+  .control .xl thead { display: table-header-group; }
+  .control .xl tbody { display: table-row-group; }
+  .control .xl tbody tr { display: table-row; padding: 0; border: 0; }
+  .control .xl tbody td { display: table-cell; width: auto; padding: 5px 7px; border: 1px solid var(--xl-grid); }
+  .control .setupbar input { flex-basis: 100%; }
+}
 
 .control #dash {
   display: grid;

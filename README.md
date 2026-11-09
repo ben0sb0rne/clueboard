@@ -341,14 +341,17 @@ is no place for a paragraph of instructions:
   board is this directory, so whatever is at `/` has to be what gets a student into a game.
 - `privacy.html` - the privacy and COPPA statement, linked from the front page. Every claim
   on it is a claim about this code; change it when the data model changes.
-- `clues.js` - the clue set: reads a paste or a file's tables into the shape the designer
-  edits, writes it back out as tables, and works out what a clue is worth.
+- `clues.js` - the clue set: reads a .tsv or a file's tables into the shape the designer
+  edits, writes it back out as tables, makes the blank template's empty game, and works out
+  what a clue is worth.
   `node clues.test.js`.
 - `game.js` - every move a host can make, with no screen attached. Both host screens drive a
   room through it, so the rules of a game are written once.
 - `ui.test.js` - checks every button carries a style of its own. `node ui.test.js`.
 - `demo.js` - a localStorage stand-in for Firebase, see below.
-- `sample-clues.tsv` - a working clue set, and the template to copy.
+- `sample-clues.tsv` - a working clue set to try. The blank template is not a file in the
+  repo: `blankSet()` makes an empty game and the .xlsx writer saves it, so it is always in the
+  shape both screens open.
 - `katex/` - KaTeX, committed rather than loaded from a CDN. woff2 fonts only.
 - `fonts/` - Anton, the board font. Self-hosted, OFL licence alongside it.
 - `icons/` - the icons, from Lucide. ISC licence alongside them. They are pasted into the
@@ -368,7 +371,13 @@ tested, without waiting on a project.
 
 ## Writing a clue set
 
-Copy `sample-clues.tsv` into a spreadsheet and edit it. One clue per row; the first row is the
+The easiest start is `Download a blank template`, on the host screen and beside `Open file` in
+the designer: an empty six-by-five game in the .xlsx's own shape, a row for every square with
+its value already filled in, a `Final Clue` tab and the `Help` tab. Fill in the categories,
+clues and answers - by hand, or by handing it to an AI with your questions - and open it on
+either screen.
+
+Or copy `sample-clues.tsv` into a spreadsheet and edit it. One clue per row; the first row is the
 header and the column order does not matter. `round` is a number, a name of your own, or
 `final`: numbered rounds play in number order, named ones in the order they first appear, and
 there can be as many as you like. A blank `value` derives from row order, and `dd` marks a
@@ -382,7 +391,8 @@ category is a three-row board, not a five-row board with two rows blank.
 
 **A half-written row is kept.** A clue with no answer, or an answer with no clue, used to be
 dropped with an error. It now stays in the set as a draft, so the designer can show what is
-missing and a save keeps it. It is never on the board, and `Check the clues` lists it.
+missing and a save keeps it. It is never on the board, and the host screen's sheet marks it
+in red.
 
 Clue and answer text may carry `$...$` maths, rendered by KaTeX on the board and the control
 screen. About twelve commands cover the year: `\frac`, `^`, `_`, `\sqrt`, `\times`, `\div`,
@@ -391,13 +401,16 @@ the player screen needs no KaTeX unless the clue card is on. **Put algebra insid
 when it needs no layout:** a clue's words go up in capitals and only maths keeps its own case,
 so `Rewrite 2y = 6x + 10` written plainly reads `2Y = 6X + 10` on the board.
 
-To load a set, paste it into the box on `control.html`, or open a file there: the .xlsx the
-designer saved, or a `.csv` or `.tsv` from any spreadsheet. It is kept on that device, and never
-sent anywhere: under `clueboard-set`, as the set itself rather than the paste, which is the
-same place the designer keeps the one it is editing. So whatever was last made or loaded on a
-device is the game that device hosts, and the designer needs no Play button. A set stored as a
-paste before there was a designer still loads. Replacing one the designer has not yet saved to
-a file asks first, because that set exists nowhere else.
+To load a set, open a file on `control.html`: the .xlsx the designer saved, a filled-in
+template, or a `.csv` or `.tsv` from any spreadsheet. **The screen opens with no set**, because
+whatever a device held last may be last week's game: the one a lesson needs is chosen, not
+assumed. `continue with ... from the designer` takes up the device's set in one press, so the
+designer needs no Play button, and `use the sample set` is there to try it. A set is kept on
+that device and never sent anywhere: under `clueboard-set`, as the set itself, the same place
+the designer keeps the one it is editing. A set stored as a paste before there was a designer
+still loads. Replacing one the designer has not yet saved to a file asks first, because that
+set exists nowhere else. A refresh in the middle of a lesson goes straight back to its room, on
+that device's set.
 
 **A game is a list of rounds**, played in the set's order. The room only ever carries the
 round's number, so a spent cell's key and everything that reads it are unchanged. The cog has
@@ -409,11 +422,15 @@ added in the designer and never filled is skipped rather than put up empty.
 student's pick grid all take their columns and rows from the published grid, as `--cols` and
 `--rows`, so a four-by-three round fills the projector the way a six-by-five one does.
 
-Before the room opens, `Check the clues` lays the whole set out the way the board will show
-it: every clue and answer in order, with its value, its Daily Double mark and its picture. It
-flags maths KaTeX cannot read, pictures that are not there and squares that are half written,
-and puts the count in the summary line, so a broken set is visible without opening it. A typo
-found in the staffroom costs nothing; the same typo found on the projector costs the room.
+Before the room opens, **the host screen shows the whole set as a sheet**: the same tables the
+.xlsx holds, a tab per round, then `Final Clue` and `Help`. Any cell can be corrected where it
+is - a clue, an answer, a Daily Double, a category (renamed on every row it belongs to) or a
+value (that row's, in every category). Enter moves down and Escape puts a cell back. A
+correction goes into the device's copy and marks it unsaved, as an edit in the designer does.
+Maths KaTeX cannot read, pictures that are not there and squares that are half written are
+marked in red, with the reason as the cell's tooltip, and the count is in the line above, so a
+broken set is visible at a glance. Pictures are shown and changed in the designer. A typo found
+in the staffroom costs nothing; the same typo found on the projector costs the room.
 
 ## The designer
 
@@ -432,10 +449,10 @@ revision number that is never reused, so undoing back past a save and then editi
 as saved.
 
 **The device keeps a copy as you work**, under `clueboard-set`, the key the control screen
-reads - so the game being written is the one a room opens with, and there is no Play button.
+reads - so the game being written is one press away on the host screen, with no Play button.
 It is a safety net and not the save, because Safari clears a site's storage after about a week
 without a visit. Until it is saved the copy carries an `unsaved` flag, so the control screen
-asks before a paste or a file replaces it; and when another tab does replace it, the designer
+asks before a file replaces it; and when another tab does replace it, the designer
 follows. Leaving with changes unsaved asks first: the logo offers `Save and leave`, `Cancel`
 and `Leave without saving`, `Open file` asks the same way, and closing the tab warns.
 

@@ -351,6 +351,22 @@ function readSet(raw) {
   } catch (e) { return null; }
 }
 
+// A game with nothing in it, in the shape the designer starts a new one in - six categories,
+// five values - and with an empty Final Clue, so its tab is in the file too. Written out, it
+// is the blank template: every row already where the reader will look for it, the values
+// filled in, so whoever fills it in (a teacher, or an AI they hand it to) only adds words.
+function blankSet() {
+  var cells = [];
+  for (var c = 0; c < MAX_COLS; c++) cells.push(new Array(MAX_ROWS).fill(null));
+  var prices = [];
+  for (var r = 0; r < MAX_ROWS; r++) prices.push(ladder(1, r));
+  return {
+    title: "",
+    rounds: [{ name: "Round 1", cats: new Array(MAX_COLS).fill(""), prices: prices, cells: cells }],
+    final: { cat: "", clue: "", answer: "", media: null }
+  };
+}
+
 // The file, as tables: one tab per round, named after it, then the Final Clue, then Help.
 // One row per square, empty ones included, in board order - down the first category, then
 // the next - so the grid's shape survives a save and reopen. A picture is not in its cell:
@@ -540,7 +556,7 @@ if (typeof module !== "undefined" && module.exports) {
     MAX_COLS: MAX_COLS, MAX_ROWS: MAX_ROWS, FINAL_TAB: FINAL_TAB, ladder: ladder,
     cleanRoundName: cleanRoundName, parseLink: parseLink, embedURL: embedURL, csvRows: csvRows,
     parseClueSet: parseClueSet, setFromTables: setFromTables, setToTables: setToTables,
-    readSet: readSet,
+    readSet: readSet, blankSet: blankSet,
     playable: playable, roundGrid: roundGrid, cellKey: cellKey, clueAt: clueAt,
     finalClue: finalClue, firstRound: firstRound, nextRound: nextRound, clueCount: clueCount,
     wagerCap: wagerCap, readWager: readWager, stake: stake, inLobby: inLobby, cardFor: cardFor

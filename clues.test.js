@@ -257,6 +257,17 @@ tests["a set written as tables reads back as the same set"] = function () {
   assert.deepStrictEqual(back.set.final, set.final);
 };
 
+tests["the blank template is an empty six-by-five game with a final, values filled in"] = function () {
+  var tables = C.setToTables(C.blankSet());
+  assert.deepStrictEqual(tables.map(function (t) { return t.name; }), ["Round 1", "Final Clue", "Help"]);
+  assert.strictEqual(tables[0].rows.length, 31);   // the header, then thirty squares
+  assert.deepStrictEqual(tables[0].rows[1], ["", 200, "", "", "", ""]);
+  assert.deepStrictEqual(tables[0].rows[30], ["", 1000, "", "", "", ""]);
+  assert.deepStrictEqual(tables[1].rows, [["Category", "Clue", "Answer", "Picture or video"], ["", "", "", ""]]);
+  // Opened again untouched, it has nothing to play - which the host screen says, not opens.
+  assert.strictEqual(C.firstRound(C.setFromTables(tables).set), 0);
+};
+
 tests["the tables are one tab per round, then Final Clue, then Help"] = function () {
   var tables = C.setToTables(designed());
   assert.deepStrictEqual(tables.map(function (t) { return t.name; }), ["Round 1", "Wrap-up", "Final Clue", "Help"]);

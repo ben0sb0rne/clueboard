@@ -12,37 +12,45 @@
 <body class="host control">
 
 <main id="setup">
-  <h1>Clueboard</h1>
-
-  <div id="importBox">
-    <p class="sub">Open the .xlsx the designer saved, or copy the rows out of your spreadsheet and paste them here, header row and all.</p>
-    <textarea id="tsv" spellcheck="false"
-      placeholder="round&#9;category&#9;value&#9;clue&#9;image&#9;answer&#9;dd"></textarea>
-    <p id="importErr" class="err"></p>
-    <div class="acts">
-      <button id="fileBtn" class="quiet">Open a file</button>
-      <input type="file" id="fileIn" accept=".xlsx,.csv,.tsv,.txt" hidden>
-      <button id="sampleBtn" class="quiet">Use the sample set</button>
-      <button id="importBtn" class="act">Load clue set</button>
+  <!-- One line across the top: the designer's logo, back to the front page, and - once a set
+       is open - its title, what is in it, and the two ways on. The sheet takes the rest. -->
+  <header class="setuphead">
+    <a class="logo" href="index.html" title="Back to the front page"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>Clueboard</a>
+    <div class="setupbar" id="setupBar" hidden>
+      <!-- Required, because the board opens on it: the title is the first stop of the category
+           intro, and the heading on the welcome card for a game that skips the intro. -->
+      <input id="title" maxlength="60" autocomplete="off" placeholder="Game title" aria-label="Game title">
+      <span class="setsum" id="setSummary"></span>
+      <div class="acts">
+        <button id="reimportBtn" class="quiet">Load a different set</button>
+        <button id="createBtn" class="act">Create room</button>
+      </div>
     </div>
+  </header>
+  <p id="titleErr" class="err"></p>
+
+  <!-- No set until one is chosen: the screen opens here, not on whatever this device held
+       last, which may be last week's game. -->
+  <div id="importBox" class="setupempty">
+    <h1>Host a game</h1>
+    <p class="sub">Open the .xlsx you made in the designer, or any spreadsheet in its shape.</p>
+    <div class="loadset">
+      <button id="fileBtn" class="act">Open a set</button>
+      <input type="file" id="fileIn" accept=".xlsx,.csv,.tsv,.txt" hidden>
+      <button type="button" id="templateBtn" class="linkbtn">Download a blank template</button>
+    </div>
+    <p id="importErr" class="err"></p>
+    <p class="alt">or <span id="fromDesigner" hidden><button type="button" id="storedBtn" class="linkbtn"></button> &middot; </span><button type="button" id="sampleBtn" class="linkbtn">use the sample set</button></p>
   </div>
 
+  <!-- The whole set as the designer saves it, to read and correct before the lesson. -->
   <div id="ready" hidden>
-    <p class="sub" id="setSummary"></p>
-    <!-- Required, because the board opens on it: the title is the first stop of the category
-         intro, and the heading on the welcome card for a game that skips the intro. -->
-    <label class="field">Game title
-      <input id="title" maxlength="60" autocomplete="off" placeholder="Unit 3 Review">
-    </label>
-    <p id="titleErr" class="err"></p>
     <ul id="setWarnings" class="warnings"></ul>
-    <details id="check" class="check">
-      <summary id="checkSum">Check the clues</summary>
-      <div id="checkList"></div>
-    </details>
-    <div class="acts">
-      <button id="reimportBtn" class="quiet">Load a different set</button>
-      <button id="createBtn" class="act">Create room</button>
+    <p class="setnote" id="checkSum"></p>
+    <div class="xl">
+      <div class="xlbar" id="xlName"></div>
+      <div class="xlscroll"><table id="xlTable"></table></div>
+      <div class="xltabs" id="xlTabs" aria-label="Sheet tabs"></div>
     </div>
   </div>
 </main>
@@ -272,7 +280,6 @@ $("#showClues").checked = showClues;
 $("#buzzPick").checked = buzzerPick;
 applyTheme(theme);      // before the first paint, so this screen never flashes the default
 drawSwatches();
-$("#importBtn").addEventListener("click", importSet);
 $("#fileBtn").addEventListener("click", () => $("#fileIn").click());
 $("#fileIn").addEventListener("change", () => {
   const file = $("#fileIn").files[0];
@@ -280,7 +287,41 @@ $("#fileIn").addEventListener("change", () => {
   if (file) importFile(file);
 });
 $("#sampleBtn").addEventListener("click", loadSample);
+$("#storedBtn").addEventListener("click", useStored);
+$("#templateBtn").addEventListener("click", () => {
+  downloadTemplate().catch((err) => { $("#importErr").textContent = "Could not make the template: " + err.message; });
+});
 $("#reimportBtn").addEventListener("click", () => showSetup(true));
+// The sheet's name is the game's, as the file would be.
+$("#title").addEventListener("input", () => { if (clueSet) $("#xlName").textContent = sheetName(); });
+// The sheet: a tab chosen, a cell left, Enter for the cell below, Escape to put it back.
+$("#xlTabs").addEventListener("click", (e) => {
+  const b = e.target.closest(".xltab");
+  if (!b) return;
+  sheetTab = /^\d+$/.test(b.dataset.tab) ? +b.dataset.tab : b.dataset.tab;
+  renderTabs();
+  renderSheet();
+});
+$("#xlTable").addEventListener("focusout", (e) => {
+  const td = e.target.closest("td[data-row]");
+  if (!td || drawing) return;
+  const next = e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest("#xlTable td[data-row]");
+  if (next) sheetFocus = [next.dataset.row, next.dataset.col];
+  commitCell(td);
+  sheetFocus = null;
+});
+$("#xlTable").addEventListener("keydown", (e) => {
+  const td = e.target.closest("td[data-row]");
+  if (!td) return;
+  if (e.key === "Enter") {
+    e.preventDefault();
+    const below = $(`#xlTable td[data-row="${+td.dataset.row + 1}"][data-col="${td.dataset.col}"]`);
+    if (below) below.focus(); else td.blur();
+  } else if (e.key === "Escape") {
+    e.preventDefault();
+    renderSheet();   // drawn again from the set, which the typing has not reached
+  }
+});
 $("#createBtn").addEventListener("click", createRoom);
 $("#openBoard").addEventListener("click", openBoardWindow);
 $("#hostBoard").addEventListener("click", runFromBoard);
@@ -331,22 +372,19 @@ leftovers().forEach((code) => {
   wipeIfDead(code).then((gone) => { if (gone) forgetRoom(code); });
 });
 
-loadStoredSet();
-if (clueSet && /^[A-Z]{4}$/.test(fromUrl)) openRoom(fromUrl);
+// No set to start with: the game a lesson needs is chosen, not whatever this device held last.
+// A refresh mid-lesson is the exception - the room in the address is running on this device's
+// set, so the screen goes straight back to it.
+{
+  const kept = readSet(localStorage.getItem(SET_KEY));
+  if (kept && firstRound(kept) && /^[A-Z]{4}$/.test(fromUrl)) { clueSet = kept; openRoom(fromUrl); }
+  else showSetup(true);
+}
 
 /* ---------- the clue set ---------- */
 
-// The set is kept as the set, under the same key the designer writes: whatever was last made
-// or loaded on this device is the game this screen opens with, so the designer needs no
-// Play button. What the paste said about itself is shown once, as it is loaded.
-
-function loadStoredSet() {
-  clueSet = readSet(localStorage.getItem(SET_KEY));
-  if (!firstRound(clueSet)) { clueSet = null; showSetup(true); return; }
-  showSetup(false);
-}
-
-function importSet() { useSet(parseClueSet($("#tsv").value), "that paste"); }
+// The set is kept as the set, under the same key the designer writes, so a game made there is
+// one press away here. What a file said about itself is shown once, as it is opened.
 
 // The .xlsx the designer saved, or a .csv or .tsv from any spreadsheet: the same set either
 // way, named after the file.
@@ -377,20 +415,38 @@ function useSet(parsed, from) {
 function loadSample() {
   fetch("sample-clues.tsv")
     .then((r) => { if (!r.ok) throw new Error("Could not read sample-clues.tsv"); return r.text(); })
-    .then((text) => { $("#tsv").value = text; importSet(); })
+    .then((text) => useSet(parseClueSet(text), "the sample set"))
     .catch((err) => { $("#importErr").textContent = err.message; });
+}
+
+// This device's set - the designer's, or the last one opened here - taken up again in one
+// press, rather than saved to a file and that file opened.
+function useStored() {
+  const kept = readSet(localStorage.getItem(SET_KEY));
+  if (!kept || !firstRound(kept)) { showSetup(true); return; }
+  clueSet = kept;
+  importNotes = [];
+  showSetup(false);
 }
 
 function showSetup(importing) {
   $("#importBox").hidden = !importing;
   $("#ready").hidden = importing;
-  if (importing || !clueSet) return;
+  $("#setupBar").hidden = importing;
+  $("#titleErr").textContent = "";
+  if (importing) {
+    // Offered only when there is something to go back to, and by its name.
+    const kept = readSet(localStorage.getItem(SET_KEY));
+    const ok = !!(kept && firstRound(kept));
+    $("#fromDesigner").hidden = !ok;
+    if (ok) $("#storedBtn").textContent = kept.title
+      ? "continue with \u201c" + kept.title + "\u201d from the designer"
+      : "continue with the set from the designer";
+    return;
+  }
+  if (!clueSet) return;
 
-  const counts = clueSet.rounds.map((R, i) => [clueCount(clueSet, i + 1, {}), R.name])
-    .filter(([n]) => n).map(([n, name]) => n + " in " + name);
-  if (finalClue(clueSet)) counts.push("a final");
-  $("#setSummary").textContent = "Clue set loaded: " + counts.join(", ") + ".";
-
+  sayWhatIsIn();
   const list = $("#setWarnings");
   list.textContent = "";
   importNotes.slice(0, 8).forEach((e) => {
@@ -406,10 +462,25 @@ function showSetup(importing) {
 
   // A set made in the designer is named after its file, which is the name a teacher chose.
   $("#title").value = clueSet.title || gameTitle;
-  buildCheck();
+  sheetTab = 0;
+  renderTabs();
+  checkSet();
+}
+
+// "30 clues in Round 1, and a final", up beside the title.
+function sayWhatIsIn() {
+  const parts = clueSet.rounds.map((R, i) => [clueCount(clueSet, i + 1, {}), R.name])
+    .filter(([n]) => n).map(([n, name], k) => n + (k ? "" : n === 1 ? " clue" : " clues") + " in " + name);
+  if (finalClue(clueSet)) parts.push("a final");
+  $("#setSummary").textContent = parts.length > 1
+    ? parts.slice(0, -1).join(", ") + ", and " + parts[parts.length - 1] : parts.join("");
 }
 
 function createRoom() {
+  if (!firstRound(clueSet)) {
+    $("#titleErr").textContent = "Nothing in this set has both a clue and an answer yet.";
+    return;
+  }
   gameTitle = $("#title").value.trim().slice(0, 60);
   if (!gameTitle) {
     $("#titleErr").textContent = "Give the game a title - the board opens on it.";
@@ -465,105 +536,211 @@ function freeCode(tries) {
       : freeCode(tries - 1));
 }
 
-// The whole set, read before the lesson rather than discovered during it. It renders with the
-// same mathText the board uses, so a broken $...$ is red here in the staffroom instead of red
-// on the projector, and a picture is a real <img> rather than a probe - one element both
-// proves it is there and shows what the class will see.
-//
-// The parser's own warnings stay in the list above; this counts only what it cannot know,
-// which is whether the maths parses and whether the pictures exist.
-function buildCheck() {
-  const list = $("#checkList");
-  list.textContent = "";
-  let problems = 0;
+/* ---------- the sheet: the whole set, read and corrected before the lesson ---------- */
 
-  // Every square with anything in it, in board order, and the final clue last. A half-written
-  // one is listed too, because it is the one that will not be on the board.
-  const several = clueSet.rounds.length > 1;
-  const clues = [];
-  clueSet.rounds.forEach((R) => R.cells.forEach((column, c) => column.forEach((s, r) => {
-    if (s) clues.push({ tag: [several ? R.name : "", money(R.prices[r]), R.cats[c]], s: s });
-  })));
-  if (clueSet.final) clues.push({ tag: ["Final Clue", clueSet.final.cat], s: clueSet.final });
+// The set as the .xlsx has it - setToTables, the same tables Save writes - so what is read
+// here is what is in the file. It is the old list of clues made into the file itself: every
+// cell is there to read, what would go wrong on the projector is marked in red, and a
+// correction is typed straight into its cell.
+let sheetTab = 0;        // the tab that is up: a round's index, "final" or "help"
+let sheetFlags = {};     // "tab:row:col" -> what is wrong with that cell
+let sheetFocus = null;   // the cell to put the caret back in after a redraw: [row, col]
+let checkRun = 0;        // which check a late picture result belongs to
+let drawing = false;     // a redraw in progress: the cells it removes are not being left
 
-  function say() {
-    $("#checkSum").textContent = "Check the clues - " + clues.length + " clue" +
-      (clues.length === 1 ? "" : "s") + ", " +
-      (problems ? problems + (problems === 1 ? " problem" : " problems") : "nothing broken");
-    $("#check").classList.toggle("bad", problems > 0);
-  }
+const sheetIds = () => clueSet.rounds.map((R, i) => i).concat(clueSet.final ? ["final"] : [], ["help"]);
+const sheetName = () => ($("#title").value.trim() || "Untitled game") + ".xlsx";
+// The square a round's row stands for: one row per square, down the first category, then the next.
+const squareAt = (R, row) => ({ c: Math.floor((row - 1) / R.prices.length), r: (row - 1) % R.prices.length });
+// The column a clue's picture sits over: Picture or video, after Answer.
+const picCol = (tab) => (tab === "final" ? 3 : 4);
 
-  function note(row, text) {
-    problems++;
-    const p = document.createElement("p");
-    p.className = "cherr";
-    p.textContent = text;
-    row.appendChild(p);
-    say();
-  }
-
-  clues.forEach(({ tag: where, s }) => {
-    const clue = { text: s.clue, answer: s.answer };
-    const m = s.media;
-    const row = document.createElement("div");
-    row.className = "chrow";
-
-    const tag = document.createElement("p");
-    tag.className = "chtag";
-    tag.textContent = where.concat(s.dd ? "Daily Double" : "").filter(Boolean).join("  \u00b7  ");
-    row.appendChild(tag);
-
-    const q = document.createElement("p");
-    q.className = "chq";
-    mathText(q, clue.text);
-    row.appendChild(q);
-
-    const a = document.createElement("p");
-    a.className = "cha";
-    mathText(a, clue.answer);
-    row.appendChild(a);
-
-    if (!playable(s)) {
-      note(row, (s.clue.trim() ? "No answer" : "No clue") + " yet, so this is not on the board.");
-    }
-
-    // A picture kept on this device, or one linked from the web; a video is named, since the
-    // board plays it and there is nothing to check here but which one it is.
-    if (m && m.kind === "picture") {
-      const img = document.createElement("img");
-      img.alt = "";
-      img.addEventListener("error", () => {
-        // A 404, or a file that is there but is not a picture - both are equally no use in a
-        // lesson. isConnected because this arrives late: without it, a failure from the set
-        // the teacher just replaced would still be counted against the new one.
-        if (!row.isConnected) return;
-        img.remove();
-        note(row, "No picture at " + m.url + ".");
-      });
-      row.appendChild(img);
-      if (!m.id) img.src = m.url;
-      else loadPictures([m.id]).then(() => {
-        if (!row.isConnected) return;
-        if (pictureURLs[m.id]) { img.src = pictureURLs[m.id]; return; }
-        img.remove();
-        note(row, "This picture is not on this device. Open the game's file here to bring it back.");
-      });
-    } else if (m) {
-      const v = document.createElement("p");
-      v.className = "chtag";
-      v.textContent = m.host + (m.kind === "video" ? " video" : " file") + (m.start ? ", from " + m.start : "");
-      row.appendChild(v);
-    }
-
-    mathErrors(clue.text).concat(mathErrors(clue.answer)).forEach((msg) => {
-      note(row, msg);
-    });
-
-    list.appendChild(row);
+function renderTabs() {
+  const ids = sheetIds();
+  if (ids.indexOf(sheetTab) === -1) sheetTab = 0;
+  const bar = $("#xlTabs");
+  bar.textContent = "";
+  setToTables(clueSet).forEach((t, k) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "xltab";
+    b.textContent = t.name;
+    b.dataset.tab = ids[k];
+    if (ids[k] === sheetTab) b.setAttribute("aria-current", "true");
+    bar.appendChild(b);
   });
+}
 
+function renderSheet() {
+  const want = sheetFocus;
+  sheetFocus = null;
+  const tab = sheetTab, t = setToTables(clueSet)[sheetIds().indexOf(tab)];
+  const fin = t.kind === "final", help = t.kind === "help";
+  $("#xlName").textContent = sheetName();
+  const table = $("#xlTable");
+  drawing = true;
+  table.textContent = "";
+  const cols = document.createElement("colgroup");
+  [40].concat(fin ? [150, 330, 150, 150, 76, 100] : [150, 76, 330, 150, 150, 100]).forEach((w) => {
+    const col = document.createElement("col");
+    col.style.width = w + "px";
+    cols.appendChild(col);
+  });
+  table.appendChild(cols);
+  const head = table.createTHead().insertRow();
+  ["", "A", "B", "C", "D", "E", "F"].forEach((x) => {
+    const th = document.createElement("th");
+    th.textContent = x;
+    head.appendChild(th);
+  });
+  const body = table.createTBody();
+  t.rows.forEach((row, i) => {
+    const tr = body.insertRow();
+    if (i === 0) tr.className = "hdr";
+    const rn = tr.insertCell();
+    rn.className = "rn";
+    rn.textContent = i + 1;
+    if (help) {
+      const td = tr.insertCell();
+      td.colSpan = 6;
+      td.textContent = row[0];
+      if (i === 0) td.className = "helphead";
+      return;
+    }
+    for (let j = 0; j < 6; j++) {
+      const v = row[j] == null ? "" : row[j];
+      const td = tr.insertCell();
+      if (j === 1 && !fin && i > 0) td.className = "n";
+      if (i > 0 && j === picCol(tab)) drawPicture(td, tab, i);
+      else td.textContent = i > 0 && typeof v === "number" ? money(v) : v;
+      // Every cell a teacher would correct: not the headings, and not the picture, which is
+      // not text and is put in the designer.
+      if (i > 0 && j !== picCol(tab) && j < (fin ? 3 : 6)) {
+        td.contentEditable = "plaintext-only";
+        td.dataset.row = i;
+        td.dataset.col = j;
+      }
+      const why = sheetFlags[tab + ":" + i + ":" + j];
+      if (why) { td.classList.add("bad"); td.title = why; }
+    }
+  });
+  drawing = false;
+  const td = want && table.querySelector(`td[data-row="${want[0]}"][data-col="${want[1]}"]`);
+  if (td) {
+    td.focus();
+    getSelection().selectAllChildren(td);
+    getSelection().collapseToEnd();
+  }
+}
+
+// A picture is not in its cell: it sits over its clue's row, so the sheet draws it there - one
+// kept on this device from its store, one linked from the web as its link.
+function drawPicture(td, tab, row) {
+  const m = mediaAt(tab, row);
+  if (!m) return;
+  if (m.kind === "picture" && m.id) {
+    if (!pictureURLs[m.id]) return;
+    const img = document.createElement("img");
+    img.alt = "";
+    img.src = pictureURLs[m.id];
+    td.appendChild(img);
+  } else if (m.url) {
+    const link = document.createElement("span");
+    link.className = "lnk";
+    link.textContent = m.url;
+    td.appendChild(link);
+  }
+}
+function mediaAt(tab, row) {
+  if (tab === "final") return clueSet.final && clueSet.final.media;
+  const R = clueSet.rounds[tab], { c, r } = squareAt(R, row), s = R.cells[c][r];
+  return s && s.media;
+}
+
+// A correction goes into the set and into this device's copy of it, and the sheet is drawn
+// again from that - so a renamed category or a changed value shows on every row it belongs to,
+// and the check runs on what is there now. Marked unsaved, as an edit in the designer is: the
+// next file opened here, and the designer itself, both ask before losing it.
+function commitCell(td) {
+  const row = +td.dataset.row, col = +td.dataset.col, v = td.textContent.trim();
+  let changed = false;
+  if (sheetTab === "final") {
+    const key = ["cat", "clue", "answer"][col], F = clueSet.final;
+    if (F[key] !== v) { F[key] = v; changed = true; }
+  } else {
+    const R = clueSet.rounds[sheetTab], { c, r } = squareAt(R, row);
+    if (col === 0) {
+      if (R.cats[c] !== v) { R.cats[c] = v; changed = true; }
+    } else if (col === 1) {
+      // A value is whole dollars, and it is that row's value in every category. Anything else
+      // puts the old one back.
+      const n = readWager(v);
+      if (n && n !== R.prices[r]) { R.prices[r] = n; changed = true; }
+    } else {
+      const s = R.cells[c][r] || { clue: "", answer: "", media: null, dd: false };
+      const was = JSON.stringify(s);
+      if (col === 2) s.clue = v;
+      if (col === 3) s.answer = v;
+      if (col === 5) s.dd = /^(x|yes|true)$/i.test(v);   // the file's own rule for the column
+      if (JSON.stringify(s) !== was) { R.cells[c][r] = s; changed = true; }
+    }
+  }
+  // Nothing new: a value or a Daily Double still goes back to the way the sheet writes it.
+  if (!changed) { if (col === 1 || col === 5) renderSheet(); return; }
+  clueSet.unsaved = true;
+  localStorage.setItem(SET_KEY, JSON.stringify(clueSet));
+  sayWhatIsIn();
+  checkSet();
+}
+
+// What the sheet marks in red, and what the line above it says: a square with only one half,
+// maths KaTeX cannot read, and a picture this device cannot show. The file's own notes stay in
+// the list above it. A picture is only known once it has tried to load, so it is marked when
+// it has - which is why a check is numbered, and a late answer from an old one ignored.
+function checkSet() {
+  const run = ++checkRun;
+  sheetFlags = {};
+  let clues = 0;
+  const flag = (k, why) => { sheetFlags[k] = sheetFlags[k] ? sheetFlags[k] + " " + why : why; };
+  const say = () => {
+    const n = Object.keys(sheetFlags).length, note = $("#checkSum"), b = document.createElement("b");
+    b.textContent = clues + (clues === 1 ? " clue, " : " clues, ") +
+      (n ? n + (n === 1 ? " problem" : " problems") + ", marked in red." : "nothing broken.");
+    if (n) b.className = "bad";
+    note.textContent = "";
+    note.append(b, n ? " Click a cell to fix it." : " Click any cell to change it before you start.");
+  };
+  const square = (tab, row, s, q, a) => {
+    clues++;
+    const has = (x) => !!String(x || "").trim();
+    if (!playable(s)) {
+      flag(tab + ":" + row + ":" + (has(s.clue) ? a : q),
+        (has(s.clue) ? "No answer" : "No clue") + " yet, so this is not on the board.");
+    }
+    mathErrors(s.clue).forEach((why) => flag(tab + ":" + row + ":" + q, why));
+    mathErrors(s.answer).forEach((why) => flag(tab + ":" + row + ":" + a, why));
+    const m = s.media, k = tab + ":" + row + ":" + picCol(tab);
+    if (!m || m.kind !== "picture") return;
+    const lost = (why) => { if (run !== checkRun) return; flag(k, why); say(); renderSheet(); };
+    if (m.id) {
+      loadPictures([m.id]).then(() => {
+        if (run !== checkRun) return;
+        if (pictureURLs[m.id]) renderSheet();   // drawn, now that it is here
+        else lost("This picture is not on this device. Open the game's file here to bring it back.");
+      });
+    } else if (m.url) {
+      // A 404, or a file that is there but is not a picture - equally no use in a lesson.
+      const img = new Image();
+      img.onerror = () => lost("No picture at " + m.url + ".");
+      img.src = m.url;
+    }
+  };
+  clueSet.rounds.forEach((R, t) => R.cells.forEach((column, c) => column.forEach((s, r) => {
+    if (hasContent(s)) square(t, c * R.prices.length + r + 1, s, 2, 3);
+  })));
+  if (hasContent(clueSet.final)) square("final", 1, clueSet.final, 1, 2);
   say();
-  $("#check").open = problems > 0;
+  renderSheet();
 }
 
 /* ---------- the room ---------- */
