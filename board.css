@@ -41,12 +41,8 @@
   --edge: 0.045em;
   --edge-stroke: 0.022em;
 
-  /* The show is low energy by design. One easing for everything that moves: it leaves rest
-     and arrives at rest, and nothing on this board overshoots or springs. One duration too,
-     so the board keeps a single tempo - it is SLOW in board.html, and they change together.
-     The value sweep is the exception: it is a sequence of thirty, not one move. */
-  --ease: cubic-bezier(.4, 0, .2, 1);
-  --slow: 1500ms;
+  /* The easing and the duration everything here moves by, --ease and --slow, are in
+     palette.css: a student's phone moves with the board now, so they are the show's. */
 
   /* The board font is Swiss 911 Ultra Compressed, which is licensed and cannot be used.
      Anton is the nearest free thing: self-hosted in fonts/, declared at the top of this file.
@@ -100,6 +96,11 @@ body.board {
   --edge: 0.038em;
   --edge-stroke: 0.015em;
 }
+/* Maths keeps its own case. The clue's words go up in capitals, as the show sets them, and
+   KaTeX's letters inherited that: $\frac{x}{4}$ came out as X over 4, and in algebra x and X
+   are different things. Words outside $...$ are still capitals. */
+.board .cluetext .katex,
+.board .clueanswer .katex { text-transform: none; }
 /* A fraction bar is a border and a radical is an SVG path. Neither is a glyph, so neither
    text-shadow nor text-stroke reaches them, and both were coming out flat against the blue
    while every character beside them carried an edge. The box-shadow is the same two moves
@@ -996,9 +997,10 @@ body.board {
 
 /* ---------- motion ----------
 
-   Only the board moves. The player screen is deliberately calm - the dots animation was taken
-   out of the buzzer for exactly that reason - and the control screen is a working surface.
-   The board is the show, so the opposite rule applies here and nowhere else. */
+   The board is the show, so it moves. The control screen is a working surface and does not.
+   The player screen moves only to keep the board company: its clue card opens, reveals and
+   closes with the board's own easing and duration, and nothing else on it moves at all - the
+   dots animation was taken out of the buzzer for exactly that reason. */
 
 /* Categories drop in one at a time, then the values wipe across. Transform and opacity only,
    so it stays on the compositor and holds its frame rate on a school laptop. */

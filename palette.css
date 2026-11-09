@@ -52,6 +52,15 @@
   --label: #8f93c8;        /* and one that is */
   --pale: #b9bce6;         /* the lightest the cool side goes */
   --press-shadow: #a9671f; /* under the gold button, so it has a body */
+
+  /* The show is low energy by design. One easing for everything that moves: it leaves rest
+     and arrives at rest, and nothing on the board overshoots or springs. One duration too,
+     so the board keeps a single tempo - it is SLOW in board.html and --slow here, and they
+     change together. Here rather than in board.css because a student's phone moves with
+     the board when it shows the clue, and reads both of these rather than copying them.
+     The value sweep is the exception: it is a sequence of thirty, not one move. */
+  --ease: cubic-bezier(.4, 0, .2, 1);
+  --slow: 1500ms;
 }
 
 /* The teacher picks two colours and the rest follows.

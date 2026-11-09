@@ -268,6 +268,8 @@ body.dragging, body.dragging * { cursor: grabbing !important; user-select: none;
 }
 .preview { container-type: size; }   /* so the picture can be sized against the box itself */
 .preview p { margin: 0; text-wrap: balance; }
+/* The preview's capitals are for the words, as the board's are: maths keeps its own case. */
+.preview .katex { text-transform: none; }
 /* A share of the preview's own height, as the board gives its picture a share of the screen's:
    a percentage here would be of a grid row sized by its content, and let a large picture push
    the clue out of the top of the box. */

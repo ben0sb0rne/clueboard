@@ -744,6 +744,212 @@ body.editing .rm { display: table-cell; }
   text-transform: uppercase;
 }
 
+/* ---------- the clue card (index.html, "Show the clue on student devices") ---------- */
+
+/* The board's font, self-hosted as board.css has it, and the latin half only: the clue is the
+   teacher's own words, and the card is the one place on this page that uses Anton. A face is
+   only fetched when something is drawn in it, so a room without the card never asks. */
+@font-face {
+  font-family: Anton;
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(fonts/anton-latin.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
+}
+
+/* With the card on, the buzzer and wager screens are four fixed bands and the card: the name
+   line, the card taking whatever is left, a one-line box, the error line and the bar. Every
+   size here depends on the setting and on whether there is a box at all - never on whether a
+   clue is open - so a clue arriving moves nothing a thumb is resting on. Everything is under
+   .clues, so with the setting off these screens are what they always were. */
+.cluecard { display: none; }
+.clues .cluecard {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1em;
+  overflow: hidden;
+  /* A spent cell in the board's own gaps. The spent blue alone is all but the colour of this
+     page, so without the gap ink round it the card was not there between clues at all. The
+     blue layer below covers the gap ink when a clue opens, as the board's panel does. */
+  background: var(--spent);
+  box-shadow: inset 0 0 0 3px var(--gap-ink);
+  color: var(--clue-white);
+  font-family: Anton, "Arial Narrow", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+/* The board blue is a layer over the spent tile rather than the tile's own background, so
+   the open is an opacity change and stays on the compositor, as everything the board moves
+   does. Opening, it is on the clock and the curve of the board's panel growing out of its
+   cell; closing, it fades linearly with the words, as that panel does on its way back, so the
+   words never outlast the blue they are written on. */
+.clues .cluecard::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--board-blue);
+  opacity: 0;
+  transition: opacity var(--slow) linear;
+}
+.clues .cluecard.open::before {
+  opacity: 1;
+  transition: opacity var(--slow) var(--ease);
+}
+
+/* A vertically centred column with a gap, as the board's is: the reveal's rise is the clue
+   being re-centred with the answer under it. The gap is the board's proportion to its clue.
+   Closing, the words fade out linearly over the board's beat; opening, they fade in over its
+   last 900ms, held off in CSS so they land as the blue does. */
+.clues .cluebody {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4em;
+  max-width: 100%;
+  opacity: 0;
+  transition: opacity var(--slow) linear;
+}
+.clues .cluecard.open .cluebody {
+  opacity: 1;
+  transition: opacity 900ms linear calc(var(--slow) - 900ms);
+}
+/* Straight back to spent, with no fade from wherever the last close had got to. */
+.clues .cluecard.snap::before,
+.clues .cluecard.snap .cluebody { transition: none; }
+
+/* The type is board.css's .cluetext and .clueanswer. Only the size differs: fitCard() in
+   index.html sets it on the column, because a card in the hand is too small for the board's
+   vw clamps. */
+.clues .cluetext {
+  margin: 0;
+  text-wrap: balance;
+  font-weight: 700;
+  line-height: 1.18;
+  text-align: center;
+  text-transform: uppercase;
+}
+.clues .clueanswer {
+  margin: 0;
+  padding: 0.3em 0.9em;
+  min-width: min(40vw, 100%);
+  font-weight: 700;
+  color: var(--clue-white);
+  border-top: 4px solid rgba(255, 255, 255, 0.35);
+  text-align: center;
+}
+
+/* The Daily Double splash and the final clue's category, in the board's proportions to its
+   clue. The title holds one line, as it does on the wall: fitCard() shrinks it to fit. */
+.clues .splash { text-align: center; }
+.clues .splashtitle {
+  font-size: 1.87em;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;    /* the board writes DAILY DOUBLE out in capitals */
+  white-space: nowrap;
+  color: var(--value-gold);
+}
+.clues .splashwho {
+  margin-top: 0.55em;
+  font-size: 0.5em;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  text-wrap: balance;
+  color: #fff;
+}
+/* board.css's ddPunch, copied: the Daily Double arrives with weight, and still does not
+   overshoot. The name lands a beat behind the title. */
+@keyframes ddPunch {
+  from { opacity: 0; transform: scale(0.72); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.clues .splash.punch .splashtitle { animation: ddPunch var(--slow) var(--ease) both; }
+.clues .splash.punch .splashwho   { animation: ddPunch var(--slow) var(--ease) 400ms both; }
+
+/* The board's hard black edge, at the depth its clue panel takes, because against white the
+   black collapses into the stroke unless it is deeper. Declared on every element, as
+   board.css does, since an em shadow computes at the element that declares it; the numbers
+   are copied rather than shared, the same trade #code makes above. */
+.clues .cluecard {
+  --edge: 0.075em;
+  --edge-stroke: 0.028em;
+}
+.clues .cluecard * {
+  text-shadow: var(--edge) var(--edge) 0 #000;
+  -webkit-text-stroke: var(--edge-stroke) #000;
+  paint-order: stroke fill;
+}
+/* Maths takes a smaller edge, for board.css's two reasons: KaTeX sets its type at 1.21em, and
+   in a thin serif an offset tuned to Anton floats free of the digit. A fraction bar is a
+   border and a radical an SVG path, so they get the same two moves from box-shadow and
+   drop-shadow instead. */
+.clues .cluecard .katex {
+  --edge: 0.038em;
+  --edge-stroke: 0.015em;
+}
+/* And it keeps its own case, as board.css has it: the capitals are for the words, and x is
+   not X. */
+.clues .cluetext .katex,
+.clues .clueanswer .katex { text-transform: none; }
+.clues .cluecard .katex .frac-line,
+.clues .cluecard .katex .overline-line,
+.clues .cluecard .katex .underline-line,
+.clues .cluecard .katex .hline {
+  box-shadow: var(--edge) var(--edge) 0 #000, 0 0 0 var(--edge-stroke) #000;
+}
+.clues .cluecard .katex .hide-tail,
+.clues .cluecard .katex .stretchy {
+  filter: drop-shadow(var(--edge) var(--edge) 0 #000);
+}
+
+/* The bands around it. The name line is one height on every screen, because the buzzer's
+   carries the room button and the wager's does not, and a Daily Double moves from one to
+   the other mid-clue. */
+.clues .who { height: 1.8em; align-items: center; }
+/* One line, not the whole screen: the card has the room now, and an answer is a few words.
+   Its type follows the shorter side of the screen rather than the width, which is the same
+   size on a phone held upright and spares a phone on its side a box a quarter of its height
+   tall - the card was left 90px for the clue. */
+.clues .answerbox { flex: none; }
+.clues .answerbox input { height: 2.2em; }
+.clues .answerbox input,
+.clues .hint,
+.clues .wagerbox .cur { font-size: clamp(22px, min(6.5vw, 6.5dvh), 42px); }
+/* Buzzers only: no box, so the bar is a taller one - fixed, rather than the rest of the
+   screen, which the card has. */
+.clues #answerWrap[hidden] ~ #lock { flex: 0 0 36dvh; min-height: 86px; }
+/* The error line keeps its place when it is empty, because every one of them is cleared as
+   a clue opens - left to collapse, the card would grow at exactly that moment. */
+.clues #playErr:empty,
+.clues #wagerErr:empty { display: block; }
+/* The card says both. */
+.clues #wagerTitle,
+.clues #wagerCat { display: none; }
+
+/* board.css's block, for the card: the same card, at once. The close is timed in index.html,
+   which reads the same query. */
+@media (prefers-reduced-motion: reduce) {
+  .clues *,
+  .clues *::before,
+  .clues *::after {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 1ms !important;
+    transition-delay: 0ms !important;
+  }
+}
+
 /* ---------- a page of words (privacy.html) ---------- */
 
 /* Not a .screen: this one is read, so it scrolls and is as long as it is. */

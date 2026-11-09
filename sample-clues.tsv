@@ -1,13 +1,13 @@
 round	category	value	clue	image	answer	dd
-1	SLOPE & INTERCEPT		The slope of the line y = 3x - 7		3	
-1	SLOPE & INTERCEPT		The y-intercept of y = -2x + 5		5	
+1	SLOPE & INTERCEPT		The slope of the line $y = 3x - 7$		3	
+1	SLOPE & INTERCEPT		The y-intercept of $y = -2x + 5$		5	
 1	SLOPE & INTERCEPT		The slope of a line through (1, 2) and (3, 8)		3	
-1	SLOPE & INTERCEPT		Rewrite 2y = 6x + 10 in slope-intercept form		y = 3x + 5	
-1	SLOPE & INTERCEPT		The slope of any line parallel to y = -4x + 1		-4	
-1	SOLVE FOR X		x + 9 = 17		8	
-1	SOLVE FOR X		5x = -45		-9	
-1	SOLVE FOR X		3x - 4 = 20		8	
-1	SOLVE FOR X		2(x + 3) = 4x - 6		6	x
+1	SLOPE & INTERCEPT		Rewrite $2y = 6x + 10$ in slope-intercept form		$y = 3x + 5$	
+1	SLOPE & INTERCEPT		The slope of any line parallel to $y = -4x + 1$		-4	
+1	SOLVE FOR X		$x + 9 = 17$		8	
+1	SOLVE FOR X		$5x = -45$		-9	
+1	SOLVE FOR X		$3x - 4 = 20$		8	
+1	SOLVE FOR X		$2(x + 3) = 4x - 6$		6	x
 1	SOLVE FOR X		$\frac{x}{4} + 2 = 9$		28	
 1	PYTHAGORAS		The hypotenuse of a right triangle with legs 3 and 4		5	
 1	PYTHAGORAS		The hypotenuse of a right triangle with legs 6 and 8		10	

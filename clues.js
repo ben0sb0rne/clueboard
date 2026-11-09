@@ -466,6 +466,30 @@ function inLobby(game, team) {
   return (!game.started && !game.clue) || !team.ready;
 }
 
+// What the clue card on a student's device shows, which is whatever the board is showing:
+// the same rules as renderClue() in board.html, so a phone can never be ahead of the wall.
+// While a Daily Double is wagered the board shows its splash and the team it belongs to;
+// on that team's own phone the card names the category instead, because that is the one
+// thing they are wagering on. The final clue shows its category while every team wagers.
+// After that, the clue, and its answer only once the teacher has revealed it.
+//
+// key is the board's own key for a clue, so a buzz or a score arriving mid-clue is the same
+// card and never restarts it.
+function cardFor(game, myId) {
+  var clue = game.clue;
+  if (!clue) return { kind: "empty" };
+  var key = clue.final ? "final" : clue.cat + "-" + clue.row;
+  if (clue.dd && game.wagering) {
+    return { kind: "title", key: key, title: "Daily Double",
+             sub: clue.owner === myId ? clue.category || "" : clue.ownerName || "" };
+  }
+  if (clue.final && game.wagering) {
+    return { kind: "title", key: key, title: "Final Clue", sub: clue.category || "" };
+  }
+  return { kind: "clue", key: key, text: clue.text || "",
+           answer: game.reveal && clue.answer ? clue.answer : "" };
+}
+
 // The cap on a wager: the larger of what a team already has and the top value on the board.
 // Taking the larger is what lets a team on zero, or in the red, still play - capping at the
 // score alone would lock them out, and a classroom has no reason to do that.
@@ -519,6 +543,6 @@ if (typeof module !== "undefined" && module.exports) {
     readSet: readSet,
     playable: playable, roundGrid: roundGrid, cellKey: cellKey, clueAt: clueAt,
     finalClue: finalClue, firstRound: firstRound, nextRound: nextRound, clueCount: clueCount,
-    wagerCap: wagerCap, readWager: readWager, stake: stake, inLobby: inLobby
+    wagerCap: wagerCap, readWager: readWager, stake: stake, inLobby: inLobby, cardFor: cardFor
   };
 }

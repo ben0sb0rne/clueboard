@@ -5,7 +5,8 @@
 //
 // Clue and answer text may carry $...$ maths, because 8th grade algebra needs stacked
 // fractions and multi-term radicals that Unicode cannot do. KaTeX renders it on the
-// screens that load KaTeX - the board, the control screen and the designer. It is committed to the repo, so
+// screens that load KaTeX - the board, the control screen, the designer, and a student's
+// device while the clue card is on. It is committed to the repo, so
 // a blocked CDN cannot reach it; anywhere KaTeX is absent the raw text shows through, which
 // looks wrong but is never blank mid-question.
 //

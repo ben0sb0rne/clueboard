@@ -90,6 +90,7 @@
       <label class="opt"><input type="checkbox" id="teamsPick"> Let teams pick their own clues</label>
       <label class="opt"><input type="checkbox" id="showCode"> Show the room code on the board</label>
       <label class="opt"><input type="checkbox" id="buzzOnly"> Buzzers only - teams answer out loud</label>
+      <label class="opt"><input type="checkbox" id="showClues"> Show the clue on student devices</label>
       <label class="opt"><input type="checkbox" id="buzzPick"> Let teams pick their own buzzer sound</label>
     </div>
     <!-- Five made pairs and then the two colours themselves, in that order, because the
@@ -194,6 +195,7 @@ const SET_KEY = "clueboard-set";           // the set, shared with the designer:
 const PICK_KEY = "clueboard-teams-pick";   // host preference, remembered between games
 const CODE_KEY = "clueboard-show-code";    // the same, for the code in the board's corner
 const BUZZ_KEY = "clueboard-buzzers-only"; // and for a game played without answer boxes
+const CLUES_KEY = "clueboard-show-clues";  // and for the clue on the student devices
 const PICK_BUZZ_KEY = "clueboard-buzzer-pick"; // whether teams choose their own buzzer sound
 const THEME_KEY = "clueboard-theme";       // the two colours the rest of the palette follows
 const TITLE_KEY = "clueboard-title";       // so a refresh mid-lesson still knows the game
@@ -230,6 +232,10 @@ let showCode = localStorage.getItem(CODE_KEY) === "1";
 // quiz is run in a room where not everybody has a device. The final clue keeps its box, since
 // every team answers that one at once.
 let buzzersOnly = localStorage.getItem(BUZZ_KEY) === "1";
+// On unless it has been turned off: the clue arrives on each device as it goes up on the
+// projector, so a student at the back can read it as well as the one at the front. A room
+// opened by a dashboard from before this setting carries no flag, which reads as off.
+let showClues = localStorage.getItem(CLUES_KEY) !== "0";
 // Off by default: it is one more thing for a class to spend five minutes on, and most lessons
 // do not want it. With it on, the lobby grows a grid of sounds a team picks from.
 let buzzerPick = localStorage.getItem(PICK_BUZZ_KEY) === "1";
@@ -248,6 +254,7 @@ $("#mute").checked = muted;
 $("#teamsPick").checked = teamsPick;
 $("#showCode").checked = showCode;
 $("#buzzOnly").checked = buzzersOnly;
+$("#showClues").checked = showClues;
 $("#buzzPick").checked = buzzerPick;
 applyTheme(theme);      // before the first paint, so this screen never flashes the default
 drawSwatches();
@@ -268,6 +275,7 @@ $("#mute").addEventListener("change", setMute);
 $("#teamsPick").addEventListener("change", setTeamsPick);
 $("#showCode").addEventListener("change", setShowCode);
 $("#buzzOnly").addEventListener("change", setBuzzersOnly);
+$("#showClues").addEventListener("change", setShowClues);
 $("#buzzPick").addEventListener("change", setBuzzerPick);
 // input, not change: it fires continuously as the picker is dragged, which is what makes the
 // projector window a live preview rather than an apply-and-see.
@@ -595,7 +603,7 @@ function openRoom(code) {
     return gameRef.update({ round: round, grid: roundGrid(clueSet, round), pick: null,
                             teamsPick: teamsPick || null, picker: null, muted: muted || null,
                             showCode: showCode || null, buzzersOnly: buzzersOnly || null,
-                            buzzerPick: buzzerPick || null,
+                            showClues: showClues || null, buzzerPick: buzzerPick || null,
                             theme: theme, title: gameTitle || null });
   }).catch((err) => { alert("Could not start the game: " + err.message); });
 
@@ -1365,6 +1373,12 @@ function setBuzzersOnly() {
   buzzersOnly = $("#buzzOnly").checked;
   localStorage.setItem(BUZZ_KEY, buzzersOnly ? "1" : "0");
   if (gameRef) gameRef.update({ buzzersOnly: buzzersOnly || null }).catch(() => {});
+}
+
+function setShowClues() {
+  showClues = $("#showClues").checked;
+  localStorage.setItem(CLUES_KEY, showClues ? "1" : "0");
+  if (gameRef) gameRef.update({ showClues: showClues || null }).catch(() => {});
 }
 
 function setBuzzerPick() {

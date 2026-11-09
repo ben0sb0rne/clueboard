@@ -483,6 +483,49 @@ tests["a clue on the board lets a ready team through, even if started never land
   assert.strictEqual(C.inLobby({ clue: CLUE }, { ready: true }), false);
 };
 
+// The clue card on a student's device. It has to show what the board shows and nothing
+// more: the answer before the reveal would be on thirty phones before it was on the wall.
+var OPEN = { cat: 2, row: 3, category: "PYTHAGORAS", text: "Legs 3 and 4", dd: false };
+
+tests["the card is empty between clues"] = function () {
+  assert.deepStrictEqual(C.cardFor({}, "me"), { kind: "empty" });
+  assert.deepStrictEqual(C.cardFor({ reveal: false, wagering: null }, "me"), { kind: "empty" });
+};
+
+tests["the card shows the clue, and the answer only once it is revealed"] = function () {
+  var clue = Object.assign({ answer: "5" }, OPEN);
+  assert.deepStrictEqual(C.cardFor({ clue: OPEN, reveal: false }, "me"),
+    { kind: "clue", key: "2-3", text: "Legs 3 and 4", answer: "" });
+  // An answer in the room before the reveal is never shown: reveal is the board's rule too.
+  assert.strictEqual(C.cardFor({ clue: clue, reveal: false }, "me").answer, "");
+  assert.strictEqual(C.cardFor({ clue: clue, reveal: true }, "me").answer, "5");
+  // Revealed with no answer to show is the clue alone, as on the board.
+  assert.strictEqual(C.cardFor({ clue: OPEN, reveal: true }, "me").answer, "");
+};
+
+tests["a Daily Double names its team on every phone but its own"] = function () {
+  var dd = Object.assign({}, OPEN, { dd: true, owner: "them", ownerName: "Fermat",
+                                     answer: "5" });
+  var game = { clue: dd, wagering: true, reveal: false };
+  assert.deepStrictEqual(C.cardFor(game, "me"),
+    { kind: "title", key: "2-3", title: "Daily Double", sub: "Fermat" });
+  // The team that owns it is wagering on the category, so that is what its card says.
+  assert.strictEqual(C.cardFor(game, "them").sub, "PYTHAGORAS");
+  // Once the wager is in, everyone gets the clue - the same card, by the same key.
+  game.wagering = null;
+  assert.deepStrictEqual(C.cardFor(game, "me"),
+    { kind: "clue", key: "2-3", text: "Legs 3 and 4", answer: "" });
+};
+
+tests["the final clue shows its category while the wagers come in"] = function () {
+  var fin = { final: true, category: "NUMBER SENSE", text: "Neither prime nor composite",
+              value: 0, dd: false };
+  assert.deepStrictEqual(C.cardFor({ clue: fin, wagering: true }, "me"),
+    { kind: "title", key: "final", title: "Final Clue", sub: "NUMBER SENSE" });
+  assert.strictEqual(C.cardFor({ clue: fin, wagering: null }, "me").kind, "clue");
+  assert.strictEqual(C.cardFor({ clue: fin, wagering: null }, "me").key, "final");
+};
+
 var failed = 0;
 Object.keys(tests).forEach(function (name) {
   try {

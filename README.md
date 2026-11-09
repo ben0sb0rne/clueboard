@@ -39,7 +39,9 @@ game that is entirely about the number.
 under it, the same shape and the same places to put a thumb. And the moment a wager is in,
 that team goes to the waiting screen rather than sitting on a dead gold button until the
 slowest team in the room has finished typing - which is what "sending a wager takes ages"
-actually was.
+actually was. With the clue card on (below) it stays where it is instead: the wager sits in
+the box, the bar goes grey and says `Wager locked`, and the card - which is the thing to watch
+until the clue goes up - is already on that screen.
 
 During the final clue there is a think timer: `Start the timer` puts a draining bar and a
 countdown on the board for 60 seconds. It is yours to start, because you read the clue out
@@ -78,19 +80,19 @@ board never moves on its own, because you are the one reading the categories out
 last one the button becomes `Start the game`, which is also the way out of an intro started
 by mistake. Later rounds have no intro.
 
-**Only the board moves, and it moves calmly.** The show is low energy by design, so nothing
+**The board moves, and it moves calmly.** The show is low energy by design, so nothing
 here overshoots or springs: one easing that leaves rest and arrives at rest, and one duration
 - a second and a half - for every move the room watches, so the board keeps a single tempo
-instead of five. It is `SLOW` in `board.html` and `--slow` in `board.css`; change both. The
+instead of five. It is `SLOW` in `board.html` and `--slow` in `palette.css`; change both. The
 opening is three beats of it end to end, none of them overlapping: the welcome card fades
 out as the bare board dissolves in underneath it, then the values fill it five at a time - the sweep ticks five times to the beat, each
 value fading over a third of one - then the title card rises. The card is held off in CSS
 rather than fired by a timer, so it is on the same clock as the values and cannot drift from
 them. A clue expands out of its own cell, a
 Daily Double arrives with weight, and a score counts up with the podium flashing which way it
-went. The player screen stays deliberately still - a student should be looking up, not down -
-and the control screen is a working surface. Anyone whose system asks for reduced motion gets
-the same board with none of it.
+went. A student's device moves only with its clue card, on the same beat and the same easing,
+and holds still otherwise; the control screen is a working surface. Anyone whose system asks
+for reduced motion gets the same board, and the same card, with none of it.
 
 **A wager takes the score's place for a beat** as that team is revealed, in gold and at the
 score's own size. It was a ten-pixel line under the podium, which from the back of a room is
@@ -172,8 +174,10 @@ student reads once and then stares at for forty minutes. A control that is alway
 place and lights up when it works is less to learn than a screen that keeps changing. Three
 things take it off screen, and each is something to do rather than something to read: the
 grid when this team has the pick, a Daily Double that belongs to somebody else, and the
-wager. The box clears itself when the clue changes, so what somebody typed and never locked
-in cannot follow them into the next question.
+wager. With the clue card on, somebody else's Daily Double is the exception: the other teams
+watch it on the card, over a buzzer gone dead whose bar names the team it belongs to. The box
+clears itself when the clue changes, so what somebody typed and never locked in cannot follow
+them into the next question.
 
 **`Buzzers only` in the cog takes the answer boxes away** for a whole game: teams ring in and
 answer out loud, and the buzzer fills the phone. Use it for a room where the devices are a
@@ -181,6 +185,29 @@ show of hands with a buzz order attached. The dashboard still has the correct an
 against, and the buzz order column is what it is read by. The final clue keeps its box in any
 case - every team answers that one at the same time, so there is nobody to say it to. The
 setting is remembered between games and can be flipped mid-game.
+
+**`Show the clue on student devices` puts the clue in every student's hand** as it goes up on
+the board, and its answer the moment you reveal it - so the student at the back reads it as
+well as the one at the front. It is on by default, remembered between games, and can be
+flipped mid-game; off, the student screens are exactly what they were. The card is the board
+in miniature: board blue, Anton capitals, the hard black edge, maths through KaTeX. It shows
+what the board shows and never more - a Daily Double's splash naming whose it is (on that
+team's own device, the category it is wagering on), the final clue's category while the wagers
+come in, then the clue, then the answer. Pictures and videos stay on the board.
+
+It moves the way the board does: it fills with blue over the board's beat while the words fade
+in over the back of it, landing as the board's panel does; the reveal is the board's own, the
+clue easing up as the answer fades in underneath; and closing, the words fade out as the board
+puts the clue away. **The card itself never moves.** Its place and its size are fixed from the
+moment the setting is on - a spent tile between clues, a one-line answer box under it and the
+bar under that - so nothing a thumb is resting on shifts when a clue arrives, and the type is
+fitted to the card while the words are still invisible. The box is a single line because the
+card has the room now, and an answer is a few words.
+
+KaTeX (275 KB) and the board's font (12 KB) are fetched the first time a device sees the
+setting, normally in the lobby, and are cached after that. A device in a room without it loads
+neither. A clue that arrives before KaTeX has waits up to three seconds for it, then goes up
+raw, so it never turns from raw text into maths in front of the class.
 
 **While a clue is open, a team that has rung in is at full strength and everyone still
 thinking is pulled back** - on the podiums and on the dashboard's team list alike. Lighting
@@ -276,6 +303,8 @@ is no place for a paragraph of instructions:
   the dashboard. It is remembered between games.
 - `Buzzers only` in the cog runs the game with no answer boxes on the student devices, except
   on the final clue. Also remembered between games.
+- `Show the clue on student devices` in the cog puts the clue, and then its answer, on every
+  student's device as it goes up on the board. On by default, and remembered between games.
 - `Let teams pick their own buzzer sound` in the cog adds a grid of sounds to the lobby, in
   groups of eight. Off by default, because it is five more minutes a class can spend on
   something that is not the quiz. Remembered between games.
@@ -296,10 +325,10 @@ is no place for a paragraph of instructions:
 - `pictures.js` - pictures redrawn on the way in and kept in IndexedDB on this device.
 - `fixtures/` - the same game saved by Excel, Google Sheets and Numbers, for `xlsx.test.html`.
 - `math.js` - `$...$` maths through KaTeX, on its own so the designer can load it without
-  Firebase.
-- `index.html` - the front page, and student devices: buzz, answer, wager, and pick a clue
-  when handed the board. The two are one page because the join address on the board is
-  this directory, so whatever is at `/` has to be what gets a student into a game.
+  Firebase, and so a student device can fetch it only when the clue card is on.
+- `index.html` - the front page, and student devices: buzz, answer, wager, pick a clue when
+  handed the board, and the clue card. The two are one page because the join address on the
+  board is this directory, so whatever is at `/` has to be what gets a student into a game.
 - `privacy.html` - the privacy and COPPA statement, linked from the front page. Every claim
   on it is a claim about this code; change it when the data model changes.
 - `clues.js` - the clue set: reads a paste or a file's tables into the shape the designer
@@ -348,7 +377,9 @@ missing and a save keeps it. It is never on the board, and `Check the clues` lis
 Clue and answer text may carry `$...$` maths, rendered by KaTeX on the board and the control
 screen. About twelve commands cover the year: `\frac`, `^`, `_`, `\sqrt`, `\times`, `\div`,
 `\pm`, `\le`, `\ge`, `\ne`, `\pi`, `\angle`. Category names stay plain text on purpose, so
-the player screen needs no KaTeX at all.
+the player screen needs no KaTeX unless the clue card is on. **Put algebra inside `$...$`, even
+when it needs no layout:** a clue's words go up in capitals and only maths keeps its own case,
+so `Rewrite 2y = 6x + 10` written plainly reads `2Y = 6X + 10` on the board.
 
 To load a set, paste it into the box on `control.html`, or open a file there: the .xlsx the
 designer saved, or a `.csv` or `.tsv` from any spreadsheet. It is kept on that device, and never
@@ -541,6 +572,7 @@ already carries, where a student can delete another team. The one thing validate
 team is rejected rather than stealing the pick. Being open is also why a new field under
 `game` - `muted`, `over` - needs no rules change and nothing re-published by hand.
 
-**Clue answers are never written to the database.** The control screen holds the whole clue set
-in memory and publishes only the current clue, plus the answer at the moment the teacher reveals
-it - which is when it goes on the projector anyway.
+**Clue answers are never written to the database before they are on the projector.** The
+control screen holds the whole clue set in memory and publishes only the current clue, plus the
+answer at the moment the teacher reveals it - which is when it goes on the projector anyway, and
+when the clue card shows it on the student devices.

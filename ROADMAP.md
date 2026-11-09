@@ -19,8 +19,10 @@ law, and a beta with strangers. None of that is needed to put this in a friend's
 
 **2. A saved game lives on the device that made it, and travels as a file.** No sign-in, no
 sync, no rewrite of `database.rules.json`, and **clue answers still never touch the
-network** - which is the property the whole design is built on. The cost is real and
-accepted: a game built on the laptop is not on the iPad unless you send yourself the file.
+network before they are on the projector** - which is the property the whole design is built
+on. An answer reaches the room only when the teacher reveals it (`reveal()` in `game.js`), and
+the student devices that show the clue read it from there. The cost is real and accepted: a
+game built on the laptop is not on the iPad unless you send yourself the file.
 
 Sign-in and sync stay possible later and nothing here blocks them. They are not being built
 now, and the file export is not a stepping stone to them - it is the answer.

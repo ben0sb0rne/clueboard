@@ -121,7 +121,7 @@ const code = (new URL(location).searchParams.get("room") || "")
 //
 // Low energy on purpose. Nothing here overshoots or snaps: one easing that leaves rest and
 // returns to rest, and one duration for every move the room watches, so the board keeps a
-// single tempo instead of five. The same number is --slow in board.css: change both.
+// single tempo instead of five. The same number is --slow in palette.css: change both.
 const EASE = "cubic-bezier(.4, 0, .2, 1)";
 const SLOW = 1500;
 const EXPAND_MS = SLOW;

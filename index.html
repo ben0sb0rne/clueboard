@@ -9,8 +9,10 @@
 </head>
 <body class="student">
 
-<!-- No KaTeX here, on purpose. Category names are plain text and the clue itself is on the
-     projector, so the player screen stays dependency-free. -->
+<!-- No KaTeX in the markup, on purpose. Category names are plain text, and the one place this
+     page draws maths is the clue card, which is only there when the teacher's cog has it on -
+     so KaTeX, math.js and the board's font are fetched the first time a room asks for the
+     card (clueKit), and a room that never does loads none of them. -->
 
 <!-- The front page and the join screen are one screen, and have to be: the address students
      read off the board is this directory, built as new URL("./", location.href) by both
@@ -98,6 +100,22 @@
     </button>
   </div>
 
+  <!-- The clue on the projector, in the student's hand, when the cog has it on: the board's
+       blue, its type and its edge, and the same words at the same moment. One card for the
+       buzzer and the wager screens alike - show() moves it to whichever is up - so a Daily
+       Double going from its wager to its clue keeps one card in one state. Without the
+       setting it is not drawn at all. -->
+  <div class="cluecard" id="clueCard" aria-live="polite">
+    <div class="cluebody" id="cardBody">
+      <div class="splash" id="cardSplash" hidden>
+        <div class="splashtitle" id="cardTitle"></div>
+        <div class="splashwho" id="cardSub"></div>
+      </div>
+      <p class="cluetext" id="cardText"></p>
+      <p class="clueanswer" id="cardAnswer" hidden></p>
+    </div>
+  </div>
+
   <!-- The id is on the wrapper rather than the input: a buzzers-only game hides the box and
        the hint over it together, and CSS gives the button the space they leave. -->
   <div class="answerbox" id="answerWrap">
@@ -164,8 +182,9 @@
 <script src="firebase-config.js"></script>
 <script src="demo.js"></script>
 <script src="common.js"></script>
-<!-- Our own file, not a dependency: it carries the wager cap, and one definition of that rule
-     across the three screens beats three that can drift. KaTeX is what stays off this page. -->
+<!-- Our own file, not a dependency: it carries the wager cap and the rule for what the clue
+     card shows, and one definition of each across the three screens beats three that can
+     drift. KaTeX is not loaded here: see clueKit(). -->
 <script src="clues.js"></script>
 <!-- The room's colours, so thirty phones match the board. -->
 <script src="theme.js"></script>
@@ -187,6 +206,28 @@ let answerRound = null;     // which clue the answer box is currently for
 let wagerRound = null;      // and the same for the wager box
 let sending = null;         // "answer" | "wager" while a write is still in flight
 let online = true;
+
+// The clue card. Up here, with the rest of the state, because show() draws it and show() runs
+// before the script below has finished.
+//
+// The board's own tempo, read off palette.css rather than copied, for the one move the card
+// makes in script - the reveal. Read rather than repeated, so it cannot drift from the wall.
+const rootStyle = getComputedStyle(document.documentElement);
+const EASE = rootStyle.getPropertyValue("--ease").trim();
+const SLOW = parseFloat(rootStyle.getPropertyValue("--slow"));
+const reduced = matchMedia("(prefers-reduced-motion: reduce)");
+const KIT_WAIT = 3000;          // how long a clue waits on KaTeX before it goes up raw
+// The board's answer is set at 3.6vw under a 4.6vw clue (board.css), so the card's starts at
+// the same proportion, and never above the clue's own size.
+const ANSWER_SCALE = 3.6 / 4.6;
+const MIN_TYPE = 12;            // px: below this the card clips rather than shrinking further
+let cardKey = null;             // the clue on the card, keyed as renderClue() keys the board
+let cardShown = null;           // what the card is showing of it, from cardFor()
+let cardClose = null;           // the timer while a closed clue's words fade out
+let cardWidth = 0;              // the width the words were last fitted at; 0 if never on screen
+let kit = null;                 // KaTeX, math.js and the fonts, once a room has asked for them
+let kitDone = false;
+let held = null;                // { key, late, timer } while a clue waits on the kit
 
 const saved = loadSaved();
 $("#code").value = urlCode || (saved ? saved.code : "");
@@ -251,6 +292,15 @@ function show(which) {
   ["boot", "join", "lobby", "play", "pick", "wager", "wait", "results"].forEach((id) => {
     $("#" + id).hidden = id !== which;
   });
+  // The card goes with the controls, straight under the name line. Only moved when it is
+  // not already there: moving an element cancels whatever it is in the middle of, and this
+  // runs on every snapshot, a buzz from across the room included.
+  const card = $("#clueCard");
+  const who = (which === "play" || which === "wager") && $("#" + which + " .who");
+  if (who && who.nextElementSibling !== card) who.after(card);
+  // After the screen is up rather than before, so a clue opening as this team leaves the
+  // pick grid opens on screen instead of having happened already behind it.
+  renderCard();
 }
 
 function roomState(code) {
@@ -331,13 +381,19 @@ function attach(code, teamId) {
 // The buzzer is where a student device sits for a whole lesson, so it does not go anywhere:
 // between clues it stays exactly where it is and goes dead. Three things take it off screen,
 // and each of them is a thing to do rather than a thing to read - the grid when this team has
-// the pick, somebody else's Daily Double, and the final clue's wager.
+// the pick, somebody else's Daily Double, and the final clue's wager. With the clue card on,
+// somebody else's Daily Double stays here too: it is on the card, so there is something to
+// watch rather than a sentence to read.
 //
 // It used to be replaced by "Waiting for the next clue...", which is a sentence a student
 // reads once and then stares at for the rest of the lesson. A control that is always in the
 // same place and lights up when it works is less to learn than a screen that keeps changing.
 function route() {
   if (!team) { show("join"); return; }
+  // "Show the clue on student devices", in the cog. Everything it changes is under .clues in
+  // style.css, so with it off this page is the page it always was.
+  document.body.classList.toggle("clues", !!game.showClues);
+  if (game.showClues) clueKit();
   // Drawn whether or not it is the screen on show, because it is where the router lands by
   // default and both listeners come through here.
   renderPlay();
@@ -362,21 +418,26 @@ function route() {
 
   if (clue) {
     // A Daily Double belongs to one team. myClue() is false for nothing else, so this is
-    // always that: everyone else watches, and is told whose it is.
+    // always that: everyone else watches, and is told whose it is. With the clue card on
+    // they watch it on the card instead, over their own buzzer gone dead - renderPlay()
+    // says whose it is on the button.
     if (!myClue(clue)) {
-      $("#waitMsg").textContent =
-        (clue.ownerName || "Another team") + " has the Daily Double.";
-      show("wait");
-      return;
-    }
-    if (game.wagering) {
+      if (!game.showClues) {
+        $("#waitMsg").textContent =
+          (clue.ownerName || "Another team") + " has the Daily Double.";
+        show("wait");
+        return;
+      }
+    } else if (game.wagering) {
       // Off the wager screen the moment it is in. The screen was holding them on a dead
       // gold button until the slowest team in the room had finished typing, with nothing
       // saying why - which is what "it takes a long time to send" actually was.
       // Not until the server has it. Firebase fires a listener on the local write first,
       // so without the sending check the screen would say "locked" to a student whose wager
       // is still sitting on a school network.
-      if (hasWagered() && sending !== "wager") {
+      // With the clue card on it stays put instead, the box and the bar dead and saying so,
+      // because the card is on this screen and the card is the thing to watch.
+      if (hasWagered() && sending !== "wager" && !game.showClues) {
         $("#waitMsg").textContent = money(team.wager)
           + " wager locked. Waiting for the other teams...";
         show("wait");
@@ -428,11 +489,14 @@ function renderWager(clue) {
 
   const box = $("#wagerBox");
   const btn = $("#wagerBtn");
-  // There is no locked state to draw here: the moment a wager lands the router takes the
-  // student to the waiting screen, which is the whole fix for how long this used to feel.
-  box.disabled = sending === "wager";
+  // Without the clue card there is no locked state to draw here: the moment a wager lands the
+  // router takes the student to the waiting screen, which is the whole fix for how long this
+  // used to feel. With the card on, the wager stays on screen, in the box it was typed in.
+  const landed = hasWagered() && sending !== "wager";
+  if (landed) box.value = Number(team.wager).toLocaleString("en-US");
+  box.disabled = sending === "wager" || landed;
   btn.disabled = box.disabled;
-  btn.textContent = sending === "wager" ? "Sending..." : "Lock Wager";
+  btn.textContent = sending === "wager" ? "Sending..." : landed ? "Wager locked" : "Lock Wager";
 }
 
 // A wager that is not a whole number, or is more than the team has, is refused with a
@@ -712,7 +776,9 @@ function renderPlay() {
   const box = $("#answer");
   const btn = $("#lock");
   const typing = typingOn();
-  const live = !!game.clue && !game.wagering && !game.reveal;
+  // Somebody else's Daily Double, which with the clue card on this team watches from here.
+  const theirs = !!game.clue && !myClue(game.clue);
+  const live = !!game.clue && !game.wagering && !game.reveal && !theirs;
   // Optimistic: Firebase fires a listener on the local write before the server has it, so
   // the press has to show as locked on its own rather than waiting for the echo.
   const locked = !!(team && team.locked) || sending === "answer";
@@ -734,7 +800,9 @@ function renderPlay() {
   // Empty until the write echoes back, and the box already holds what was typed.
   if (locked && team && team.answer) box.value = team.answer;
 
+  // Grey like any dead bar, not red: red only ever takes something away, and nothing has been.
   btn.textContent = sending === "answer" ? "Sending..."
+    : theirs ? (game.clue.ownerName || "Another team") + "'s Daily Double"
     : locked ? (typing ? "Locked in" : "Buzzed in")
     : (typing ? "Lock Answer" : "Buzz In");
 }
@@ -748,8 +816,10 @@ function lockIn() {
   // clues there is nothing to ring in to, and a write here would put a team in the order for
   // a question that is not open. Once revealed, the answer is on the projector - a buzz
   // after that is a team copying it down, so the clue is closed to new answers even though
-  // it is still on screen. reveal is cleared by every route out of a clue.
-  if (!game.clue || game.wagering || game.reveal) return;
+  // it is still on screen. reveal is cleared by every route out of a clue. And another team's
+  // Daily Double is theirs alone: with the clue card on, this team watches it from the buzzer
+  // screen, and this line - not the dead button - is what keeps a buzz out of it.
+  if (!game.clue || game.wagering || game.reveal || !myClue(game.clue)) return;
   const typing = typingOn();
   const answer = $("#answer").value.trim();
   if (typing && !answer) return;       // empty box does nothing; with no box, the buzz is all
@@ -767,6 +837,280 @@ function lockIn() {
     })
     .catch((err) => { sending = null; $("#playErr").textContent = err.message; });
 }
+
+// ---------------------------- the clue card ----------------------------
+
+// The clue on the projector, in the student's hand: it arrives when the board's does and
+// moves the way the board moves, but the card itself never moves. Its place and its size are
+// fixed the moment the setting is on, so nothing under a thumb shifts when a clue arrives -
+// the card is a dark spent tile between clues and fills with board blue when one opens.
+//
+// Keyed on the clue as renderClue() keys the board, so the snapshots a buzz or a score sends
+// mid-clue are the same card and never restart a move. Drawn from show(), on every snapshot.
+function renderCard() {
+  // typeof as well: for ten minutes after a deploy a phone can hold the old clues.js beside
+  // this page, and then the card waits for a reload instead of taking the buzzer down with it.
+  if (!game.showClues || typeof cardFor !== "function") { if (cardKey) clearCard(); return; }
+  const card = cardFor(game, myId);
+  if (card.kind === "empty") {
+    if (cardKey && !cardClose) closeCard();
+    return;
+  }
+  // A new clue, or the same one opened again while its close was still fading out.
+  if (card.key !== cardKey || cardClose) {
+    if (!kitDone && !kitLate(card.key)) return;
+    openCard(card);
+  } else {
+    updateCard(card);
+  }
+  // A card filled while its screen was hidden - a team in the lobby as the clue opened - is
+  // fitted the first time it is on screen.
+  if ($("#clueCard").clientWidth !== cardWidth) fitCard();
+}
+
+// A clue arriving. The card goes from spent to board blue over the board's beat, standing in
+// for the board's panel growing out of its cell, and the words fade in over the back of it so
+// they are fully there exactly as that panel stops. The fade is held off in CSS rather than
+// fired by a timer, as the intro's title card is, so it runs on the same clock as the colour.
+// The final clue opens the same way here, although the board's cuts in with no cell to grow
+// from.
+function openCard(card) {
+  const el = $("#clueCard");
+  // Everything a close left behind goes first, the reveal's transform and opacity included:
+  // a clue that inherited those would start invisible. And straight back to spent, rather
+  // than fading back up from wherever the close had got to.
+  clearCard();
+  el.classList.add("snap");
+  cardKey = card.key;
+  fillCard(card);                       // and fitted, while the words are still invisible
+  if (card.answer) showAnswer(card.answer, false);
+  void el.offsetWidth;                  // the spent card, committed before it opens
+  el.classList.remove("snap");
+  el.classList.add("open");
+  // The Daily Double arrives with weight, as on the board. clearCard() took the class off,
+  // and the reflow above is what lets it run again on an element that is reused.
+  if (card.kind === "title" && game.clue.dd) $("#cardSplash").classList.add("punch");
+}
+
+// The same clue, moved on: the splash giving way to the clue once the wagers are in, which
+// the board does as a cut and so does this, or the answer going up.
+function updateCard(card) {
+  const was = cardShown;
+  if (card.kind !== was.kind || card.title !== was.title || card.sub !== was.sub
+      || card.text !== was.text) {
+    fillCard(card);
+  }
+  if (card.answer && !cardShown.answer) showAnswer(card.answer, true);
+  else if (!card.answer && cardShown.answer) hideAnswer();
+}
+
+function fillCard(card) {
+  const title = card.kind === "title";
+  $("#cardSplash").hidden = !title;
+  if (!title) $("#cardSplash").classList.remove("punch");
+  $("#cardTitle").textContent = title ? card.title : "";
+  $("#cardSub").textContent = title ? card.sub : "";   // a category or a team: never maths
+  $("#cardText").hidden = title;
+  if (title) $("#cardText").textContent = "";
+  else words($("#cardText"), card.text);
+  hideAnswer();
+  cardShown = { kind: card.kind, title: card.title, sub: card.sub, text: card.text, answer: "" };
+  fitCard();
+  // A face the warm-up never asked for - a rarer KaTeX one - is still on its way. Fitted
+  // again when it lands; the words are held invisible for the first 600ms, which is usually
+  // longer than that takes.
+  if (document.fonts.status === "loading") document.fonts.ready.then(fitCard);
+}
+
+// The answer going up is the beat of the whole card, as it is of the board's: the clue eases
+// up out of the way while the answer and its rule fade in underneath, over the same span, so
+// they are fully there exactly as the clue comes to rest. openAnswer() in board.html - a
+// FLIP, transform and opacity only - with one mover, because a card carries no picture. The
+// answer is fitted into the room under the clue before the "after" is measured, so the clue
+// keeps its size and only moves. Unmoved when the card opens on a clue already revealed.
+function showAnswer(text, move) {
+  const clue = $("#cardText");
+  const ans = $("#cardAnswer");
+  const before = clue.getBoundingClientRect().top;
+  words(ans, text);
+  ans.style.transition = "none";
+  ans.style.opacity = move ? "0" : "1";
+  ans.hidden = false;
+  cardShown.answer = text;
+  fitAnswer();
+  if (!move) return;
+
+  clue.style.transition = "none";
+  clue.style.transform = "translateY(" + (before - clue.getBoundingClientRect().top) + "px)";
+  void ans.offsetWidth;
+  clue.style.transition = "transform " + SLOW + "ms " + EASE;
+  clue.style.transform = "translateY(0)";
+  // Linear against an eased move: the fade is steady the whole way and the clue is what
+  // slows down, which is the half the eye follows.
+  ans.style.transition = "opacity " + SLOW + "ms linear";
+  ans.style.opacity = "1";
+}
+
+function hideAnswer() {
+  const ans = $("#cardAnswer");
+  ans.hidden = true;
+  ans.textContent = "";
+  ans.style.cssText = "";
+  $("#cardText").style.cssText = "";
+  if (cardShown) cardShown.answer = "";
+}
+
+// Back to a spent tile: the words fade out over the board's beat, linearly, as its panel
+// fades on the way back to its cell, and only then come off the card.
+function closeCard() {
+  $("#clueCard").classList.remove("open");
+  cardClose = setTimeout(clearCard, reduced.matches ? 0 : SLOW);
+}
+
+function clearCard() {
+  clearTimeout(cardClose);
+  cardClose = null;
+  $("#clueCard").classList.remove("open");
+  $("#cardSplash").classList.remove("punch");
+  $("#cardSplash").hidden = true;
+  $("#cardTitle").textContent = "";
+  $("#cardSub").textContent = "";
+  $("#cardText").textContent = "";
+  hideAnswer();
+  cardKey = null;
+  cardShown = null;
+}
+
+// The board sizes its clue in CSS alone, and a card in the hand is too small for that, so
+// this measures - while the words are invisible, so nothing is seen changing size. The type
+// steps down a twentieth at a time, fitRows()' method on the dashboard, until the words fit
+// with an answer's line still free under the clue; then the answer, if it is up, gets that
+// room. The clue's size never depends on its answer, which is what lets the reveal only move
+// it.
+function fitCard() {
+  const el = $("#clueCard");
+  const body = $("#cardBody");
+  const ans = $("#cardAnswer");
+  const room = cardRoom();
+  cardWidth = el.clientWidth;
+  if (!cardShown || !room) return;      // not on screen: fitted when it is
+
+  // The free line is the answer element itself, holding one letter at its starting size, so
+  // the room it keeps is exactly what a one-line answer will take. Put back before any paint.
+  const kept = Array.prototype.slice.call(ans.childNodes);
+  const wasHidden = ans.hidden;
+  const fontWas = ans.style.fontSize;
+  if (cardShown.kind === "clue") {
+    ans.textContent = "X";
+    ans.style.fontSize = ANSWER_SCALE + "em";
+    ans.hidden = false;
+  }
+  const top = Math.min(room.w / 7, room.h / 5);
+  for (let k = 20; k > 0; k--) {
+    body.style.fontSize = top * k / 20 + "px";
+    if (fits(room) || top * (k - 1) / 20 < MIN_TYPE) break;
+  }
+  ans.textContent = "";
+  kept.forEach((n) => ans.appendChild(n));
+  ans.hidden = wasHidden;
+  ans.style.fontSize = fontWas;
+  if (!ans.hidden) fitAnswer();
+}
+
+// The answer, into whatever the clue left, starting at the board's proportion to it.
+function fitAnswer() {
+  const ans = $("#cardAnswer");
+  const room = cardRoom();
+  if (!room) return;
+  const clue = parseFloat($("#cardBody").style.fontSize) || 0;
+  for (let k = 20; k > 0; k--) {
+    ans.style.fontSize = ANSWER_SCALE * k / 20 + "em";
+    if (fits(room) || clue * ANSWER_SCALE * (k - 1) / 20 < MIN_TYPE) break;
+  }
+}
+
+// The card's content box, or null while it is not on screen.
+function cardRoom() {
+  const el = $("#clueCard");
+  const cs = getComputedStyle(el);
+  const w = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  const h = el.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+  return w > 0 && h > 0 ? { w: w, h: h } : null;
+}
+
+// Height is the column of words against the card. Width catches what wrapping cannot: one
+// long word, or an expression KaTeX will not break.
+function fits(room) {
+  const body = $("#cardBody");
+  return body.offsetHeight <= room.h + 1 && body.scrollWidth <= room.w + 1;
+}
+
+// The teacher's own text, through KaTeX once it is here. A student with devtools can write
+// to game/clue too, and that can deface the card but never script it: KaTeX runs with its
+// default trust: false, and anything that is not maths goes in as textContent. Raw if
+// math.js never arrived.
+function words(el, text) {
+  if (window.mathText) mathText(el, text);
+  else el.textContent = text;
+}
+
+// KaTeX (275 KB), math.js and the board's font, fetched the first time a room asks for the
+// card - normally in the lobby, long before the first clue - and cached after that. A room
+// that never turns the card on loads none of it.
+function clueKit() {
+  if (kit) return;
+  const add = (el) => new Promise((done) => {
+    el.onload = el.onerror = done;
+    document.head.appendChild(el);
+  });
+  const sheet = document.createElement("link");
+  sheet.rel = "stylesheet";
+  sheet.href = "katex/katex.min.css";
+  const script = (src) => {
+    const s = document.createElement("script");
+    s.src = src;
+    return add(s);
+  };
+  kit = Promise.all([add(sheet), script("katex/katex.min.js"), script("math.js")])
+    .then(warmFonts)
+    .then(() => { kitDone = true; renderCard(); });
+}
+
+// The first clue is measured in the fonts it will be drawn in, so they are fetched now, by a
+// sample nobody sees, rather than by the clue itself: Anton, and the KaTeX faces the year's
+// maths uses.
+function warmFonts() {
+  const sample = document.createElement("p");
+  sample.style.cssText = "position:absolute;visibility:hidden;font:700 20px Anton";
+  words(sample, "A $\\frac{x}{4} + \\sqrt{2} \\times \\pi^2 \\le 180^\\circ$");
+  document.body.appendChild(sample);
+  void sample.offsetWidth;              // laid out, which is what starts the fetches
+  return document.fonts.ready.then(() => sample.remove());
+}
+
+// A clue that lands before the kit waits for it, a few seconds at most, so a clue never goes
+// up raw and then turns into maths in front of the student. Past that it goes up raw.
+function kitLate(key) {
+  if (!held || held.key !== key) {
+    if (held) clearTimeout(held.timer);
+    const h = held = { key: key, late: false };
+    h.timer = setTimeout(() => { h.late = true; renderCard(); }, KIT_WAIT);
+  }
+  return held.late;
+}
+
+// Turned on its side, the phone has a different card, so the words are fitted again. A
+// change in height alone with a box focused is the soft keyboard coming up, and the card
+// clips rather than reflowing under the student's thumbs.
+let fitWidth = innerWidth;
+let fitTimer = null;
+addEventListener("resize", () => {
+  const typing = document.activeElement && document.activeElement.tagName === "INPUT";
+  if (innerWidth === fitWidth && typing) return;
+  fitWidth = innerWidth;
+  clearTimeout(fitTimer);
+  fitTimer = setTimeout(fitCard, 150);
+});
 </script>
 </body>
 </html>

@@ -14,7 +14,9 @@
        the hour               HOST_GONE in index.html, freeCode() in control.html
        the one outside script the firebasejs <script> tags at the foot of every page
        answers stay local     the set is kept in localStorage (clueboard-set) and its pictures in
-                              IndexedDB (pictures.js); game.js publishes only the clue's text
+                              IndexedDB (pictures.js); game.js publishes the clue's text when it
+                              opens and its answer only in reveal(), which is what the board and
+                              the clue card on student devices both read
        videos and pictures    showMedia() in board.html: the projector's own copy of the set
 
      The shape is the FTC's six-step plan, step 2, which is the list of what a policy has to
@@ -46,13 +48,14 @@ are a student, a parent, a teacher or a school. It reaches the person who runs t
 
 <h2>What a game puts on the network</h2>
 <p>A game room is a four-letter code. While that room is open, five things are stored in it, so
-that the board at the front of the class and the teacher's screen can show them:</p>
+that the board at the front of the class, the teacher's screen and the students' own devices
+can show them:</p>
 <ul>
   <li>the team name a team types in</li>
   <li>whatever a team types into the team members box</li>
   <li>the answers and wagers that team locks in, and the moment it buzzed</li>
   <li>that team's score</li>
-  <li>which clue is on the projector right now</li>
+  <li>which clue is on the projector right now, and its answer once the teacher reveals it</li>
 </ul>
 <p>That is the whole list of what anybody types. There is no account, no password, no email
 address, no surname field, no class list, no age and no date of birth, because there is nowhere
@@ -66,9 +69,9 @@ analytics, no advertising identifier, no location, no fingerprinting of your dev
   <li><strong>The clue set.</strong> A teacher writes their questions and answers in their own
     browser, or opens or pastes them there, and they stay on that device, pictures and all, and
     in the file they save, which goes wherever they put it. They are not uploaded. The only thing
-    published to a room is the words of the clue currently on the projector - which the whole room
-    is looking at anyway. A clue's picture or video is never published: the projector finds it in
-    its own copy of the game.</li>
+    published to a room is the words of the clue currently on the projector, and its answer once
+    the teacher reveals it - which the whole room is looking at anyway. A clue's picture or video
+    is never published: the projector finds it in its own copy of the game.</li>
   <li><strong>Anything for us.</strong> No analytics, no advertising, no tracking cookies. The
     only code loaded from anywhere other than this site is Google's Firebase library, which is
     what talks to the database - and, on the teacher's own screens only, the YouTube or Google
@@ -119,7 +122,8 @@ front of the room and stop working when the game ends.</p>
 <p>Everything is encrypted in transit: the site is served over HTTPS and the game connects over a
 secure WebSocket. What is deliberately not there is a login, so <strong>a room is only as private
 as its code</strong>, and nothing worth protecting should be typed into one. The clue answers are
-the one thing held back - they never reach the database at all.</p>
+held back: each one reaches the database only when the teacher reveals it, which is the moment it
+goes up on the projector in front of everybody anyway.</p>
 
 <h2>Children's privacy, and COPPA</h2>
 <p>Clueboard is built for a classroom and collects about as little as a game played on several
