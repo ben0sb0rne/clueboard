@@ -216,6 +216,11 @@ let game = {};              // last snapshot of rooms/<code>/game
 let teams = [];
 let moves = null;           // the host's moves on this room, from game.js; null with no room
 let buzzedIds = null;       // null until the first snapshot, so reopening a room does not beep
+// The round the Go to buttons were last built for. It lives up here with the rest of the
+// state, not beside renderRoundButtons, because a refresh mid-lesson runs openRoom before
+// this script has finished loading, and a let further down cannot be touched until the
+// script reaches it: the reopen threw, and left the room with no grid and no heartbeat.
+let roundButtonsFor = null;
 let muted = localStorage.getItem(MUTE_KEY) === "1";
 let teamsPick = localStorage.getItem(PICK_KEY) === "1";
 // Off unless it has been turned on: a game screen carries the clue and nothing else, and a
@@ -821,7 +826,6 @@ function roundName(round) {
 // them and game.js is told which; the engine does not get to decide where a game goes next.
 // Rebuilt only when the round changes, so a snapshot cannot swap a button out from under a
 // press.
-let roundButtonsFor = null;
 function renderRoundButtons(round) {
   if (round === roundButtonsFor) return;
   roundButtonsFor = round;
