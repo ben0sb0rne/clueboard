@@ -607,7 +607,8 @@ body.editing .rm { display: table-cell; }
   color: var(--muted);
 }
 
-/* The board, in the shape it is on the wall: six columns, five values down, near-black gaps.
+/* The board, in the shape it is on the wall: up to six columns and five values down, set from
+   the round, with near-black gaps.
    It was a list, one row per category, which made a student hunt on their phone for a thing
    already in front of them and read as a second, different game. Board layout in board.css,
    repeated rather than shared, because loading that file here would pull Anton onto thirty
@@ -617,8 +618,8 @@ body.editing .rm { display: table-cell; }
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  grid-template-rows: auto repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--cols, 6), minmax(0, 1fr));   /* the round's own size */
+  grid-template-rows: auto repeat(var(--rows, 5), minmax(0, 1fr));
   gap: 3px;
   padding: 3px;
   background: var(--gap-ink);

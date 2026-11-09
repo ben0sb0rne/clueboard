@@ -1,0 +1,1295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Clueboard - Designer</title>
+<link rel="stylesheet" href="palette.css">
+<!-- For the host screens' two buttons and the Anton face, not for the board itself. -->
+<link rel="stylesheet" href="board.css">
+<link rel="stylesheet" href="katex/katex.min.css">
+<link rel="stylesheet" href="designer.css">
+</head>
+<body class="designer">
+
+<!-- Where a game is written. Nothing here touches the network: the set is kept on this device,
+     under the key the control screen reads, and travels as the .xlsx file Save writes. -->
+<div class="page">
+  <header class="pagehead">
+    <a class="logo" id="home" href="index.html" data-ico="grid" title="Back to the front page">Clueboard</a>
+    <span class="popwrap right">
+      <button type="button" class="helpicon" id="helpBtn" data-ico="help" aria-label="How it works" title="How it works" aria-expanded="false" aria-controls="help"></button>
+      <div class="pop" id="help" role="dialog" aria-label="How it works" hidden>
+        <h2>How it works</h2>
+        <ul>
+          <li>Click a square to write it. Drag it onto another square to swap the two.</li>
+          <li>To move a clue to another round, cut it and paste it there.</li>
+          <li>Click a category or a price to change it. Hover one to find its delete button.</li>
+          <li>Double-click a round's tab to rename it, and drag tabs to put the rounds in order. The Final Clue always comes last.</li>
+          <li>Paste a picture into an open square, or drop one onto any square. Videos go in as YouTube or Google Drive links.</li>
+          <li>Maths goes between dollar signs: <code>$\frac{3}{4}$</code>, <code>$x^2$</code>, <code>$\sqrt{2}$</code>.</li>
+        </ul>
+        <h2>Keys</h2>
+        <dl>
+          <dt><kbd data-k="undo"></kbd> <kbd data-k="redo"></kbd></dt><dd>Undo, redo</dd>
+          <dt><kbd data-k="copy"></kbd> <kbd data-k="cut"></kbd> <kbd data-k="paste"></kbd></dt><dd>Copy, cut and paste a square</dd>
+          <dt><kbd data-k="clear"></kbd></dt><dd>Clear a square</dd>
+          <dt><kbd>Arrows</kbd></dt><dd>Move between squares</dd>
+          <dt><kbd>Alt</kbd> + arrows</dt><dd>Swap a square with its neighbour, or move a round's tab</dd>
+          <dt><kbd>Enter</kbd></dt><dd>From the clue to the answer, then on to the next square</dd>
+        </dl>
+        <p>Up to 6 categories and 5 rows a round. Save writes the game as an .xlsx file, and that file is the real copy: keep it, and open it here on any device. This browser keeps one as you work too, but browsers clear their storage in time.</p>
+      </div>
+    </span>
+  </header>
+  <section class="app" aria-label="Set designer">
+    <div class="toolbar">
+      <label class="titlefield"><span class="sr">Game title</span><input id="title" type="text" maxlength="60" autocomplete="off" placeholder="Untitled game"></label>
+      <button type="button" class="quiet lg" id="openBtn" data-ico="open">Open file</button>
+      <input type="file" id="openIn" accept=".xlsx,.csv,.tsv,.txt" hidden>
+      <span class="sep" aria-hidden="true"></span>
+      <button type="button" class="iconbtn" id="undoBtn" data-ico="undo" aria-label="Undo"></button>
+      <button type="button" class="iconbtn" id="redoBtn" data-ico="redo" aria-label="Redo"></button>
+      <div class="acts">
+        <span id="status" class="status" role="status">Saved</span>
+        <button type="button" class="act" id="saveBtn" data-ico="save">Save .xlsx</button>
+      </div>
+    </div>
+    <div class="tabs" id="tabs" aria-label="Rounds">
+      <span class="marker" id="marker" hidden></span>
+      <div class="menu" id="addMenu" role="menu" aria-label="Add to the game" hidden></div>
+    </div>
+    <div class="work" id="work">
+      <div class="gridwrap"><div class="grid" id="grid"></div></div>
+      <form class="editor" id="editor" hidden aria-label="Edit square" novalidate>
+        <div class="edhead">
+          <div class="edwhere"><span class="edcat" id="edCat"></span><span class="edval" id="edVal"></span></div>
+          <div class="ednav">
+            <button type="button" class="iconbtn sm" id="prevSq" aria-label="Previous square" data-ico="left"></button>
+            <button type="button" class="iconbtn sm" id="nextSq" aria-label="Next square" data-ico="right"></button>
+            <span class="popwrap">
+              <button type="button" class="iconbtn sm" id="sqMenuBtn" data-ico="more" aria-label="Copy, cut, paste or clear" title="Copy, cut, paste or clear" aria-haspopup="menu" aria-expanded="false" aria-controls="sqMenu"></button>
+              <div class="menu right" id="sqMenu" role="menu" aria-label="Square" hidden>
+                <button type="button" class="mi" role="menuitem" data-act="copy"><span data-ico="copy"></span>Copy<kbd data-k="copy"></kbd></button>
+                <button type="button" class="mi" role="menuitem" data-act="cut"><span data-ico="cut"></span>Cut<kbd data-k="cut"></kbd></button>
+                <button type="button" class="mi" role="menuitem" data-act="paste"><span data-ico="paste"></span>Paste<kbd data-k="paste"></kbd></button>
+                <button type="button" class="mi danger" role="menuitem" data-act="clear"><span data-ico="trash"></span>Clear<kbd data-k="clear"></kbd></button>
+              </div>
+            </span>
+            <button type="button" class="iconbtn sm" id="closeEd" aria-label="Close" data-ico="x"></button>
+          </div>
+        </div>
+        <label class="field" id="fCatWrap" hidden>Category<input id="fCat" type="text" maxlength="40" autocomplete="off"></label>
+        <label class="field">Clue<textarea id="fClue" rows="3"></textarea></label>
+        <label class="field">Answer<textarea id="fAnswer" rows="2"></textarea></label>
+        <div class="field" role="group" aria-labelledby="mediaLbl">
+          <span id="mediaLbl">Picture or video</span>
+          <div class="drop" id="drop">
+            <p><span data-ico="image"></span><span>Paste or drop a picture, or <button type="button" class="linkbtn" id="chooseBtn">choose a file</button></span></p>
+            <input type="file" id="fileIn" accept="image/*" hidden>
+            <div class="linkrow"><span data-ico="link"></span><input id="fLink" type="url" placeholder="or paste a YouTube or Drive link" autocomplete="off" aria-label="Picture or video link"></div>
+            <p class="err" id="linkErr" hidden></p>
+          </div>
+          <div class="mediacard" id="mediaCard" hidden></div>
+        </div>
+        <label class="switch" id="ddWrap"><input type="checkbox" id="fDD">Daily Double</label>
+        <div class="preview" id="preview"></div>
+      </form>
+    </div>
+  </section>
+
+  <details class="sheet" id="sheetBox">
+    <summary><span data-ico="grid"></span>Preview .xlsx<span class="chev" data-ico="down"></span></summary>
+    <div class="xl">
+      <div class="xlbar" id="xlName"></div>
+      <div class="xlscroll"><table id="xlTable"></table></div>
+      <div class="xltabs" id="xlTabs" aria-label="Sheet tabs"></div>
+    </div>
+  </details>
+</div>
+<dialog id="leaveDlg" aria-labelledby="leaveTitle">
+  <h2 id="leaveTitle">Save first?</h2>
+  <p>Your latest changes aren't in a saved file yet.</p>
+  <div class="dlgacts">
+    <button type="button" class="quiet lg danger" data-leave="leave" id="leaveGo">Leave without saving</button>
+    <button type="button" class="quiet lg" data-leave="">Cancel</button>
+    <button type="button" class="act" data-leave="save" id="leaveSave" autofocus>Save and leave</button>
+  </div>
+</dialog>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<p class="sr" id="live" aria-live="polite"></p>
+
+<script src="katex/katex.min.js"></script>
+<script src="clues.js"></script>
+<script src="math.js"></script>
+<script src="pictures.js"></script>
+<script src="xlsx.js"></script>
+<script>
+(() => {
+  "use strict";
+  const FINAL = FINAL_TAB;   // fixed: its tab name in the file, so no round may take it
+  const SET_KEY = "clueboard-set";   // shared with the control screen and the board: see readSet
+  const MAC = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent);
+  const $ = (s) => document.querySelector(s);
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+  const PATHS = {
+    grid: '<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    x: '<path d="M18 6 6 18M6 6l12 12"/>',
+    left: '<path d="m15 18-6-6 6-6"/>',
+    right: '<path d="m9 18 6-6-6-6"/>',
+    down: '<path d="m6 9 6 6 6-6"/>',
+    image: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/>',
+    play: '<path d="M7 4.5v15l12-7.5z"/>',
+    open: '<path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/>',
+    save: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>',
+    link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+    undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
+    redo: '<path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>',
+    help: '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
+    trash: '<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+    flag: '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22v-7"/>',
+    more: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+    copy: '<rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+    cut: '<circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><path d="M20 4 8.12 15.88"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/>',
+    paste: '<rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>'
+  };
+  // Lucide's, as in icons/: inline, because an <img> cannot take its colour from its button.
+  function ico(name, px) {
+    const s = px || 18, solid = name === "play";
+    return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="${solid ? "currentColor" : "none"}" stroke="${solid ? "none" : "currentColor"}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${PATHS[name]}</svg>`;
+  }
+  document.querySelectorAll("[data-ico]").forEach((el) => el.insertAdjacentHTML("afterbegin", ico(el.dataset.ico)));
+
+  const state = {
+    title: "",
+    rounds: [],
+    final: null,
+    view: 0,       // a round's index, or "final"
+    sel: null,     // { c, r } of the square in the editor
+    rev: 0         // which version of the set this is, so Save and Undo can tell saved from not
+  };
+  let nextId = 1, revCounter = 0, savedRev = 0, savedAt = "";
+
+  const grid = $("#grid"), work = $("#work"), ed = $("#editor"), tabsEl = $("#tabs"), addMenu = $("#addMenu"), marker = $("#marker");
+  const titleEl = $("#title"), statusEl = $("#status"), undoBtn = $("#undoBtn"), redoBtn = $("#redoBtn"), helpBtn = $("#helpBtn"), help = $("#help");
+  const toastEl = $("#toast"), liveEl = $("#live"), drop = $("#drop"), sheetBox = $("#sheetBox");
+  const sqMenu = $("#sqMenu"), sqMenuBtn = $("#sqMenuBtn"), leaveDlg = $("#leaveDlg");
+  const f = { cat: $("#fCat"), clue: $("#fClue"), answer: $("#fAnswer"), link: $("#fLink"), dd: $("#fDD"), file: $("#fileIn") };
+
+  const cur = () => state.rounds[state.view];
+  const fmt = (n) => Number(n).toLocaleString("en-US");
+  const money = (n) => "$" + fmt(n);
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+  const plain = (s) => String(s || "").replace(/[$\\{}]/g, "");
+  const blank = (s) => !s || (!s.clue.trim() && !s.answer.trim() && !s.media && !s.dd);
+  const bytes = (n) => n >= 1e6 ? (n / 1e6).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1e3)) + " KB";
+  const where = (c, r) => `${cur().cats[c].trim() || "Untitled category"}, ${money(cur().prices[r])}`;
+  const sqEl = (c, r) => grid.querySelector(`.sq[data-c="${c}"][data-r="${r}"]`);
+  const fileName = () => (state.title.trim() || "Untitled game") + ".xlsx";
+  // A picture this device holds. A linked one is drawn as an icon: the designer does not reach
+  // out to other people's sites, and the board shows the real thing.
+  const pictureSrc = (m) => (m && m.kind === "picture" && m.id && pictureURLs[m.id]) || "";
+
+  /* ---------- the set: a new one, one opened, and the copy this device keeps ---------- */
+
+  function newRound(name, prices) {
+    return {
+      id: nextId++, name: name, cats: Array(MAX_COLS).fill(""), prices: prices,
+      cells: Array.from({ length: MAX_COLS }, () => Array(prices.length).fill(null))
+    };
+  }
+  // Takes on a whole set - this device's copy, another tab's, or a file - with no history.
+  function adopt(s, title) {
+    nextId = 1;
+    const rounds = ((s && s.rounds) || []).filter((R) => R && R.cats && R.cats.length && R.prices && R.prices.length);
+    state.rounds = rounds.map((R) => Object.assign({}, R, { id: nextId++ }));
+    if (!state.rounds.length) state.rounds.push(newRound("Round 1", [0, 1, 2, 3, 4].map((r) => ladder(1, r))));
+    state.title = String(title != null ? title : (s && s.title) || "").slice(0, 60);
+    state.final = (s && s.final) || null;
+    state.view = 0;
+    state.sel = null;
+    past.length = 0;
+    future.length = 0;
+    lastKey = "";
+    state.rev = ++revCounter;
+  }
+
+  // Written on every change, under the key the control screen and the board read, so the set
+  // being made here is the one a room opens with and there is no Play button. It is a safety
+  // net rather than the save: the file is the save, and "unsaved" rides along so that whoever
+  // replaces this set knows to ask first.
+  let storedKey = "", lastWritten = null;
+  function store() {
+    const dirty = state.rev !== savedRev, key = state.rev + (dirty ? "*" : "");
+    if (key === storedKey) return;
+    storedKey = key;
+    const s = { title: state.title, rounds: state.rounds, final: state.final };
+    if (dirty) s.unsaved = true;
+    try {
+      lastWritten = JSON.stringify(s);
+      localStorage.setItem(SET_KEY, lastWritten);
+    } catch (err) {
+      toast("This browser would not keep a copy of the game, so save it before you go.");
+    }
+  }
+  // One set per device: one replaced in another tab - a new paste on the control screen, or
+  // another designer - is the set here too.
+  window.addEventListener("storage", (e) => {
+    if (e.key !== SET_KEY || e.newValue === lastWritten) return;
+    const s = readSet(e.newValue);
+    if (!s) return;
+    adopt(s);
+    savedRev = s.unsaved ? -1 : state.rev;
+    storedKey = state.rev + (s.unsaved ? "*" : "");
+    closePops();
+    render();
+    loadPictures(pictureIds(state)).then(render);
+    toast("This game was changed in another tab, so that version is here now.");
+  });
+
+  /* ---------- undo and redo ----------
+     Every change takes a snapshot of the set first. A run of typing in one field within a second
+     and a half of the last keystroke is one step, so undo takes back a word, not a letter. */
+
+  const past = [], future = [];
+  let lastKey = "", lastAt = 0;
+  const snap = () => structuredClone({ title: state.title, rounds: state.rounds, final: state.final, view: state.view, sel: state.sel, rev: state.rev });
+  function commit(key) {
+    const now = Date.now();
+    if (!(key && key === lastKey && now - lastAt < 1500)) {
+      past.push(snap());
+      if (past.length > 300) past.shift();
+      future.length = 0;
+    }
+    lastKey = key || "";
+    lastAt = now;
+    state.rev = ++revCounter;   // never reused, so "Saved" only ever means this exact version
+  }
+  function restore(s) {
+    const focusId = document.activeElement ? document.activeElement.id : "";
+    state.title = s.title;
+    state.rounds = s.rounds;
+    state.final = s.final;
+    state.rev = s.rev;
+    state.view = s.view === "final" ? (s.final ? "final" : 0) : Math.min(s.view, s.rounds.length - 1);
+    const R = typeof state.view === "number" ? state.rounds[state.view] : null;
+    state.sel = s.sel && R && s.sel.c < R.cats.length && s.sel.r < R.prices.length ? s.sel : null;
+    lastKey = "";
+    closePops();
+    render();
+    const el = focusId && document.getElementById(focusId);
+    if (el && el.offsetParent) el.focus({ preventScroll: true });
+  }
+  function undo() { if (past.length) { future.push(snap()); restore(past.pop()); say("Undone."); } }
+  function redo() { if (future.length) { past.push(snap()); restore(future.pop()); say("Redone."); } }
+
+  /* ---------- the grid ---------- */
+
+  function makeSquare(c, r) {
+    const s = cur().cells[c][r], b = document.createElement("button");
+    b.type = "button";
+    b.className = "sq";
+    b.dataset.c = c;
+    b.dataset.r = r;
+    const at = where(c, r);
+    if (!s) {
+      b.classList.add("blank");
+      b.innerHTML = ico("plus", 22);
+      b.setAttribute("aria-label", `${at}: empty. Add a clue.`);
+    } else {
+      const noClue = !s.clue.trim(), noAns = !s.answer.trim(), src = pictureSrc(s.media);
+      const media = !s.media ? "" : src
+        ? `<img class="thumb" src="${esc(src)}" alt="">`
+        : `<span class="vthumb">${ico(s.media.kind === "video" ? "play" : s.media.kind === "picture" ? "image" : "link", 14)}</span>`;
+      // A missing clue or answer shows as a warning in the place it is missing from.
+      b.innerHTML = `<span class="top">${noClue ? '<span class="badge warn">No clue</span>' : '<span class="q"></span>'}${media}</span>` +
+        `<span class="foot">${s.dd ? '<span class="badge dd">DD</span>' : ""}${noAns ? '<span class="badge warn">No answer</span>' : '<span class="a"></span>'}</span>`;
+      if (!noClue) mathText(b.querySelector(".q"), s.clue);
+      if (!noAns) mathText(b.querySelector(".a"), s.answer);
+      b.classList.toggle("has-media", !!s.media);
+      b.classList.toggle("is-dd", !!s.dd);
+      b.setAttribute("aria-label", `${at}: ${noClue ? "no clue yet" : plain(s.clue)}. ${noAns ? "No answer yet." : "Answer: " + plain(s.answer) + "."}` +
+        (s.dd ? " Daily Double." : "") + (s.media ? ` Has a ${s.media.kind === "video" ? "video" : "picture"}.` : ""));
+    }
+    if (state.sel && state.sel.c === c && state.sel.r === r) b.classList.add("sel");
+    return b;
+  }
+  function makeCat(c) {
+    const R = cur(), d = document.createElement("div");
+    d.className = "cat";
+    d.innerHTML = `<textarea id="cat-${c}" data-c="${c}" rows="2" maxlength="40" spellcheck="false" placeholder="Category" aria-label="Category ${c + 1} name">${esc(R.cats[c])}</textarea>` +
+      (R.cats.length > 1 ? `<button type="button" class="del" data-rmcol="${c}" aria-label="Delete category ${esc(R.cats[c].trim() || c + 1)}">${ico("x", 14)}</button>` : "");
+    return d;
+  }
+  function makePrice(r) {
+    const R = cur(), d = document.createElement("div");
+    d.className = "price";
+    d.innerHTML = `<label><span aria-hidden="true">$</span><input id="price-${r}" data-r="${r}" type="text" inputmode="numeric" autocomplete="off" aria-label="Price of row ${r + 1}" value="${fmt(R.prices[r])}"></label>` +
+      (R.prices.length > 1 ? `<button type="button" class="del" data-rmrow="${r}" aria-label="Delete the ${money(R.prices[r])} row">${ico("x", 14)}</button>` : "");
+    return d;
+  }
+  function place(el, area) { el.style.gridArea = area; grid.appendChild(el); }
+  function renderGrid() {
+    if (state.view === "final") return;
+    const R = cur(), cols = R.cats.length, rows = R.prices.length;
+    // The add buttons only exist below the cap, so a full board is just the board.
+    grid.style.gridTemplateColumns = `78px repeat(${cols}, minmax(0, 1fr))` + (cols < MAX_COLS ? " 44px" : "");
+    grid.style.gridTemplateRows = `minmax(64px, auto) repeat(${rows}, minmax(110px, auto))` + (rows < MAX_ROWS ? " 40px" : "");
+    grid.textContent = "";
+    place(document.createElement("div"), "1 / 1");
+    R.cats.forEach((_, c) => place(makeCat(c), `1 / ${c + 2}`));
+    R.prices.forEach((_, r) => {
+      place(makePrice(r), `${r + 2} / 1`);
+      R.cats.forEach((__, c) => place(makeSquare(c, r), `${r + 2} / ${c + 2}`));
+    });
+    const adder = (cls, label, area) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = cls;
+      b.title = label;
+      b.setAttribute("aria-label", label);
+      b.innerHTML = ico("plus");
+      place(b, area);
+    };
+    if (cols < MAX_COLS) adder("addcol", "Add a category", `1 / ${cols + 2} / span ${rows + 1} / span 1`);
+    if (rows < MAX_ROWS) adder("addrow", "Add a row", `${rows + 2} / 1 / span 1 / span ${cols + 1}`);
+  }
+  function refreshSquare(c, r) {
+    const old = sqEl(c, r);
+    if (!old) return;
+    const fresh = makeSquare(c, r), had = document.activeElement === old;
+    fresh.style.gridArea = old.style.gridArea;
+    old.replaceWith(fresh);
+    if (had) fresh.focus();   // keyboard users keep their place
+  }
+  function markSel() {
+    grid.querySelectorAll(".sq").forEach((b) => {
+      b.classList.toggle("sel", !!state.sel && +b.dataset.c === state.sel.c && +b.dataset.r === state.sel.r);
+    });
+  }
+  function focusSquare(c, r) { const b = sqEl(c, r); if (b) b.focus(); }
+
+  /* ---------- swapping squares ---------- */
+
+  function flip(el, from) {
+    if (!el || !from || reduce.matches || !el.animate) return;
+    const to = el.getBoundingClientRect(), dx = from.left - to.left, dy = from.top - to.top;
+    if (!dx && !dy) return;
+    el.animate([{ transform: `translate(${dx}px, ${dy}px)`, zIndex: 2 }, { transform: "none", zIndex: 2 }],
+      { duration: 240, easing: "cubic-bezier(.2, .8, .2, 1)" });
+  }
+  function swap(c1, r1, c2, r2, fromRect) {
+    const R = cur(), e1 = sqEl(c1, r1), e2 = sqEl(c2, r2);
+    const b1 = fromRect || (e1 && e1.getBoundingClientRect()), b2 = e2 && e2.getBoundingClientRect();
+    commit("");
+    const moved = R.cells[c1][r1];
+    R.cells[c1][r1] = R.cells[c2][r2];
+    R.cells[c2][r2] = moved;
+    if (state.sel) {   // the editor follows the clue it is showing
+      if (state.sel.c === c1 && state.sel.r === r1) state.sel = { c: c2, r: r2 };
+      else if (state.sel.c === c2 && state.sel.r === r2) state.sel = { c: c1, r: r1 };
+    }
+    renderGrid();
+    flip(sqEl(c2, r2), b1);
+    flip(sqEl(c1, r1), b2);
+    if (state.sel) fillEditor();
+    after();
+    say(R.cells[c1][r1] ? `Swapped ${where(c2, r2)} with ${where(c1, r1)}.` : `Moved to ${where(c2, r2)}.`);
+  }
+
+  // Pointer events rather than HTML drag and drop, so a finger on an iPad works the same as a mouse.
+  let drag = null, suppressClick = false;
+  grid.addEventListener("pointerdown", (e) => {
+    const b = e.target.closest(".sq");
+    if (!b || b.classList.contains("blank") || e.button !== 0 || !e.isPrimary) return;
+    drag = { c: +b.dataset.c, r: +b.dataset.r, el: b, x: e.clientX, y: e.clientY, ghost: null, over: null };
+  });
+  function moveSquareDrag(e) {
+    if (!drag.ghost) {
+      if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 6) return;
+      const rect = drag.el.getBoundingClientRect(), g = drag.el.cloneNode(true);
+      drag.dx = drag.x - rect.left;
+      drag.dy = drag.y - rect.top;
+      g.classList.add("ghost");
+      g.classList.remove("sel");
+      g.setAttribute("aria-hidden", "true");
+      g.tabIndex = -1;
+      g.style.cssText = `width:${rect.width}px;height:${rect.height}px;`;
+      document.body.appendChild(g);
+      drag.ghost = g;
+      drag.el.classList.add("lifted");
+      document.body.classList.add("dragging");
+    }
+    drag.ghost.style.transform = `translate(${e.clientX - drag.dx}px, ${e.clientY - drag.dy}px)` + (reduce.matches ? "" : " rotate(1.5deg)");
+    const hit = document.elementFromPoint(e.clientX, e.clientY);
+    const over = hit && hit.closest ? hit.closest(".sq") : null;
+    const target = over && over !== drag.el && grid.contains(over) ? over : null;
+    if (target !== drag.over) {
+      if (drag.over) drag.over.classList.remove("target");
+      if (target) target.classList.add("target");
+      drag.over = target;
+    }
+  }
+  function endDrag(dropIt) {
+    const d = drag;
+    drag = null;
+    if (!d || !d.ghost) return;
+    const ghostRect = d.ghost.getBoundingClientRect();
+    d.ghost.remove();
+    d.el.classList.remove("lifted");
+    document.body.classList.remove("dragging");
+    if (d.over) d.over.classList.remove("target");
+    suppressClick = true;
+    setTimeout(() => { suppressClick = false; }, 0);
+    if (dropIt && d.over) swap(d.c, d.r, +d.over.dataset.c, +d.over.dataset.r, ghostRect);
+  }
+
+  /* ---------- rows and columns ---------- */
+
+  function addCol() {
+    const R = cur();
+    if (R.cats.length >= MAX_COLS) return;
+    commit("");
+    R.cats.push("");
+    R.cells.push(R.prices.map(() => null));
+    renderGrid();
+    after();
+    $(`#cat-${R.cats.length - 1}`).focus();
+  }
+  function addRow() {
+    const R = cur(), p = R.prices, n = p.length;
+    if (n >= MAX_ROWS) return;
+    commit("");
+    p.push(Math.min(99999, Math.max(1, n >= 2 ? p[n - 1] * 2 - p[n - 2] : (p[0] || 100) * 2)));   // carry the ladder on
+    R.cells.forEach((col) => col.push(null));
+    renderGrid();
+    after();
+  }
+  function shiftSel(axis, i) {
+    const s = state.sel;
+    if (!s) return;
+    if (s[axis] === i) closeEditor(true);
+    else if (s[axis] > i) s[axis]--;
+    if (state.sel) fillEditor();
+  }
+  function removeCol(c) {
+    const R = cur();
+    if (R.cats.length <= 1) return;
+    commit("");
+    const name = R.cats[c].trim() || "the untitled category";
+    R.cats.splice(c, 1);
+    R.cells.splice(c, 1);
+    shiftSel("c", c);
+    renderGrid();
+    after();
+    say(`Deleted ${name}.`);
+  }
+  function removeRow(r) {
+    const R = cur();
+    if (R.prices.length <= 1) return;
+    commit("");
+    const price = R.prices[r];
+    R.prices.splice(r, 1);
+    R.cells.forEach((col) => col.splice(r, 1));
+    shiftSel("r", r);
+    renderGrid();
+    after();
+    say(`Deleted the ${money(price)} row.`);
+  }
+
+  /* ---------- rounds ---------- */
+
+  function nextRoundName() {
+    let n = state.rounds.length + 1, name = "";
+    do { name = "Round " + n++; } while (state.rounds.some((R) => R.name.toLowerCase() === name.toLowerCase()));
+    return name;
+  }
+  function show(v) {
+    closeEditor(true);
+    state.view = v;
+    render();
+  }
+  function addRound() {
+    closePops();
+    commit("");
+    const k = state.rounds.length + 1, base = [0, 1, 2, 3, 4].map((j) => state.rounds[0].prices[j] || (j + 1) * 200);
+    state.rounds.push(newRound(nextRoundName(), base.map((p) => Math.min(99999, p * k))));   // round 2 is double, round 3 triple
+    show(state.rounds.length - 1);
+  }
+  function addFinal() {
+    closePops();
+    commit("");
+    state.final = { cat: "", clue: "", answer: "", media: null };
+    show("final");
+  }
+  function removeRound(i) {
+    if (state.rounds.length <= 1) return;
+    commit("");
+    const name = state.rounds[i].name;
+    state.rounds.splice(i, 1);
+    if (state.view === i) { state.sel = null; state.view = Math.max(0, i - 1); }
+    else if (typeof state.view === "number" && state.view > i) state.view--;
+    render();
+    say(`Deleted ${name}.`);
+  }
+  function removeFinal() {
+    commit("");
+    state.final = null;
+    if (state.view === "final") state.view = state.rounds.length - 1;
+    render();
+    say(`Deleted the ${FINAL}.`);
+  }
+  function moveRound(from, to) {
+    if (from === to) return;
+    commit("");
+    const viewing = typeof state.view === "number" ? state.rounds[state.view] : null;
+    const moved = state.rounds.splice(from, 1)[0];
+    state.rounds.splice(to, 0, moved);
+    if (viewing) state.view = state.rounds.indexOf(viewing);
+    renderTabs();
+    after();
+    say(`${moved.name} is now round ${to + 1}.`);
+  }
+  // A round's name is its tab's name in the file, so it keeps to Excel's rules for one
+  // (cleanRoundName, in clues.js), and no two tabs may be alike.
+  function renameRound(i, raw) {
+    const R = state.rounds[i], name = cleanRoundName(raw), low = name.toLowerCase();
+    if (!name || name === R.name) { renderTabs(true); return; }
+    if (low === FINAL.toLowerCase() || low === "help" || state.rounds.some((x, k) => k !== i && x.name.toLowerCase() === low)) {
+      renderTabs(true);
+      toast(`“${name}” is already a tab name.`);
+      return;
+    }
+    commit("");
+    R.name = name;
+    renderTabs(true);
+    after();
+  }
+  function startRename(i) {
+    const R = state.rounds[i], tab = document.getElementById("tab-" + R.id);
+    if (!tab) return;
+    const input = document.createElement("input");
+    input.className = "tabname";
+    input.id = "tabname";
+    input.value = R.name;
+    input.maxLength = 31;
+    input.setAttribute("aria-label", "Round name");
+    tab.replaceWith(input);
+    input.focus();
+    input.select();
+    let done = false;
+    const finish = (keep) => { if (done) return; done = true; if (keep) renameRound(i, input.value); else renderTabs(true); };
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); finish(true); }
+      else if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); finish(false); }
+    });
+    input.addEventListener("blur", () => finish(true));
+  }
+
+  function tabX(label, del) {
+    return `<button type="button" class="tabx" data-del="${del}" aria-label="${esc(label)}">${ico("x", 14)}</button>`;
+  }
+  // Rebuilt only when the tabs themselves change. Switching rounds just moves the highlight, so
+  // the tab under the pointer stays the same element and a double-click on it still renames.
+  let tabSig = "";
+  function renderTabs(force) {
+    const sig = JSON.stringify([state.rounds.map((R) => [R.id, R.name]), !!state.final]);
+    if (!force && sig === tabSig) {
+      tabsEl.querySelectorAll(".tabwrap").forEach((w) => {
+        const on = w.dataset.i != null ? state.view === +w.dataset.i : state.view === "final", b = w.querySelector(".tab");
+        w.classList.toggle("on", on);
+        if (b && on) b.setAttribute("aria-current", "true");
+        else if (b) b.removeAttribute("aria-current");
+      });
+      return;
+    }
+    tabSig = sig;
+    tabsEl.querySelectorAll(".tabwrap, .addround").forEach((n) => n.remove());
+    const html = [];
+    state.rounds.forEach((R, i) => {
+      const on = state.view === i;
+      html.push(`<span class="tabwrap${on ? " on" : ""}" data-i="${i}"><button type="button" class="tab" id="tab-${R.id}" data-i="${i}" title="Double-click to rename. Drag to reorder."${on ? ' aria-current="true"' : ""}>${esc(R.name)}</button>` +
+        (state.rounds.length > 1 ? tabX("Delete " + R.name, i) : "") + "</span>");
+    });
+    if (state.final) {
+      const on = state.view === "final";
+      html.push(`<span class="tabwrap${on ? " on" : ""}"><button type="button" class="tab" id="tab-final"${on ? ' aria-current="true"' : ""}>${FINAL}</button>${tabX("Delete the " + FINAL, "final")}</span>`);
+    }
+    // With the Final Clue already in, + has only one thing it can mean, so it skips the menu.
+    const label = state.final ? "Add " + nextRoundName() : "Add a round or the " + FINAL;
+    html.push(`<button type="button" class="iconbtn sm addround" id="addRound" title="${esc(label)}" aria-label="${esc(label)}"` +
+      (state.final ? "" : ` aria-haspopup="menu" aria-expanded="${!addMenu.hidden}"`) + `>${ico("plus")}</button>`);
+    marker.insertAdjacentHTML("beforebegin", html.join(""));
+  }
+  // The three pop-ups: help, the + menu and a square's menu. One is open at a time, and a click
+  // anywhere else, or Escape, closes it.
+  const POPS = [[help, () => helpBtn], [addMenu, () => $("#addRound")], [sqMenu, () => sqMenuBtn]];
+  function closePops(refocus) {
+    let closed = false;
+    POPS.forEach(([el, btnOf]) => {
+      if (el.hidden) return;
+      el.hidden = true;
+      closed = true;
+      const b = btnOf();
+      if (b) { b.setAttribute("aria-expanded", "false"); if (refocus) b.focus(); }
+    });
+    return closed;
+  }
+  function openPop(el, btn) {
+    closePops();
+    el.hidden = false;
+    btn.setAttribute("aria-expanded", "true");
+    const first = el.querySelector("button:not(:disabled)");
+    if (first) first.focus();
+  }
+  function toggleMenu() {
+    if (!addMenu.hidden) { closePops(true); return; }
+    const btn = $("#addRound");
+    addMenu.innerHTML = `<button type="button" class="mi" role="menuitem" data-add="round">${ico("plus", 16)}${esc(nextRoundName())}</button>` +
+      `<button type="button" class="mi" role="menuitem" data-add="final">${ico("flag", 16)}${FINAL}</button>`;
+    addMenu.style.left = btn.offsetLeft + "px";
+    openPop(addMenu, btn);
+  }
+
+  let tabDrag = null, suppressTabClick = false;
+  tabsEl.addEventListener("click", (e) => {
+    if (suppressTabClick) return;
+    const t = e.target.closest("button");
+    if (!t || !tabsEl.contains(t)) return;
+    if (t.dataset.del != null) { if (t.dataset.del === "final") removeFinal(); else removeRound(+t.dataset.del); }
+    else if (t.id === "addRound") { if (state.final) addRound(); else toggleMenu(); }
+    else if (t.dataset.add) { if (t.dataset.add === "final") addFinal(); else addRound(); }
+    else if (t.classList.contains("tab")) { const v = t.dataset.i != null ? +t.dataset.i : "final"; if (v !== state.view) show(v); }
+  });
+  tabsEl.addEventListener("dblclick", (e) => { const t = e.target.closest(".tab[data-i]"); if (t) startRename(+t.dataset.i); });
+  tabsEl.addEventListener("keydown", (e) => {
+    const t = e.target.closest(".tab[data-i]");
+    if (!t) return;
+    const i = +t.dataset.i;
+    if (e.key === "F2") { e.preventDefault(); startRename(i); return; }
+    if (!e.altKey || (e.key !== "ArrowLeft" && e.key !== "ArrowRight")) return;
+    e.preventDefault();
+    const to = i + (e.key === "ArrowLeft" ? -1 : 1);
+    if (to < 0 || to >= state.rounds.length) return;
+    moveRound(i, to);
+    document.getElementById("tab-" + state.rounds[to].id).focus();
+  });
+  tabsEl.addEventListener("pointerdown", (e) => {
+    const t = e.target.closest(".tab[data-i]");
+    if (!t || e.button !== 0 || !e.isPrimary || state.rounds.length < 2) return;
+    tabDrag = { i: +t.dataset.i, x: e.clientX, wrap: t.parentElement, on: false, to: +t.dataset.i };
+  });
+  function moveTabDrag(e) {
+    const dx = e.clientX - tabDrag.x;
+    if (!tabDrag.on) {
+      if (Math.abs(dx) < 6) return;
+      tabDrag.on = true;
+      tabDrag.wrap.classList.add("lift");
+      marker.hidden = false;
+      document.body.classList.add("dragging");
+    }
+    tabDrag.wrap.style.transform = `translateX(${dx}px)`;
+    // The new position is however many of the other rounds now sit left of the pointer.
+    const others = Array.from(tabsEl.querySelectorAll(".tabwrap[data-i]")).filter((w) => w !== tabDrag.wrap);
+    const to = others.filter((w) => { const r = w.getBoundingClientRect(); return e.clientX > r.left + r.width / 2; }).length;
+    tabDrag.to = to;
+    const box = tabsEl.getBoundingClientRect();
+    const x = others[to] ? others[to].getBoundingClientRect().left - 5 : others[to - 1].getBoundingClientRect().right + 2;
+    marker.style.left = (x - box.left) + "px";
+  }
+  function endTabDrag(dropIt) {
+    const d = tabDrag;
+    tabDrag = null;
+    if (!d || !d.on) return;
+    d.wrap.classList.remove("lift");
+    d.wrap.style.transform = "";
+    marker.hidden = true;
+    document.body.classList.remove("dragging");
+    suppressTabClick = true;
+    setTimeout(() => { suppressTabClick = false; }, 0);
+    if (dropIt && d.to !== d.i) moveRound(d.i, d.to);
+  }
+
+  window.addEventListener("pointermove", (e) => {
+    if (tabDrag) moveTabDrag(e);
+    else if (drag) moveSquareDrag(e);
+  });
+  window.addEventListener("pointerup", () => { endTabDrag(true); endDrag(true); });
+  window.addEventListener("pointercancel", () => { endTabDrag(false); endDrag(false); });
+
+  /* ---------- the grid's own edits: names, prices, keys, clicks ---------- */
+
+  grid.addEventListener("input", (e) => {
+    const t = e.target, R = cur();
+    if (t.matches(".cat textarea")) {
+      const c = +t.dataset.c, clean = t.value.replace(/\s*\n\s*/g, " ");
+      if (clean !== t.value) t.value = clean;
+      commit(`cat:${R.id}:${c}`);
+      R.cats[c] = clean;
+      if (state.sel && state.sel.c === c) fillHead();
+      after();
+    } else if (t.matches(".price input")) {
+      const r = +t.dataset.r, n = Math.min(parseInt(t.value.replace(/[^0-9]/g, ""), 10), 99999);
+      if (n > 0 && n !== R.prices[r]) {
+        commit(`price:${R.id}:${r}`);
+        R.prices[r] = n;
+        if (state.sel && state.sel.r === r) fillHead();
+        after();
+      }
+    }
+  });
+  grid.addEventListener("focusin", (e) => { if (e.target.matches(".price input")) e.target.select(); });
+  grid.addEventListener("focusout", (e) => {
+    if (e.target.matches(".cat textarea, .price input")) lastKey = "";
+    if (e.target.matches(".price input")) e.target.value = fmt(cur().prices[+e.target.dataset.r]);
+  });
+  grid.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && e.target.matches(".cat textarea, .price input")) { e.preventDefault(); e.target.blur(); return; }
+    const b = e.target.closest && e.target.closest(".sq");
+    if (!b || e.metaKey || e.ctrlKey) return;
+    const R = cur(), c = +b.dataset.c, r = +b.dataset.r;
+    if ((e.key === "Delete" || e.key === "Backspace") && !e.altKey) { e.preventDefault(); clearSquare(c, r); return; }
+    const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+    if (!d) return;
+    e.preventDefault();
+    const c2 = c + d[0], r2 = r + d[1];
+    if (c2 < 0 || r2 < 0 || c2 >= R.cats.length || r2 >= R.prices.length) return;
+    if (e.altKey) swap(c, r, c2, r2);   // Alt carries the square along; a plain arrow only moves the focus
+    focusSquare(c2, r2);
+  });
+  grid.addEventListener("click", (e) => {
+    if (suppressClick) return;
+    const b = e.target.closest("button");
+    if (!b || !grid.contains(b)) return;
+    if (b.classList.contains("sq")) openEditor(+b.dataset.c, +b.dataset.r);
+    else if (b.dataset.rmcol != null) removeCol(+b.dataset.rmcol);
+    else if (b.dataset.rmrow != null) removeRow(+b.dataset.rmrow);
+    else if (b.classList.contains("addcol")) addCol();
+    else if (b.classList.contains("addrow")) addRow();
+  });
+
+  /* ---------- the editor ---------- */
+
+  function target(create) {
+    if (state.view === "final") return state.final;
+    if (!state.sel) return null;
+    const R = cur(), c = state.sel.c, r = state.sel.r;
+    if (!R.cells[c][r] && create) R.cells[c][r] = { clue: "", answer: "", media: null, dd: false };
+    return R.cells[c][r];
+  }
+  const fieldKey = (name) => state.view === "final" ? "final:" + name : `${name}:${cur().id}:${state.sel.c}:${state.sel.r}`;
+  function openEditor(c, r) {
+    state.sel = { c: c, r: r };
+    work.classList.add("editing");
+    ed.hidden = false;
+    fillEditor();
+    markSel();
+    f.clue.focus({ preventScroll: true });
+  }
+  function closeEditor(silent) {
+    if (state.view === "final") return;
+    const s = state.sel;
+    state.sel = null;
+    work.classList.remove("editing");
+    ed.hidden = true;
+    markSel();
+    if (!silent && s) focusSquare(s.c, s.r);
+  }
+  function fillHead() {
+    if (state.view === "final") { $("#edCat").textContent = FINAL; $("#edVal").textContent = ""; return; }
+    $("#edCat").textContent = cur().cats[state.sel.c].trim() || "Untitled category";
+    $("#edVal").textContent = money(cur().prices[state.sel.r]);
+  }
+  function fillEditor() {
+    const fin = state.view === "final", t = target(false);
+    $("#fCatWrap").hidden = !fin;
+    $("#prevSq").hidden = fin;
+    $("#nextSq").hidden = fin;
+    $("#closeEd").hidden = fin;
+    $("#ddWrap").hidden = fin;
+    ed.setAttribute("aria-label", fin ? "Edit the " + FINAL : "Edit square");
+    fillHead();
+    if (fin) f.cat.value = t.cat;
+    f.clue.value = t ? t.clue : "";
+    f.answer.value = t ? t.answer : "";
+    f.dd.checked = !!(t && t.dd);
+    f.link.value = "";
+    linkErr("");
+    renderMedia();
+    renderPreview();
+    if (!fin) {
+      const order = boardOrder(), i = order.findIndex((p) => p[0] === state.sel.c && p[1] === state.sel.r);
+      $("#prevSq").disabled = i <= 0;
+      $("#nextSq").disabled = i >= order.length - 1;
+    }
+    updateMenu();
+  }
+  function updateMenu() {   // what the square's menu can do right now
+    const fin = state.view === "final", t = target(false), cut = sqMenu.querySelector('[data-act="cut"]');
+    sqMenu.querySelector('[data-act="copy"]').disabled = blank(t);
+    cut.hidden = fin;
+    cut.disabled = blank(t);
+    sqMenu.querySelector('[data-act="paste"]').disabled = !clip;
+    sqMenu.querySelector('[data-act="clear"]').disabled = fin ? (!t.cat.trim() && blank(t)) : blank(t);
+  }
+  function boardOrder() {   // down the first category, then the next: the order the file is in
+    const R = cur(), order = [];
+    R.cats.forEach((_, c) => R.prices.forEach((__, r) => order.push([c, r])));
+    return order;
+  }
+  function step(d) {
+    const order = boardOrder(), i = order.findIndex((p) => p[0] === state.sel.c && p[1] === state.sel.r), j = i + d;
+    if (j < 0 || j >= order.length) return false;
+    lastKey = "";
+    state.sel = { c: order[j][0], r: order[j][1] };
+    fillEditor();
+    markSel();
+    f.clue.focus();
+    return true;
+  }
+  function edited() {
+    if (state.view !== "final") {
+      const R = cur(), c = state.sel.c, r = state.sel.r;
+      if (blank(R.cells[c][r])) R.cells[c][r] = null;   // emptied out: an empty square again
+      refreshSquare(c, r);
+    }
+    renderPreview();
+    updateMenu();
+    after();
+  }
+
+  f.clue.addEventListener("input", () => { commit(fieldKey("clue")); target(true).clue = f.clue.value; edited(); });
+  f.answer.addEventListener("input", () => { commit(fieldKey("answer")); target(true).answer = f.answer.value; edited(); });
+  f.cat.addEventListener("input", () => { commit("final:cat"); state.final.cat = f.cat.value; edited(); });
+  f.dd.addEventListener("change", () => { commit(""); target(true).dd = f.dd.checked; edited(); });
+  [f.clue, f.answer, f.cat].forEach((el) => el.addEventListener("blur", () => { lastKey = ""; }));
+  f.cat.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); f.clue.focus(); } });
+  f.clue.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); f.answer.focus(); } });
+  f.answer.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" || e.shiftKey) return;
+    e.preventDefault();
+    if (state.view === "final" || !step(1)) f.answer.blur();
+  });
+  ed.addEventListener("submit", (e) => e.preventDefault());
+  $("#prevSq").addEventListener("click", () => step(-1));
+  $("#nextSq").addEventListener("click", () => step(1));
+  $("#closeEd").addEventListener("click", () => closeEditor());
+  /* ---------- copy, cut, paste, clear ----------
+     Cut and paste is also how a clue moves to another round, since dragging only reaches the
+     round on screen. A copied square goes on the system clipboard too, as "clue<tab>answer",
+     so it pastes into a spreadsheet as two cells. */
+
+  let clip = null;
+  const squareOf = (t) => t === "final" ? state.final : cur().cells[t.c][t.r];
+  const nameOf = (t) => t === "final" ? "the " + FINAL : where(t.c, t.r);
+  function copySquare(t) {
+    const s = squareOf(t);
+    if (blank(s)) return false;
+    clip = structuredClone({ clue: s.clue, answer: s.answer, media: s.media, dd: !!s.dd });
+    toast(`Copied ${nameOf(t)}.`);
+    updateMenu();
+    return true;
+  }
+  function clearSquare(c, r) {
+    if (!cur().cells[c][r]) return;
+    commit("");
+    cur().cells[c][r] = null;
+    refreshSquare(c, r);
+    if (state.sel && state.sel.c === c && state.sel.r === r) fillEditor();
+    after();
+    say(`Cleared ${where(c, r)}.`);
+  }
+  function cutSquare(c, r) {
+    if (!copySquare({ c: c, r: r })) return;
+    clearSquare(c, r);
+    toast(`Cut ${where(c, r)}. Paste it into any square, in any round.`);
+  }
+  function pasteSquare(t) {
+    if (!clip) return;
+    commit("");
+    if (t === "final") Object.assign(state.final, { clue: clip.clue, answer: clip.answer, media: structuredClone(clip.media) });
+    else { cur().cells[t.c][t.r] = structuredClone(clip); refreshSquare(t.c, t.r); }
+    if (t === "final" || (state.sel && state.sel.c === t.c && state.sel.r === t.r)) fillEditor();
+    after();
+    say(`Pasted into ${nameOf(t)}.`);
+  }
+  function clearFinal() {
+    commit("");
+    Object.assign(state.final, { cat: "", clue: "", answer: "", media: null });
+    fillEditor();
+    after();
+    say(`Cleared the ${FINAL}.`);
+  }
+  // Which square ⌘C, ⌘X and ⌘V are for, or null when they belong to a text box.
+  function squareInFocus() {
+    const a = document.activeElement;
+    if (!a || a.matches("input, textarea")) return null;
+    const b = a.closest(".sq");
+    if (b && grid.contains(b)) return { c: +b.dataset.c, r: +b.dataset.r };
+    if (!ed.hidden && ed.contains(a)) return state.view === "final" ? "final" : state.sel;
+    return null;
+  }
+  sqMenuBtn.addEventListener("click", () => {
+    if (!sqMenu.hidden) { closePops(true); return; }
+    updateMenu();
+    openPop(sqMenu, sqMenuBtn);
+  });
+  sqMenu.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-act]");
+    if (!b || b.disabled) return;
+    const t = state.view === "final" ? "final" : state.sel, act = b.dataset.act;
+    closePops(true);
+    if (act === "copy") copySquare(t);
+    else if (act === "cut") cutSquare(t.c, t.r);
+    else if (act === "paste") pasteSquare(t);
+    else if (t === "final") clearFinal();
+    else clearSquare(t.c, t.r);
+  });
+  function onClipboard(e, cutting) {
+    const t = squareInFocus();
+    if (!t || blank(squareOf(t))) return;
+    const s = squareOf(t);
+    e.preventDefault();
+    e.clipboardData.setData("text/plain", s.clue + "\t" + s.answer);
+    if (cutting && t !== "final") cutSquare(t.c, t.r);
+    else copySquare(t);
+  }
+  document.addEventListener("copy", (e) => onClipboard(e, false));
+  document.addEventListener("cut", (e) => onClipboard(e, true));
+
+  /* ---------- pictures and videos ---------- */
+
+  const hasFiles = (e) => !!e.dataTransfer && Array.from(e.dataTransfer.types || []).indexOf("Files") !== -1;
+  const imageFrom = (files) => Array.from(files || []).find((x) => /^image\//.test(x.type));
+  function linkErr(msg) { const p = $("#linkErr"); p.textContent = msg; p.hidden = !msg; }
+  // Redrawn and stored before it lands (pictures.js), so it is async: the square it was meant
+  // for is remembered by round and place, and a picture whose square has gone is dropped.
+  function attach(file) {
+    if (!file) { linkErr("That isn't a picture. A picture can be a PNG, JPEG, GIF or WebP file."); return; }
+    const fin = state.view === "final", roundId = fin ? null : cur().id, sel = state.sel && { c: state.sel.c, r: state.sel.r };
+    const name = /^image\.\w+$/i.test(file.name || "image.png") ? "Pasted picture" : file.name;
+    linkErr("");
+    say("Adding the picture.");
+    addPicture(file, name).then((media) => {
+      const R = fin ? null : state.rounds.find((x) => x.id === roundId);
+      if (fin ? !state.final : !(R && sel && sel.c < R.cats.length && sel.r < R.prices.length)) return;
+      commit("");
+      if (fin) state.final.media = media;
+      else (R.cells[sel.c][sel.r] = R.cells[sel.c][sel.r] || { clue: "", answer: "", media: null, dd: false }).media = media;
+      render();
+      say("Picture added.");
+    }, (err) => linkErr(err.message));
+  }
+  function applyLink() {
+    const v = f.link.value.trim();
+    if (!v) { linkErr(""); return; }
+    const m = parseLink(v);
+    if (!m) { linkErr("The board can play a YouTube or Google Drive link, or show a link that ends in .png, .jpg or .gif. This one is none of those."); return; }
+    linkErr("");
+    f.link.value = "";
+    commit("");
+    target(true).media = m;
+    renderMedia();
+    edited();
+  }
+  function renderMedia() {
+    const t = target(false), m = t && t.media, card = $("#mediaCard");
+    card.hidden = !m;
+    drop.hidden = !!m;
+    if (!m) { card.textContent = ""; return; }
+    let vis, title, sub;
+    const src = pictureSrc(m);
+    if (src) { vis = `<img src="${esc(src)}" alt="">`; title = m.name; sub = m.size ? bytes(m.size) : ""; }
+    else if (m.kind === "picture" && m.id) { vis = `<span class="vid">${ico("image", 22)}</span>`; title = m.name; sub = "Not on this device"; }
+    else if (m.kind === "picture") { vis = `<span class="vid">${ico("image", 22)}</span>`; title = m.name || "Linked picture"; sub = "From the web"; }
+    else if (m.kind === "video") { vis = `<span class="vid">${ico("play", 22)}</span>`; title = `${m.host} video`; sub = m.start ? `Starts at ${m.start}` : ""; }
+    else { vis = `<span class="vid">${ico("link", 22)}</span>`; title = `${m.host} file`; sub = ""; }
+    card.innerHTML = `${vis}<span class="mt"><b>${esc(title)}</b>${sub ? `<span>${esc(sub)}</span>` : ""}</span><button type="button" class="quiet" id="rmMedia">Remove</button>`;
+  }
+  function renderPreview() {
+    const t = target(false), p = $("#preview");
+    p.textContent = "";
+    if (t && t.clue.trim()) { const q = document.createElement("p"); mathText(q, t.clue); p.appendChild(q); }
+    const src = t && pictureSrc(t.media);
+    if (src) p.insertAdjacentHTML("beforeend", `<img src="${esc(src)}" alt="">`);
+    else if (t && t.media) p.insertAdjacentHTML("beforeend", `<span class="pv-vid">${ico(t.media.kind === "picture" ? "image" : "play", 18)} ${esc(t.media.host || "Picture")}</span>`);
+  }
+  $("#mediaCard").addEventListener("click", (e) => {
+    if (!e.target.closest("#rmMedia")) return;
+    const t = target(false);
+    if (!t) return;
+    commit("");
+    t.media = null;
+    renderMedia();
+    edited();
+    $("#chooseBtn").focus();
+  });
+  $("#chooseBtn").addEventListener("click", () => f.file.click());
+  f.file.addEventListener("change", () => { if (f.file.files[0]) attach(imageFrom(f.file.files)); f.file.value = ""; });
+  f.link.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); applyLink(); } });
+  f.link.addEventListener("change", applyLink);
+  f.link.addEventListener("paste", () => setTimeout(applyLink, 0));
+  drop.addEventListener("dragover", (e) => { if (hasFiles(e)) { e.preventDefault(); drop.classList.add("over"); } });
+  drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+  drop.addEventListener("drop", (e) => {
+    drop.classList.remove("over");
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    attach(imageFrom(e.dataTransfer.files));
+  });
+  document.addEventListener("paste", (e) => {
+    const img = imageFrom(e.clipboardData && e.clipboardData.files), a = document.activeElement;
+    const b = a && !a.matches("input, textarea") && a.closest(".sq");
+    if (img && b && grid.contains(b)) { e.preventDefault(); openEditor(+b.dataset.c, +b.dataset.r); attach(img); return; }   // a screenshot onto a square
+    if (img && !ed.hidden) { e.preventDefault(); attach(img); return; }   // or into the open one
+    const t = squareInFocus();
+    if (t && clip) { e.preventDefault(); pasteSquare(t); }   // otherwise a copied square
+  });
+  // A picture dropped straight onto a square opens that square with the picture in it.
+  const clearTargets = () => grid.querySelectorAll(".sq.target").forEach((x) => x.classList.remove("target"));
+  grid.addEventListener("dragover", (e) => {
+    if (!hasFiles(e)) return;
+    const b = e.target.closest(".sq");
+    clearTargets();
+    if (b) { e.preventDefault(); b.classList.add("target"); }
+  });
+  grid.addEventListener("dragleave", (e) => { if (!grid.contains(e.relatedTarget)) clearTargets(); });
+  grid.addEventListener("drop", (e) => {
+    const b = e.target.closest(".sq");
+    clearTargets();
+    if (!b || !hasFiles(e)) return;
+    e.preventDefault();
+    openEditor(+b.dataset.c, +b.dataset.r);
+    attach(imageFrom(e.dataTransfer.files));
+  });
+  window.addEventListener("dragover", (e) => { if (hasFiles(e)) e.preventDefault(); });
+  window.addEventListener("drop", (e) => { if (hasFiles(e)) e.preventDefault(); });
+
+  /* ---------- the .xlsx preview: setToTables, the same tables Save writes ---------- */
+
+  let sheetTab = 0;
+  function renderSheet() {
+    $("#xlName").textContent = fileName();
+    const tables = setToTables(state);
+    const ids = state.rounds.map((R, i) => i).concat(state.final ? ["final"] : [], ["help"]);
+    if (ids.indexOf(sheetTab) === -1) sheetTab = 0;
+    $("#xlTabs").innerHTML = tables.map((t, k) => `<button type="button" class="xltab" data-tab="${ids[k]}"${ids[k] === sheetTab ? ' aria-current="true"' : ""}>${esc(t.name)}</button>`).join("");
+    const table = tables[ids.indexOf(sheetTab)];
+    // A picture is not in its cell; it sits over its clue's row, so the preview draws it there.
+    const pictureAt = (row) => {
+      if (row < 1) return null;
+      if (sheetTab === "final") return state.final.media;
+      const R = state.rounds[sheetTab], n = R.prices.length, s = R.cells[Math.floor((row - 1) / n)][(row - 1) % n];
+      return s && s.media;
+    };
+    const cell = (v, row, col) => {
+      if (row > 0 && col === (sheetTab === "final" ? 3 : 4)) {
+        const m = pictureAt(row), src = pictureSrc(m);
+        if (src) return `<img src="${esc(src)}" alt="">`;
+        if (m && m.url) return `<span class="lnk">${esc(m.url)}</span>`;
+        return "";
+      }
+      return row > 0 && typeof v === "number" ? money(v) : esc(v);
+    };
+    const widths = sheetTab === "final" ? [150, 330, 150, 150, 76, 100] : [150, 76, 330, 150, 150, 100];
+    let h = '<colgroup><col style="width:40px">' + widths.map((w) => `<col style="width:${w}px">`).join("") + "</colgroup>";
+    h += "<thead><tr><th></th>" + "ABCDEF".split("").map((x) => `<th>${x}</th>`).join("") + "</tr></thead><tbody>";
+    table.rows.forEach((row, i) => {
+      if (sheetTab === "help") {
+        h += `<tr><td class="rn">${i + 1}</td><td colspan="6"${i === 0 ? ' class="helphead"' : ""}>${esc(row[0])}</td></tr>`;
+        return;
+      }
+      const cells = row.concat(Array(6 - row.length).fill(""));
+      h += `<tr${i === 0 ? ' class="hdr"' : ""}><td class="rn">${i + 1}</td>` +
+        cells.map((v, j) => `<td${j === 1 && i > 0 && sheetTab !== "final" ? ' class="n"' : ""}>${cell(v, i, j)}</td>`).join("") + "</tr>";
+    });
+    $("#xlTable").innerHTML = h + "</tbody>";
+  }
+  $("#xlTabs").addEventListener("click", (e) => {
+    const b = e.target.closest(".xltab");
+    if (!b) return;
+    sheetTab = /^\d+$/.test(b.dataset.tab) ? +b.dataset.tab : b.dataset.tab;
+    renderSheet();
+  });
+  sheetBox.addEventListener("toggle", () => { if (sheetBox.open) renderSheet(); });
+
+  /* ---------- top bar, keys, toast ---------- */
+
+  function renderTop() {
+    if (titleEl.value !== state.title) titleEl.value = state.title;
+    const dirty = state.rev !== savedRev;
+    statusEl.classList.toggle("dirty", dirty);
+    statusEl.textContent = dirty ? "Unsaved changes" : savedAt ? "Saved " + savedAt : "Saved";
+    undoBtn.disabled = !past.length;
+    redoBtn.disabled = !future.length;
+  }
+  function after() {
+    if (sheetBox.open) renderSheet();
+    renderTop();
+    store();
+  }
+  let toastTimer = 0;
+  function toast(msg, ms) {
+    toastEl.textContent = msg;
+    toastEl.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { toastEl.hidden = true; }, ms || 4500);
+  }
+  function say(msg) { liveEl.textContent = ""; setTimeout(() => { liveEl.textContent = msg; }, 30); }
+
+  const KEYS = MAC
+    ? { undo: "⌘Z", redo: "⇧⌘Z", copy: "⌘C", cut: "⌘X", paste: "⌘V", clear: "⌫" }
+    : { undo: "Ctrl+Z", redo: "Ctrl+Y", copy: "Ctrl+C", cut: "Ctrl+X", paste: "Ctrl+V", clear: "Del" };
+  document.querySelectorAll("kbd[data-k]").forEach((k) => { k.textContent = KEYS[k.dataset.k]; });
+  undoBtn.title = `Undo (${KEYS.undo})`;
+  redoBtn.title = `Redo (${KEYS.redo})`;
+  undoBtn.addEventListener("click", undo);
+  redoBtn.addEventListener("click", redo);
+  titleEl.addEventListener("input", () => { commit("title"); state.title = titleEl.value; after(); });
+  titleEl.addEventListener("blur", () => { lastKey = ""; });
+  helpBtn.addEventListener("click", () => { if (!help.hidden) closePops(); else openPop(help, helpBtn); });
+  document.addEventListener("pointerdown", (e) => {
+    POPS.forEach(([el, btnOf]) => {
+      const b = btnOf();
+      if (!el.hidden && !el.contains(e.target) && !(b && b.contains(e.target))) {
+        el.hidden = true;
+        if (b) b.setAttribute("aria-expanded", "false");
+      }
+    });
+  });
+  document.addEventListener("keydown", (e) => {
+    if (leaveDlg.open) return;   // the dialog has the keyboard until it closes
+    const k = (e.key || "").toLowerCase();
+    if ((e.metaKey || e.ctrlKey) && !e.altKey && (k === "z" || (k === "y" && e.ctrlKey && !e.metaKey))) {
+      if (e.target.closest && e.target.closest("#tabname")) return;   // a rename in progress keeps its own undo
+      e.preventDefault();
+      if (k === "y" || e.shiftKey) redo(); else undo();
+      return;
+    }
+    if (e.key !== "Escape") return;
+    if (tabDrag) endTabDrag(false);
+    else if (drag) endDrag(false);
+    else if (!closePops(true) && state.sel) closeEditor();
+  });
+
+  /* ---------- saving, opening, and the way out ---------- */
+
+  // The file is the save. It is written from a copy taken now, so typing on while it is built
+  // cannot change what lands in it, and "Saved" is this revision and no later one.
+  function save() {
+    const rev = state.rev, set = structuredClone({ title: state.title, rounds: state.rounds, final: state.final });
+    return writeXlsx(set).then(({ blob, missing }) => {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = fileName();
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 60000);   // long enough for any browser to have read it
+      savedRev = rev;
+      savedAt = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      after();
+      // A picture this browser has lost - its storage cleared - cannot go in, and says so.
+      toast(`Saved “${fileName()}” to your downloads.` + (missing ? ` ${missing} ${missing === 1 ? "picture was" : "pictures were"} not on this device, so ${missing === 1 ? "it is" : "they are"} not in the file.` : ""), missing ? 10000 : 4500);
+    }, (err) => { toast("Could not save: " + err.message, 8000); throw err; });
+  }
+  $("#saveBtn").addEventListener("click", () => { save().catch(() => {}); });
+
+  // Unsaved work asks first, with three answers: save it, keep it, or let it go. The same
+  // question guards the logo and Open file, worded for each.
+  let onLeave = null;
+  function askFirst(verb, then) {
+    closePops();
+    if (state.rev === savedRev) { then(false); return; }
+    $("#leaveTitle").textContent = `Save “${state.title.trim() || "Untitled game"}” first?`;
+    $("#leaveSave").textContent = "Save and " + verb;
+    $("#leaveGo").textContent = verb === "leave" ? "Leave without saving" : "Open without saving";
+    onLeave = then;
+    leaveDlg.showModal();
+  }
+  leaveDlg.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-leave]"), then = onLeave;
+    if (!b) return;
+    leaveDlg.close();
+    if (b.dataset.leave && then) then(b.dataset.leave === "save");
+  });
+  leaveDlg.addEventListener("close", () => { onLeave = null; });
+
+  // The logo is the way back to the front page.
+  let leaving = false;
+  $("#home").addEventListener("click", (e) => {
+    e.preventDefault();
+    askFirst("leave", (saveFirst) => {
+      const go = () => { leaving = true; location.href = $("#home").href; };
+      if (saveFirst) save().then(() => setTimeout(go, 400), () => {});
+      else go();
+    });
+  });
+
+  // Opening: an .xlsx, or a .csv or .tsv from any spreadsheet. The title is the file's name,
+  // less the " (1)" a browser adds to a second download. The picker is asked for in the same
+  // tap as the question, because a browser only opens one from a tap; saving runs alongside.
+  const openIn = $("#openIn");
+  $("#openBtn").addEventListener("click", () => askFirst("open", (saveFirst) => {
+    if (saveFirst) save().catch(() => {});
+    openIn.click();
+  }));
+  openIn.addEventListener("change", () => {
+    const file = openIn.files[0];
+    openIn.value = "";
+    if (file) openFile(file);
+  });
+  function openFile(file) {
+    const name = file.name || "";
+    openGameFile(file).then((parsed) => {
+      if (!parsed.set.rounds.length && !parsed.set.final) {
+        toast(parsed.errors[0] || `“${name}” has no rounds in it.`, 8000);
+        return;
+      }
+      adopt(parsed.set);
+      savedRev = state.rev;
+      savedAt = "";
+      closePops();
+      render();
+      const notes = parsed.errors;
+      toast(`Opened “${name}”.` + (notes.length ? " " + notes[0] + (notes.length > 1 ? ` (and ${notes.length - 1} more to check)` : "") : ""), notes.length ? 10000 : 4500);
+    }, (err) => toast(`Could not open “${name}”: ${err.message}`, 8000));
+  }
+
+  window.addEventListener("beforeunload", (e) => {
+    if (!leaving && state.rev !== savedRev) { e.preventDefault(); e.returnValue = ""; }
+  });
+
+  function render() {
+    const fin = state.view === "final";
+    work.classList.toggle("final", fin);
+    if (fin) {
+      work.classList.remove("editing");
+      ed.hidden = false;
+      fillEditor();
+    } else {
+      renderGrid();
+      ed.hidden = !state.sel;
+      work.classList.toggle("editing", !!state.sel);
+      if (state.sel) fillEditor();
+    }
+    renderTabs();
+    after();
+  }
+
+  // This device's copy, or a new game. Pictures are drawn as soon as they are read, and any
+  // no longer in the set are let go now, while no undo history can still want them.
+  const stored = readSet(localStorage.getItem(SET_KEY));
+  adopt(stored);
+  savedRev = stored && stored.unsaved ? -1 : state.rev;
+  storedKey = state.rev + (stored && stored.unsaved ? "*" : "");   // a new game is kept from its first edit
+  render();
+  const ids = pictureIds(state);
+  if (ids.length) loadPictures(ids).then(render);
+  keepPictures(ids);
+})();
+</script>
+</body>
+</html>

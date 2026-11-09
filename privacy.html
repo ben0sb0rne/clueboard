@@ -13,7 +13,9 @@
        deletion, and when     closeRoom() / wipeRoom() / wipeIfDead() in control.html
        the hour               HOST_GONE in index.html, freeCode() in control.html
        the one outside script the firebasejs <script> tags at the foot of every page
-       answers stay local     the clue set is held in memory by control.html and never written
+       answers stay local     the set is kept in localStorage (clueboard-set) and its pictures in
+                              IndexedDB (pictures.js); game.js publishes only the clue's text
+       videos and pictures    showMedia() in board.html: the projector's own copy of the set
 
      The shape is the FTC's six-step plan, step 2, which is the list of what a policy has to
      carry: who the operator is and how to reach them, what is collected and how, who else
@@ -22,7 +24,7 @@
 <main class="wrap">
 
 <h1>Privacy</h1>
-<p class="updated">Last updated 7 November 2026</p>
+<p class="updated">Last updated 8 November 2026</p>
 
 <p class="lede">Clueboard has no accounts, no sign-in, no advertising and no tracking. While a
 game is running it holds the team names and what students type into it. When the game is closed,
@@ -61,12 +63,16 @@ analytics, no advertising identifier, no location, no fingerprinting of your dev
 
 <h2>What never goes on the network</h2>
 <ul>
-  <li><strong>The clue set.</strong> A teacher pastes their questions and answers into their own
-    browser and they stay on that device. They are not uploaded. The only thing published to a
-    room is the clue currently on the projector - which the whole room is looking at anyway.</li>
+  <li><strong>The clue set.</strong> A teacher writes their questions and answers in their own
+    browser, or opens or pastes them there, and they stay on that device, pictures and all, and
+    in the file they save, which goes wherever they put it. They are not uploaded. The only thing
+    published to a room is the words of the clue currently on the projector - which the whole room
+    is looking at anyway. A clue's picture or video is never published: the projector finds it in
+    its own copy of the game.</li>
   <li><strong>Anything for us.</strong> No analytics, no advertising, no tracking cookies. The
     only code loaded from anywhere other than this site is Google's Firebase library, which is
-    what talks to the database.</li>
+    what talks to the database - and, on the teacher's own screens only, the YouTube or Google
+    Drive player for a video a teacher put in a clue.</li>
 </ul>
 
 <h2>Who else is involved</h2>
@@ -75,6 +81,10 @@ the library that talks to it is served by Google from <code>www.gstatic.com</cod
 contents, and the IP address of every device in it, pass through Google's servers for as long as
 the game is running. What Google does with that is covered by
 <a href="https://policies.google.com/privacy">Google's privacy policy</a>.</p>
+<p>A video in a clue plays in YouTube's privacy-enhanced player or Google Drive's own, on the
+projector and nowhere else, so Google sees that screen's address as it plays. A picture a teacher
+links to from another website, rather than putting in the game, is fetched from that website by
+the teacher's own screens, which that site can see. Student devices load neither.</p>
 <p>There is no analytics provider, no advertising network and no other vendor. Nothing is handed
 to anybody else, for any reason, unless the law requires it.</p>
 
@@ -93,7 +103,8 @@ Nothing is archived, backed up by us, or looked at after the lesson.</p>
 </ul>
 <p>Your own browser remembers one thing, on your device and nowhere else, so that a refresh in
 the middle of a lesson does not lose your place: which room and team you are, on a student
-device, and which clue set you loaded, on the teacher's. Clearing your browser data clears it.</p>
+device, and the game you made or loaded, with its pictures, on the teacher's. Clearing your
+browser data clears it.</p>
 
 <h2>What is never done with it</h2>
 <p>Nothing from a room is sold, rented or shared. None of it is used for advertising of any kind,

@@ -15,11 +15,13 @@
   <h1>Clueboard</h1>
 
   <div id="importBox">
-    <p class="sub">Copy the rows out of your spreadsheet and paste them here, header row and all.</p>
+    <p class="sub">Open the .xlsx the designer saved, or copy the rows out of your spreadsheet and paste them here, header row and all.</p>
     <textarea id="tsv" spellcheck="false"
       placeholder="round&#9;category&#9;value&#9;clue&#9;image&#9;answer&#9;dd"></textarea>
     <p id="importErr" class="err"></p>
     <div class="acts">
+      <button id="fileBtn" class="quiet">Open a file</button>
+      <input type="file" id="fileIn" accept=".xlsx,.csv,.tsv,.txt" hidden>
       <button id="sampleBtn" class="quiet">Use the sample set</button>
       <button id="importBtn" class="act">Load clue set</button>
     </div>
@@ -101,8 +103,9 @@
       <label class="pick" title="The board"><input type="color" id="groundPick"></label>
       <label class="pick" title="The values"><input type="color" id="accentPick"></label>
     </div>
+    <!-- A "Go to" button for every other round with clues in it goes in ahead of the final
+         clue: renderRoundButtons builds them from the set. -->
     <div class="acts">
-      <button id="roundBtn" class="quiet">Go to round 2</button>
       <button id="finalBtn" class="quiet">Go to the final clue</button>
       <button id="endGame" class="quiet">End the game</button>
     </div>
@@ -173,7 +176,11 @@
 <script src="firebase-config.js"></script>
 <script src="demo.js"></script>
 <script src="common.js"></script>
+<script src="math.js"></script>
 <script src="clues.js"></script>
+<!-- Opening a game saved from the designer, and the pictures in it. -->
+<script src="xlsx.js"></script>
+<script src="pictures.js"></script>
 <!-- The moves a host can make, shared with the board, which can now run a game by itself. -->
 <script src="game.js"></script>
 <!-- The room's colours, shared with the board and the student devices. -->
@@ -183,7 +190,7 @@ const $ = (s) => document.querySelector(s);
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ";   // no I or O: they read as 1 and 0 on a projector
 const MUTE_KEY = "clueboard-muted";
 const LAST_ROOM = "clueboard-host-room";
-const SET_KEY = "clueboard-set";           // the raw paste, re-parsed on load
+const SET_KEY = "clueboard-set";           // the set, shared with the designer: see readSet
 const PICK_KEY = "clueboard-teams-pick";   // host preference, remembered between games
 const CODE_KEY = "clueboard-show-code";    // the same, for the code in the board's corner
 const BUZZ_KEY = "clueboard-buzzers-only"; // and for a game played without answer boxes
@@ -204,6 +211,7 @@ let roomCode = null;
 let teamsRef = null;
 let gameRef = null;
 let clueSet = null;
+let importNotes = [];       // what the last paste said about itself, shown once
 let game = {};              // last snapshot of rooms/<code>/game
 let teams = [];
 let moves = null;           // the host's moves on this room, from game.js; null with no room
@@ -239,6 +247,12 @@ $("#buzzPick").checked = buzzerPick;
 applyTheme(theme);      // before the first paint, so this screen never flashes the default
 drawSwatches();
 $("#importBtn").addEventListener("click", importSet);
+$("#fileBtn").addEventListener("click", () => $("#fileIn").click());
+$("#fileIn").addEventListener("change", () => {
+  const file = $("#fileIn").files[0];
+  $("#fileIn").value = "";
+  if (file) importFile(file);
+});
 $("#sampleBtn").addEventListener("click", loadSample);
 $("#reimportBtn").addEventListener("click", () => showSetup(true));
 $("#createBtn").addEventListener("click", createRoom);
@@ -254,7 +268,6 @@ $("#buzzPick").addEventListener("change", setBuzzerPick);
 // projector window a live preview rather than an apply-and-see.
 $("#groundPick").addEventListener("input", pickColours);
 $("#accentPick").addEventListener("input", pickColours);
-$("#roundBtn").addEventListener("click", () => moves.setRound(otherRound()));
 $("#endGame").addEventListener("click",
   () => arm($("#endGame"), "End the game", () => moves.end()));
 $("#keepAlive").addEventListener("click", markActive);
@@ -296,26 +309,41 @@ if (clueSet && /^[A-Z]{4}$/.test(fromUrl)) openRoom(fromUrl);
 
 /* ---------- the clue set ---------- */
 
-// The raw paste is what gets stored, not the parsed tree: it is barely larger, and a fix to
-// the parser then applies to a set that is already loaded instead of needing a re-import.
+// The set is kept as the set, under the same key the designer writes: whatever was last made
+// or loaded on this device is the game this screen opens with, so the designer needs no
+// Play button. What the paste said about itself is shown once, as it is loaded.
+
 function loadStoredSet() {
-  const raw = localStorage.getItem(SET_KEY);
-  if (!raw) { showSetup(true); return; }
-  clueSet = parseClueSet(raw);
-  if (!clueSet.rounds[1]) { clueSet = null; showSetup(true); return; }
+  clueSet = readSet(localStorage.getItem(SET_KEY));
+  if (!firstRound(clueSet)) { clueSet = null; showSetup(true); return; }
   showSetup(false);
 }
 
-function importSet() {
-  const raw = $("#tsv").value;
-  const parsed = parseClueSet(raw);
-  if (!parsed.rounds[1]) {
-    $("#importErr").textContent = parsed.errors[0] || "No round 1 clues in that paste.";
+function importSet() { useSet(parseClueSet($("#tsv").value), "that paste"); }
+
+// The .xlsx the designer saved, or a .csv or .tsv from any spreadsheet: the same set either
+// way, named after the file.
+function importFile(file) {
+  openGameFile(file).then((parsed) => useSet(parsed, "that file"),
+    (err) => { $("#importErr").textContent = "Could not open " + file.name + ": " + err.message; });
+}
+
+function useSet(parsed, from) {
+  if (!firstRound(parsed.set)) {
+    $("#importErr").textContent = parsed.errors[0] || (parsed.set.rounds.length
+      ? "Nothing in " + from + " has both a clue and an answer."
+      : "No clues in " + from + ".");
     return;
   }
+  // One set per device, and the designer is editing it too. A set it has not saved to a file
+  // yet exists nowhere else, so replacing it is asked about rather than done.
+  const was = readSet(localStorage.getItem(SET_KEY));
+  if (was && was.unsaved && !confirm("Replace the game in the designer? Its latest changes " +
+      "aren't in a saved file yet.")) return;
   $("#importErr").textContent = "";
-  localStorage.setItem(SET_KEY, raw);
-  clueSet = parsed;
+  localStorage.setItem(SET_KEY, JSON.stringify(parsed.set));
+  clueSet = parsed.set;
+  importNotes = parsed.errors;
   showSetup(false);
 }
 
@@ -331,25 +359,26 @@ function showSetup(importing) {
   $("#ready").hidden = importing;
   if (importing || !clueSet) return;
 
-  const counts = [1, 2].filter((r) => clueSet.rounds[r])
-    .map((r) => clueCount(clueSet, r, {}) + " in round " + r);
-  if (clueSet.final.length) counts.push("a final");   // only the first is ever played
+  const counts = clueSet.rounds.map((R, i) => [clueCount(clueSet, i + 1, {}), R.name])
+    .filter(([n]) => n).map(([n, name]) => n + " in " + name);
+  if (finalClue(clueSet)) counts.push("a final");
   $("#setSummary").textContent = "Clue set loaded: " + counts.join(", ") + ".";
 
   const list = $("#setWarnings");
   list.textContent = "";
-  clueSet.errors.slice(0, 8).forEach((e) => {
+  importNotes.slice(0, 8).forEach((e) => {
     const li = document.createElement("li");
     li.textContent = e;
     list.appendChild(li);
   });
-  if (clueSet.errors.length > 8) {
+  if (importNotes.length > 8) {
     const li = document.createElement("li");
-    li.textContent = "and " + (clueSet.errors.length - 8) + " more.";
+    li.textContent = "and " + (importNotes.length - 8) + " more.";
     list.appendChild(li);
   }
 
-  $("#title").value = gameTitle;
+  // A set made in the designer is named after its file, which is the name a teacher chose.
+  $("#title").value = clueSet.title || gameTitle;
   buildCheck();
 }
 
@@ -411,8 +440,8 @@ function freeCode(tries) {
 
 // The whole set, read before the lesson rather than discovered during it. It renders with the
 // same mathText the board uses, so a broken $...$ is red here in the staffroom instead of red
-// on the projector, and the image is a real <img> rather than a probe - one element both
-// proves the file is there and shows what the class will see.
+// on the projector, and a picture is a real <img> rather than a probe - one element both
+// proves it is there and shows what the class will see.
 //
 // The parser's own warnings stay in the list above; this counts only what it cannot know,
 // which is whether the maths parses and whether the pictures exist.
@@ -421,13 +450,14 @@ function buildCheck() {
   list.textContent = "";
   let problems = 0;
 
+  // Every square with anything in it, in board order, and the final clue last. A half-written
+  // one is listed too, because it is the one that will not be on the board.
+  const several = clueSet.rounds.length > 1;
   const clues = [];
-  [1, 2].forEach((r) => {
-    const round = clueSet.rounds[r];
-    if (!round) return;
-    round.cells.forEach((column) => column.forEach((clue) => { if (clue) clues.push(clue); }));
-  });
-  clueSet.final.slice(0, 1).forEach((f) => clues.push(f));   // only the first is ever played
+  clueSet.rounds.forEach((R) => R.cells.forEach((column, c) => column.forEach((s, r) => {
+    if (s) clues.push({ tag: [several ? R.name : "", money(R.prices[r]), R.cats[c]], s: s });
+  })));
+  if (clueSet.final) clues.push({ tag: ["Final Clue", clueSet.final.cat], s: clueSet.final });
 
   function say() {
     $("#checkSum").textContent = "Check the clues - " + clues.length + " clue" +
@@ -445,17 +475,15 @@ function buildCheck() {
     say();
   }
 
-  clues.forEach((clue) => {
+  clues.forEach(({ tag: where, s }) => {
+    const clue = { text: s.clue, answer: s.answer };
+    const m = s.media;
     const row = document.createElement("div");
     row.className = "chrow";
 
     const tag = document.createElement("p");
     tag.className = "chtag";
-    tag.textContent = [
-      clue.round === "final" ? "Final" : money(clue.value),
-      clue.category,
-      clue.dd ? "Daily Double" : ""
-    ].filter(Boolean).join("  \u00b7  ");
+    tag.textContent = where.concat(s.dd ? "Daily Double" : "").filter(Boolean).join("  \u00b7  ");
     row.appendChild(tag);
 
     const q = document.createElement("p");
@@ -468,7 +496,13 @@ function buildCheck() {
     mathText(a, clue.answer);
     row.appendChild(a);
 
-    if (clue.image) {
+    if (!playable(s)) {
+      note(row, (s.clue.trim() ? "No answer" : "No clue") + " yet, so this is not on the board.");
+    }
+
+    // A picture kept on this device, or one linked from the web; a video is named, since the
+    // board plays it and there is nothing to check here but which one it is.
+    if (m && m.kind === "picture") {
       const img = document.createElement("img");
       img.alt = "";
       img.addEventListener("error", () => {
@@ -476,12 +510,22 @@ function buildCheck() {
         // lesson. isConnected because this arrives late: without it, a failure from the set
         // the teacher just replaced would still be counted against the new one.
         if (!row.isConnected) return;
-        const src = img.getAttribute("src");
         img.remove();
-        note(row, "No image at " + src + ".");
+        note(row, "No picture at " + m.url + ".");
       });
-      img.src = /^https?:/.test(clue.image) ? clue.image : "clues/images/" + clue.image;
       row.appendChild(img);
+      if (!m.id) img.src = m.url;
+      else loadPictures([m.id]).then(() => {
+        if (!row.isConnected) return;
+        if (pictureURLs[m.id]) { img.src = pictureURLs[m.id]; return; }
+        img.remove();
+        note(row, "This picture is not on this device. Open the game's file here to bring it back.");
+      });
+    } else if (m) {
+      const v = document.createElement("p");
+      v.className = "chtag";
+      v.textContent = m.host + (m.kind === "video" ? " video" : " file") + (m.start ? ", from " + m.start : "");
+      row.appendChild(v);
     }
 
     mathErrors(clue.text).concat(mathErrors(clue.answer)).forEach((msg) => {
@@ -516,6 +560,7 @@ function openRoom(code) {
   $("#dash").hidden = false;
 
   roomCode = code;
+  roundButtonsFor = null;   // the set may have changed since the last room
   rememberRoom(code);
   // The host's moves on this room, from game.js. It reads this screen's own state through
   // these getters rather than keeping a copy, so there is only ever one.
@@ -535,7 +580,9 @@ function openRoom(code) {
   // the clue set lives on this device and a fresh tab has to put it back.
   gameRef.once("value").then((snap) => {
     const was = snap.val() || {};
-    const round = Number(was.round) || 1;
+    // A round this set does not have, because the set changed since, starts it over.
+    let round = Number(was.round) || firstRound(clueSet);
+    if (!clueSet.rounds[round - 1]) round = firstRound(clueSet);
     // Reopening on a device that never typed the title takes it back off the room, rather
     // than blanking the card the board opens on.
     if (!gameTitle && was.title) gameTitle = was.title;
@@ -647,7 +694,8 @@ function renderGame(snap) {
   $("#endBtn").hidden = !(clue && clue.final && game.reveal);
   $("#closeBtn").hidden = !over;
   $("#endGame").hidden = over;
-  $("#roundBtn").textContent = "Go to round " + (round === 2 ? 1 : 2);
+  $("#finalBtn").hidden = !finalClue(clueSet);
+  renderRoundButtons(round);
 
   if (introing) {
     // The next card's own name, because the teacher reads it out as it lands.
@@ -726,7 +774,7 @@ function stateText() {
     return (game.title || "Ready") + " \u00b7 "
       + (teams.length ? ready + " of " + teams.length + " ready" : "not started");
   }
-  return "Round " + (Number(game.round) || 1) + " \u00b7 " + (game.turn
+  return roundName(Number(game.round) || 1) + " \u00b7 " + (game.turn
     ? "up next: " + (moves.teamName(game.turn) || "a team that has left")
     : "nobody up yet");
 }
@@ -764,9 +812,29 @@ function maybeShowClue() {
   moves.showClue();
 }
 
-// Which round the other one is. The button offers it and game.js is told which; the engine
-// does not get to decide where a game goes next.
-function otherRound() { return Number(game.round) === 2 ? 1 : 2; }
+function roundName(round) {
+  const R = clueSet && clueSet.rounds[round - 1];
+  return R ? R.name : "Round " + round;
+}
+
+// A way to every other round with something in it, in the set's own order. The buttons offer
+// them and game.js is told which; the engine does not get to decide where a game goes next.
+// Rebuilt only when the round changes, so a snapshot cannot swap a button out from under a
+// press.
+let roundButtonsFor = null;
+function renderRoundButtons(round) {
+  if (round === roundButtonsFor) return;
+  roundButtonsFor = round;
+  document.querySelectorAll(".roundbtn").forEach((b) => b.remove());
+  clueSet.rounds.forEach((R, i) => {
+    if (i + 1 === round || !clueCount(clueSet, i + 1, {})) return;
+    const b = document.createElement("button");
+    b.className = "quiet roundbtn";
+    b.textContent = "Go to " + R.name;
+    b.addEventListener("click", () => moves.setRound(i + 1));
+    $("#finalBtn").before(b);
+  });
+}
 
 function renderGrid() {
   const round = Number(game.round) || 1;
@@ -775,9 +843,11 @@ function renderGrid() {
   wrap.textContent = "";
   if (!grid) {
     $("#roundDone").hidden = false;
-    $("#roundDone").textContent = "No round " + round + " clues in this set.";
+    $("#roundDone").textContent = "No round " + round + " in this set.";
     return;
   }
+  // The round's own size, up to six by five. The board and the phones read it the same way.
+  wrap.style.setProperty("--cols", grid.cats.length);
 
   grid.cats.forEach((name, c) => {
     const head = document.createElement("div");
@@ -803,7 +873,7 @@ function renderGrid() {
 
   const left = clueCount(clueSet, round, game.used);
   $("#roundDone").hidden = left > 0;
-  $("#roundDone").textContent = "Every clue in round " + round + " is spent.";
+  $("#roundDone").textContent = "Every clue in " + roundName(round) + " is spent.";
 }
 
 /* ---------- teams ---------- */

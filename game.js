@@ -46,8 +46,8 @@ function hostMoves(ctx) {
   function answerFor(clue) {
     var set = ctx.clueSet();
     if (!clue || !set) return "";
-    if (clue.final) return ((set.final || [])[0] || {}).answer || "";
-    var found = clueAt(set, Number(ctx.game().round) || 1, clue.cat, clue.row);
+    var found = clue.final ? finalClue(set)
+      : clueAt(set, Number(ctx.game().round) || 1, clue.cat, clue.row);
     return found ? found.answer : "";
   }
 
@@ -100,6 +100,8 @@ function hostMoves(ctx) {
 
   // Publishes the clue text, which is about to be on the projector anyway. It does not spend
   // the cell - reveal() does that - so a mis-tap costs nothing and a clue can be held over.
+  // Its picture or video is not published: the board finds that in this device's own set,
+  // so nothing about media ever reaches a student's phone.
   function select(cat, row) {
     var game = ctx.game();
     var round = Number(game.round) || 1;
@@ -114,7 +116,7 @@ function hostMoves(ctx) {
     gameRef.update({
       clue: {
         cat: cat, row: row, category: clue.category, value: clue.value,
-        text: clue.text, image: clue.image || "", dd: !!owner,
+        text: clue.text, dd: !!owner,
         owner: owner, ownerName: owner ? teamName(owner) : null
       },
       wagering: owner ? true : null,
@@ -159,10 +161,11 @@ function hostMoves(ctx) {
       .catch(caught("close that clue"));
   }
 
+  // Rounds count from 1, in the set's own order, and the room only ever carries the number.
   function setRound(next) {
-    var set = ctx.clueSet();
-    if (!set.rounds[next]) { fail("This clue set has no round " + next + "."); return; }
-    gameRef.update({ round: next, grid: roundGrid(set, next), clue: null, reveal: false,
+    var grid = roundGrid(ctx.clueSet(), next);
+    if (!grid) { fail("This clue set has no round " + next + "."); return; }
+    gameRef.update({ round: next, grid: grid, clue: null, reveal: false,
                      pick: null, picker: null, wagering: null, shown: null, timerEnds: null })
       .then(resetBuzzers)
       .catch(caught("change round"));
@@ -172,12 +175,12 @@ function hostMoves(ctx) {
   // board is half full. It leaves `used` alone, so dismissing it returns to the board as it
   // was.
   function startFinal() {
-    var f = ((ctx.clueSet() || {}).final || [])[0];
-    if (!f) { fail("This clue set has no final clue. Add a row with round = final."); return; }
+    var f = finalClue(ctx.clueSet());
+    if (!f) { fail("This clue set has no final clue."); return; }
     gameRef.update({
       clue: {
         final: true, category: f.category, value: 0,
-        text: f.text, image: f.image || "", dd: false
+        text: f.text, dd: false
       },
       wagering: true, reveal: false, pick: null, shown: null, timerEnds: null
     })

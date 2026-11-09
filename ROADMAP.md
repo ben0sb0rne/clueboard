@@ -40,9 +40,27 @@ been seen on either.
 2. ~~**Board-only mode.**~~ Built. `Run from the board` on the control screen hands the game
    to the projector; the rules of a game moved into `game.js` first, so both host screens
    drive a room through one copy of them.
-3. **The designer.** Click a cell to write a clue, drag to swap, mark Daily Doubles, set the
-   final clue. CSV and TSV import stays as the fast path for anyone who already has a
-   spreadsheet.
+3. ~~**The designer.**~~ Built: `designer.html`, from a prototype Ben approved on 8 November
+   2026. CSV and TSV import stays as the fast path for anyone who already has a spreadsheet.
+   What was settled, and is not to be reopened:
+   - **The save is an .xlsx file**, which is decision 2 above made concrete. Opening `.csv`
+     and `.tsv` still works, and so does the paste box. A copy is kept on the device as you
+     work, as a safety net only.
+   - **The format**: a tab per round in play order, then `Final Clue`, then `Help`; one row
+     per square in board order, empty squares included; Category, Clue and Answer as Text
+     columns. README.md has the whole of it.
+   - **Pictures live inside the .xlsx** as real Excel pictures anchored in their clue's row,
+     and in IndexedDB on the device. Videos are YouTube or Google Drive links. Answers carry
+     no pictures.
+   - **No SheetJS**: a small zip and xlsx reader and writer of our own.
+   - **Rounds are a list**: any number, renamable and reorderable, plus an optional Final Clue
+     that keeps its name and is always last. The grid is capped at 6 by 5, prices go by row,
+     and a round can be smaller.
+   - **A half-written square is kept**, so it survives a save, and is never played.
+   - **Media is on the board only**, found in that device's own copy of the set. Nothing about
+     it goes to Firebase, so `database.rules.json` did not change. A phone as the control
+     screen means the laptop on the projector opens the file too.
+   - **"Final Clue" is the name**, here and in the file.
 4. **A landing page**, as the front door a friend arrives at.
 
 ## Known, and worth knowing
@@ -55,6 +73,16 @@ been seen on either.
   wrong, whooshes for transitions, a buzzer each team picks - is a project of its own, and
   most of it is curation rather than code. Nothing from the show: those cues are enforced.
 - **Still a fork.** A fix in the buzzer's `common.js` does not arrive here on its own.
+- **Browser storage is not a save.** Safari clears a site's storage after about a week
+  without a visit, so a game that only ever lived in the designer can vanish. The .xlsx is the
+  save, and the designer says so; the risk is a teacher who never presses it.
+- **The .xlsx was tested against the apps on 8 November 2026.** Excel 16.114 for Mac, Google
+  Sheets and Numbers for iCloud each opened a game with its picture showing, kept text typed
+  into an empty square as text, and saved a file this code reads back whole. `fixtures/` holds
+  those three files and `xlsx.test.html` checks them. Numbers was the one that needed a change:
+  it takes no format from a column, so even an empty square's cells are now written, empty and
+  Text. Not tested: Excel's Place in Cell pictures, which nothing can script, and the Numbers
+  app itself rather than iCloud's.
 
 ## The hardening list
 

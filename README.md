@@ -6,7 +6,8 @@ the teacher, and student devices that buzz and answer. Forked from
 
 No framework, no build step. Plain files served by GitHub Pages.
 
-**Status: playable prototype.** A whole game runs end to end: import a clue set, open a room,
+**Status: playable prototype.** A whole game runs end to end: write a game in the designer or
+import a clue set, open a room,
 teams join, clues are picked and answered, Daily Doubles and the final clue are wagered, the
 teacher scores by hand, and the game ends on a results screen.
 
@@ -75,7 +76,7 @@ just off screen - a peek of the next card gave the pan a direction and told the 
 coming. You press on; the
 board never moves on its own, because you are the one reading the categories out. Past the
 last one the button becomes `Start the game`, which is also the way out of an intro started
-by mistake. Round 2 has no intro.
+by mistake. Later rounds have no intro.
 
 **Only the board moves, and it moves calmly.** The show is low energy by design, so nothing
 here overshoots or springs: one easing that leaves rest and arrives at rest, and one duration
@@ -127,8 +128,8 @@ empties the board.
 
 **One palette, three screens.** The board, the dashboard and a student's phone are the same
 show: board blue, near-black, and the value gold. It is `palette.css`, which all three load
-before their own stylesheet. **A student handed the board gets the board**: the same six
-columns, the same five rows, the same spent cells, rather than a list of categories that
+before their own stylesheet. **A student handed the board gets the board**: the same
+columns, the same rows, the same spent cells, rather than a list of categories that
 asked them to find on a phone a thing already on the wall in front of them. The type is set
 in the system font there, not Anton - a webfont on thirty phones for a screen that is up for
 five seconds is not a trade worth making.
@@ -289,12 +290,21 @@ is no place for a paragraph of instructions:
 
 - `board.html` - student-facing, on the TV. Never touched during a game.
 - `control.html` - everything the teacher does. Holds the clue set, in memory.
+- `designer.html`, `designer.css` - where a game is written. See below.
+- `xlsx.js` - the .xlsx file: a small zip and SpreadsheetML reader and writer of our own.
+  `node xlsx.test.js` for the writer, and `xlsx.test.html` in a browser for reading.
+- `pictures.js` - pictures redrawn on the way in and kept in IndexedDB on this device.
+- `fixtures/` - the same game saved by Excel, Google Sheets and Numbers, for `xlsx.test.html`.
+- `math.js` - `$...$` maths through KaTeX, on its own so the designer can load it without
+  Firebase.
 - `index.html` - the front page, and student devices: buzz, answer, wager, and pick a clue
   when handed the board. The two are one page because the join address on the board is
   this directory, so whatever is at `/` has to be what gets a student into a game.
 - `privacy.html` - the privacy and COPPA statement, linked from the front page. Every claim
   on it is a claim about this code; change it when the data model changes.
-- `clues.js` - parses a clue set, and works out what a clue is worth. `node clues.test.js`.
+- `clues.js` - the clue set: reads a paste or a file's tables into the shape the designer
+  edits, writes it back out as tables, and works out what a clue is worth.
+  `node clues.test.js`.
 - `game.js` - every move a host can make, with no screen attached. Both host screens drive a
   room through it, so the rules of a game are written once.
 - `ui.test.js` - checks every button carries a style of its own. `node ui.test.js`.
@@ -320,23 +330,121 @@ tested, without waiting on a project.
 ## Writing a clue set
 
 Copy `sample-clues.tsv` into a spreadsheet and edit it. One clue per row; the first row is the
-header and the column order does not matter. A blank `value` derives from row order, `dd`
-marks a Daily Double with an `x`, and `round` is `1`, `2` or `final`. Round 2 is the same
-sheet with the round column changed.
+header and the column order does not matter. `round` is a number, a name of your own, or
+`final`: numbered rounds play in number order, named ones in the order they first appear, and
+there can be as many as you like. A blank `value` derives from row order, and `dd` marks a
+Daily Double with an `x` or `yes`. Rows copied out of one round of a spreadsheet, with no
+`round` column at all, are one round.
+
+**Prices go by row**, as they do in the designer: a row's price is the first one given in it,
+and a clue priced against its row is reported and plays for the row's price. **A board is as
+deep as its longest category**, up to five, and up to six categories wide - three clues a
+category is a three-row board, not a five-row board with two rows blank.
+
+**A half-written row is kept.** A clue with no answer, or an answer with no clue, used to be
+dropped with an error. It now stays in the set as a draft, so the designer can show what is
+missing and a save keeps it. It is never on the board, and `Check the clues` lists it.
 
 Clue and answer text may carry `$...$` maths, rendered by KaTeX on the board and the control
 screen. About twelve commands cover the year: `\frac`, `^`, `_`, `\sqrt`, `\times`, `\div`,
 `\pm`, `\le`, `\ge`, `\ne`, `\pi`, `\angle`. Category names stay plain text on purpose, so
 the player screen needs no KaTeX at all.
 
-To load a set, paste it into the box on `control.html`. It is kept on that device, and never
-sent anywhere.
+To load a set, paste it into the box on `control.html`, or open a file there: the .xlsx the
+designer saved, or a `.csv` or `.tsv` from any spreadsheet. It is kept on that device, and never
+sent anywhere: under `clueboard-set`, as the set itself rather than the paste, which is the
+same place the designer keeps the one it is editing. So whatever was last made or loaded on a
+device is the game that device hosts, and the designer needs no Play button. A set stored as a
+paste before there was a designer still loads. Replacing one the designer has not yet saved to
+a file asks first, because that set exists nowhere else.
+
+**A game is a list of rounds**, played in the set's order. The room only ever carries the
+round's number, so a spent cell's key and everything that reads it are unchanged. The cog has
+a `Go to` button for every other round with clues in it; the board's own bar only goes forward,
+to the next round, because it is on the projector and the dashboard has the way back. A round
+added in the designer and never filled is skipped rather than put up empty.
+
+**Each round is its own size**, up to six by five. The board, the dashboard's grid and a
+student's pick grid all take their columns and rows from the published grid, as `--cols` and
+`--rows`, so a four-by-three round fills the projector the way a six-by-five one does.
 
 Before the room opens, `Check the clues` lays the whole set out the way the board will show
 it: every clue and answer in order, with its value, its Daily Double mark and its picture. It
-flags maths KaTeX cannot read and images that are not there, and puts the count in the summary
-line, so a broken set is visible without opening it. A typo found in the staffroom costs
-nothing; the same typo found on the projector costs the room.
+flags maths KaTeX cannot read, pictures that are not there and squares that are half written,
+and puts the count in the summary line, so a broken set is visible without opening it. A typo
+found in the staffroom costs nothing; the same typo found on the projector costs the room.
+
+## The designer
+
+`designer.html`, linked from the front page, is where a game is written: a grid in the shape of
+the board, a tab per round, and an editor beside the grid that becomes a drawer below 1100px.
+Click a square to write it, drag one onto another to swap them - pointer events, so a finger on
+an iPad does the same as a mouse - and cut and paste to move a clue to another round. A copied
+square goes on the system clipboard too, as clue, tab, answer, so it pastes into a spreadsheet
+as two cells. Undo and redo snapshot every change, and a burst of typing in one field is one
+step. The keys are behind the `?`.
+
+**The file is the save.** `Save .xlsx` downloads the game as a spreadsheet named after its
+title, and `Open file` opens one again, or a `.csv` or `.tsv` from any spreadsheet. The title
+is the file's name, less the ` (1)` a browser adds to a second download. "Saved" compares a
+revision number that is never reused, so undoing back past a save and then editing cannot read
+as saved.
+
+**The device keeps a copy as you work**, under `clueboard-set`, the key the control screen
+reads - so the game being written is the one a room opens with, and there is no Play button.
+It is a safety net and not the save, because Safari clears a site's storage after about a week
+without a visit. Until it is saved the copy carries an `unsaved` flag, so the control screen
+asks before a paste or a file replaces it; and when another tab does replace it, the designer
+follows. Leaving with changes unsaved asks first: the logo offers `Save and leave`, `Cancel`
+and `Leave without saving`, `Open file` asks the same way, and closing the tab warns.
+
+**The .xlsx.** One tab per round, named after it and played in tab order, then `Final Clue`,
+whose name is fixed and which is always last, then `Help`, which is ignored when reading. A
+round tab is `Category | Value | Clue | Answer | Picture or video | Daily Double`, one row per
+square, empty ones included, in board order: down the first category, then the next. That is
+what lets a half-written board - unnamed categories, empty squares, a clue with no answer yet -
+survive a save and reopen. Value is a number shown as dollars. Daily Double is `Yes`, and `x`
+or `yes` read as one. Category, Clue and Answer are Text-formatted columns, so Excel cannot turn
+`3/4` into a date, `1:2` into a time or `-x+2` into `#NAME?`. Any tab whose header has Category,
+Value, Clue and Answer, in any case, is a round. The Final Clue tab is
+`Category | Clue | Answer | Picture or video`.
+
+A round's name is its tab's name, so it keeps to Excel's rules for one: 31 characters at most,
+none of `: \ / ? * [ ]`, no apostrophe at either end, unique ignoring case, and `Help` and
+`Final Clue` taken. Rounds can be added, renamed, reordered and deleted; the grid is capped at
+six categories by five rows, and prices go by row.
+
+The zip and the XML are our own, not SheetJS: written stored, with CRC32, and read with
+`DecompressionStream` and `DOMParser`, so reading runs only in a browser.
+
+It is tested against the apps themselves. Excel, Google Sheets and Numbers for iCloud each keep
+a game's text and pictures through their own save: Excel and Numbers anchor a picture across
+two cells and Sheets by one corner, and Numbers adds an Export Summary tab at the front, which
+is not a round and is skipped. Numbers also takes no format from a column, only from a cell, so
+an empty square's cells are written too, empty and Text - without them a `3/4` typed in Numbers
+became a number and `1:2` a time. `fixtures/` holds a file saved by each app, and
+`xlsx.test.html` reads all three.
+
+**Pictures** are real Excel pictures, in `xl/media` with the drawing parts that place them,
+each anchored inside its clue's row, which is made tall enough to hold it - so Excel, Sheets
+and Numbers all show them. Read back, a picture belongs to the row its top-left corner is
+anchored in. Every picture is redrawn on the way in, however it arrives - pasted, dropped,
+chosen or out of a file - at most 1920px across, as a PNG if it came as one or as a GIF and a
+JPEG otherwise. That is also what turns an iPhone's HEIC into a JPEG and leaves its location
+behind. They are kept in IndexedDB, because localStorage is too small, under an id that is a
+hash of the picture, so one used twice is stored once; and any the set no longer uses are let
+go when the designer opens, when no undo history can still want them. A video is a YouTube or
+Google Drive link in the same column, and a link straight to a picture or an `.mp4` works too.
+Answers carry no pictures.
+
+**Pictures and videos are on the board only.** The room never carries one, so nothing about
+media reaches a student's phone or Firebase. The board finds a clue's picture or video in its
+own device's copy of the set, by round and square, and only when the clue's words match - a
+board holding some other set shows the words alone rather than the wrong picture. Two screens
+on one laptop share that copy. **With a phone as the control screen, the laptop on the
+projector has to open the file too**, in the designer or on its own control screen, or its
+board shows no pictures. A video is YouTube's privacy-enhanced player or Drive's own, under the
+clue, and the teacher presses play on it: a clue is read out first.
 
 ## Its own Firebase project, always
 

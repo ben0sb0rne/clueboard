@@ -193,8 +193,9 @@ body.board {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  grid-template-rows: 0.85fr repeat(5, 1fr);
+  /* The round's own size, set by board.html: up to six categories and five rows. */
+  grid-template-columns: repeat(var(--cols, 6), 1fr);
+  grid-template-rows: 0.85fr repeat(var(--rows, 5), 1fr);
   gap: clamp(3px, 0.5vw, 9px);
   padding: 0 clamp(4px, 0.6vw, 12px) clamp(4px, 0.6vw, 12px);
   background: var(--gap-ink);
@@ -272,12 +273,23 @@ body.board {
   text-align: center;
   text-transform: uppercase;
 }
-.board #clueImage {
+.board .cluemedia img {
+  display: block;
   max-width: min(60vw, 100%);
   max-height: 38vh;
   object-fit: contain;
   background: #fff;
   border-radius: 6px;
+}
+/* A video takes the picture's place at the same height, in its own 16:9. */
+.board .cluemedia iframe,
+.board .cluemedia video {
+  display: block;
+  width: min(60vw, calc(38vh * 16 / 9));
+  aspect-ratio: 16 / 9;
+  border: 0;
+  border-radius: 6px;
+  background: #000;
 }
 /* White, like the clue above it: on the show the only thing on this screen is the words, and
    the rule is what separates them. */
@@ -558,9 +570,12 @@ body.board {
 }
 /* Two kinds of button on the host screens and no others: the one to press, and everything
    else. This is what the eight per-id rules it replaces could not be - each of those had its
-   own size, so no two rows of buttons lined up. */
+   own size, so no two rows of buttons lined up. The designer is a host screen too, and sizes
+   its own on top in designer.css. */
 .control button.act,
-.control button.quiet {
+.control button.quiet,
+.designer button.act,
+.designer button.quiet {
   padding: 0.6em 1.2em;
   font-size: clamp(15px, 1.7vw, 20px);
   font-weight: 700;
@@ -568,19 +583,25 @@ body.board {
   border-radius: 12px;
   white-space: nowrap;
 }
-.control button.act { color: var(--gap-ink); background: var(--value-gold); }
-.control button.act:hover:not(:disabled) { background: var(--value-gold-lit); }
-.control button.quiet {
+.control button.act,
+.designer button.act { color: var(--gap-ink); background: var(--value-gold); }
+.control button.act:hover:not(:disabled),
+.designer button.act:hover:not(:disabled) { background: var(--value-gold-lit); }
+.control button.quiet,
+.designer button.quiet {
   color: var(--muted);
   background: none;
   box-shadow: inset 0 0 0 2px var(--line);
 }
-.control button.quiet:hover:not(:disabled) {
+.control button.quiet:hover:not(:disabled),
+.designer button.quiet:hover:not(:disabled) {
   color: var(--ink);
   box-shadow: inset 0 0 0 2px var(--muted);
 }
 .control button.act:disabled,
-.control button.quiet:disabled {
+.control button.quiet:disabled,
+.designer button.act:disabled,
+.designer button.quiet:disabled {
   color: var(--off);
   background: none;
   box-shadow: inset 0 0 0 2px var(--line);
@@ -711,7 +732,7 @@ body.board {
    back of the room. */
 .control .ctlgrid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--cols, 6), minmax(0, 1fr));
   gap: 4px;
   padding: 4px;
   background: var(--gap-ink);

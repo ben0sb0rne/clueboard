@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Clueboard - xlsx test</title>
+<style>body { font: 14px ui-monospace, Menlo, monospace; margin: 2em; } .fail { color: #c00; }</style>
+</head>
+<body>
+<!-- Open this page and read the result. Reading an .xlsx needs DOMParser, which node has not
+     got, so this is xlsx.test.js's other half: what the writer writes reads back as the same
+     set, stored or compressed. Drop a file from Excel, Sheets or Numbers on the page to see
+     what it reads as. -->
+<pre id="out">running...</pre>
+<script src="clues.js"></script>
+<script src="pictures.js"></script>
+<script src="xlsx.js"></script>
+<script>
+const out = document.getElementById("out");
+const lines = [];
+const log = (ok, name, why) => lines.push((ok ? "  ok   " : "  FAIL ") + name + (why ? "\n         " + why : ""));
+const sq = (clue, answer, more) => Object.assign({ clue, answer, media: null, dd: false }, more);
+const set = {
+  title: "", final: { cat: "THE END", clue: "Last & <best>", answer: "Done", media: null },
+  rounds: [{
+    id: 1, name: "Round 1", cats: ["ALGEBRA", "", ""], prices: [100, 300],
+    cells: [[sq("3/4 of 8", "6", { dd: true }), null],
+            [null, sq("A clue\nover two lines", "")],
+            [sq("", "-x+2"), sq("Watch this", "1:2", { media: parseLink("https://youtu.be/abc?t=42") })]]
+  }, {
+    id: 2, name: "Wrap-up & Review", cats: ["", "", "", "", "", ""], prices: [400, 800, 1200, 1600, 2000],
+    cells: [0, 1, 2, 3, 4, 5].map(() => [null, null, null, null, null])
+  }]
+};
+const shape = (s) => JSON.stringify(s.rounds.map((R) => [R.name, R.cats, R.prices, R.cells]).concat([s.final]));
+
+// The same file with every entry deflated, the way the apps write theirs.
+async function deflated(blob) {
+  const files = await unzip(await blob.arrayBuffer());
+  const enc = new TextEncoder(), parts = [], central = [];
+  let offset = 0, n = 0;
+  for (const name of Object.keys(files)) {
+    const data = files[name], packed = new Uint8Array(await new Response(new Blob([data]).stream().pipeThrough(new CompressionStream("deflate-raw"))).arrayBuffer());
+    const nm = enc.encode(name), crc = crc32(data);
+    const head = (size, sig, extra) => { const v = new DataView(new ArrayBuffer(size)); v.setUint32(0, sig, true); extra(v); return v.buffer; };
+    parts.push(head(30, 0x04034b50, (v) => { v.setUint16(4, 20, true); v.setUint16(8, 8, true); v.setUint32(14, crc, true); v.setUint32(18, packed.length, true); v.setUint32(22, data.length, true); v.setUint16(26, nm.length, true); }), nm, packed);
+    central.push(head(46, 0x02014b50, (v) => { v.setUint16(10, 8, true); v.setUint32(16, crc, true); v.setUint32(20, packed.length, true); v.setUint32(24, data.length, true); v.setUint16(28, nm.length, true); v.setUint32(42, offset, true); }), nm);
+    offset += 30 + nm.length + packed.length;
+    n++;
+  }
+  const size = central.reduce((t, b) => t + b.byteLength, 0);
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true); end.setUint16(8, n, true); end.setUint16(10, n, true); end.setUint32(12, size, true); end.setUint32(16, offset, true);
+  return new Blob(parts.concat(central, [end.buffer]));
+}
+
+(async () => {
+  try {
+    const blob = (await writeXlsx(set)).blob;
+    const back = setFromTables(await readXlsx(new File([blob], "t.xlsx")));
+    log(shape(back.set) === shape(set) && !back.errors.length, "a written game reads back as the same set", shape(back.set) === shape(set) ? back.errors.join(" ") : shape(back.set));
+    const tables = await readXlsx(new File([blob], "t.xlsx"));
+    log(tables.map((t) => t.name).join("|") === "Round 1|Wrap-up & Review|Final Clue|Help", "tabs come back in order, named", tables.map((t) => t.name).join("|"));
+    log(tables[0].rows[1][1] === "100", "a price reads back as its number", tables[0].rows[1][1]);
+    const z = setFromTables(await readXlsx(new File([await deflated(blob)], "z.xlsx")));
+    log(shape(z.set) === shape(set), "the same file compressed reads back the same");
+    // A picture: drawn here, stored, written into the file, read back into its square.
+    const c = Object.assign(document.createElement("canvas"), { width: 300, height: 150 });
+    const g = c.getContext("2d"); g.fillStyle = "#04106e"; g.fillRect(0, 0, 300, 150); g.fillStyle = "#fea441"; g.fillRect(100, 40, 100, 70);
+    const media = await addPicture(await new Promise((r) => c.toBlob(r, "image/png")), "box.png");
+    const withPic = structuredClone(set);
+    withPic.rounds[0].cells[0][0].media = media;
+    withPic.final.media = media;
+    const saved = await writeXlsx(withPic);
+    const p = setFromTables(await readXlsx(new File([saved.blob], "p.xlsx")));
+    const m = p.set.rounds[0].cells[0][0].media, fm = p.set.final.media;
+    log(saved.missing === 0 && m && m.kind === "picture" && m.w === 300 && m.h === 150 && fm && fm.id === m.id,
+      "a picture goes into the file and comes back to its square", JSON.stringify(m));
+    log(m && m.id === media.id, "and it is the same picture, stored once", m && m.id + " vs " + media.id);
+    log(shape({ rounds: p.set.rounds.map((R) => Object.assign({}, R, { cells: R.cells.map((col) => col.map((x) => x && Object.assign({}, x, { media: x.media && x.media.kind === "picture" ? null : x.media }))) })), final: Object.assign({}, p.set.final, { media: null }) }) ===
+      shape({ rounds: set.rounds, final: set.final }), "the rest of the set is untouched by it");
+    // Real files, saved by the apps themselves on 8 November 2026 - Excel 16.114 for Mac, Google
+    // Sheets, and Numbers for iCloud - each from this writer's file with the same edits made in
+    // the app: a clue changed, 3/4, 0.75, -x+2 and 1:2 typed into an unnamed category's empty
+    // squares, and a picture added over SOLVE FOR X $400. Each app anchors pictures its own way,
+    // and Numbers adds an Export Summary tab first.
+    for (const app of ["excel", "sheets", "numbers"]) {
+      const file = await fetch("fixtures/" + app + ".xlsx").then((r) => r.ok ? r.blob() : null);
+      if (!file) { log(false, app + ".xlsx is missing from fixtures/"); continue; }
+      const p = await openGameFile(new File([file], app + ".xlsx")), R1 = p.set.rounds[0] || {}, L = p.set.rounds[1] || {};
+      const pic = (s) => !!(s && s.media && s.media.kind === "picture" && s.media.id);
+      const why = [];
+      if (p.errors.length) why.push("notes: " + p.errors.join(" "));
+      if (p.set.rounds.map((R) => R.name).join("|") !== "Round 1|Lightning") why.push("rounds " + p.set.rounds.map((R) => R.name));
+      if (!pic(R1.cells[2][0])) why.push("the triangle left PYTHAGORAS $200");
+      if (!pic(R1.cells[1][1])) why.push("the app's picture is not in SOLVE FOR X $400");
+      if (!/edited in/.test(R1.cells[0][1].clue)) why.push("the edited clue: " + R1.cells[0][1].clue);
+      if (!(R1.cells[5][2].media && R1.cells[5][2].media.host === "YouTube")) why.push("the YouTube link");
+      if (!R1.cells[1][3].dd) why.push("the Daily Double");
+      const typed = L.cells && L.cells[2].map((s) => s && [s.clue, s.answer].join(" | ")).join(" / ");
+      if (typed !== "3/4 | 0.75 / -x+2 | 1:2" || L.cats[2] !== "") why.push("typed text: " + typed);
+      if (!(p.set.final && p.set.final.answer === "1")) why.push("the Final Clue");
+      log(!why.length, app + "'s own file reads back whole: pictures in their squares, typed text still text", why.join("; "));
+    }
+    let bad = "";
+    try { await readXlsx(new File(["not a zip at all"], "x.xlsx")); } catch (e) { bad = e.message; }
+    log(/not an .xlsx/.test(bad), "a file that is not one says so", bad);
+  } catch (e) {
+    log(false, "the run itself", e.stack);
+  }
+  const failed = lines.filter((l) => l.indexOf("FAIL") !== -1).length;
+  out.textContent = lines.join("\n") + "\n\n" + (lines.length - failed) + " passed, " + failed + " failed";
+  out.className = failed ? "fail" : "";
+  document.title = failed ? "FAIL" : "ok";
+})();
+
+// A real file from an app, dropped here, shows what it reads as.
+addEventListener("dragover", (e) => e.preventDefault());
+addEventListener("drop", async (e) => {
+  e.preventDefault();
+  const file = e.dataTransfer.files[0];
+  try {
+    const tables = await readXlsx(file), parsed = setFromTables(tables);
+    out.textContent = file.name + "\n\n" + JSON.stringify(tables, null, 1).slice(0, 4000) + "\n\n" + JSON.stringify(parsed, null, 1);
+  } catch (err) { out.textContent = file.name + ": " + err.message; }
+});
+</script>
+</body>
+</html>

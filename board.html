@@ -37,7 +37,8 @@
       </div>
       <div class="finalcat" id="finalCat" hidden></div>
       <div class="cluetext" id="clueText"></div>
-      <img id="clueImage" alt="" hidden>
+      <!-- The clue's picture or video, found in this device's own copy of the set. -->
+      <div class="cluemedia" id="clueMedia" hidden></div>
       <div class="clueanswer" id="clueAnswer" hidden></div>
       <div class="think" id="think" hidden>
         <div class="thinktrack"><div class="thinkfill" id="thinkFill"></div></div>
@@ -99,12 +100,14 @@
 <!-- Only board-only mode needs these, and only on the device that imported the set. They
      are two small files and loading them unconditionally beats a second code path. -->
 <script src="clues.js"></script>
+<script src="pictures.js"></script>
 <script src="game.js"></script>
 <!-- The room's colours. Two of them; palette.css works out the rest. -->
 <script src="theme.js"></script>
 <script src="firebase-config.js"></script>
 <script src="demo.js"></script>
 <script src="common.js"></script>
+<script src="math.js"></script>
 <script>
 const $ = (s) => document.querySelector(s);
 const hostHere = new URL(location).searchParams.get("host") === "1";
@@ -152,6 +155,7 @@ let game = {};
 let teams = [];
 let cellEls = [];        // cellEls[cat][row], so a clue can expand out of its own cell
 let shownKey = null;     // which cell the open clue came from, for the shrink back
+let mediaKey = "";       // the picture or video on screen, so a snapshot does not restart it
 let gridSig = "";        // rebuild the grid only when its shape actually changes
 let introSig = "";       // which grid has already had its intro, so a resize does not replay it
 let podiumSig = "";      // rebuild the podiums only when the teams change, never mid-tick
@@ -175,8 +179,8 @@ let moves = null;
 let hosting = false;
 let barTimer = null;
 try {
-  clueSet = parseClueSet(localStorage.getItem(SET_KEY) || "");
-  if (!clueSet.rounds[1]) clueSet = null;
+  clueSet = readSet(localStorage.getItem(SET_KEY));
+  if (!firstRound(clueSet)) clueSet = null;
 } catch (e) { clueSet = null; }
 
 const joinHere = new URL("./", location.href).href
@@ -299,7 +303,8 @@ function renderHostBar() {
   const introing = intro !== null && !clue && !over;
   const wagering = !!(clue && game.wagering);
   const onGrid = !clue && !pre && !introing && !over;
-  const other = Number(game.round) === 2 ? 1 : 2;
+  // Forward only: the dashboard has the way back, and this bar is on the projector.
+  const next = nextRound(clueSet, Number(game.round) || 1);
 
   const show = (sel, on) => { $(sel).hidden = !on; };
   show("#hStart", pre);
@@ -316,11 +321,11 @@ function renderHostBar() {
   // Where the game can go next only belongs on screen when it is not in the middle of
   // something. Ending it is also offered straight after a final clue, which is what follows
   // one - there is no board to go back to.
-  show("#hRound", onGrid && !!(clueSet.rounds || {})[other]);
-  show("#hFinal", onGrid && !!(clueSet.final || []).length);
+  show("#hRound", onGrid && !!next);
+  show("#hFinal", onGrid && !!finalClue(clueSet));
   show("#hEnd", onGrid || (!!clue && !!clue.final && !!game.reveal));
 
-  $("#hRound").textContent = "Go to round " + other;
+  if (next) $("#hRound").textContent = "Go to " + clueSet.rounds[next - 1].name;
   if (clue) {
     // Reveal first, then mark. There is nowhere private on a projected board, so the answer
     // going up is what the host marks against - the opposite way round from the dashboard,
@@ -348,7 +353,8 @@ function hostState(clue, intro, over) {
   }
   if (intro !== null) return "Intro";
   if (!game.started) return game.title || "Ready";
-  return "Round " + (Number(game.round) || 1);
+  const R = clueSet.rounds[(Number(game.round) || 1) - 1];
+  return R ? R.name : "Round " + (Number(game.round) || 1);
 }
 
 $("#hDash").addEventListener("click", () => {
@@ -362,7 +368,7 @@ $("#hTimer").addEventListener("click", () => moves.startTimer());
 $("#hReveal").addEventListener("click", () => moves.reveal());
 $("#hBack").addEventListener("click", () => moves.dismiss());
 $("#hRound").addEventListener("click",
-  () => moves.setRound(Number(game.round) === 2 ? 1 : 2));
+  () => moves.setRound(nextRound(clueSet, Number(game.round) || 1)));
 $("#hFinal").addEventListener("click", () => moves.startFinal());
 // Two presses, as on the control screen: it stops the lesson.
 let endArmed = null;
@@ -516,6 +522,9 @@ function renderGrid() {
   if (sig !== gridSig) {
     gridSig = sig;
     const wrap = $("#grid");
+    // The round's own size, up to six by five; board.css lays it out from these two.
+    wrap.style.setProperty("--cols", grid.cats.length);
+    wrap.style.setProperty("--rows", (grid.values[0] || []).length);
     // A resize rebuilds the same grid, and replaying the intro then would be a flourish in the
     // middle of a lesson. Only a grid we have not introduced before gets one.
     // The categories-drop-in intro belongs to a board that opens straight onto the grid. A
@@ -734,6 +743,7 @@ function renderClue(clue) {
   const panel = $("#cluePanel");
 
   if (!clue) {
+    showMedia(null);   // a video stops the moment its clue is put away
     // Dismissing writes two fields, so a second snapshot lands about a millisecond later and
     // re-enters this. Starting the shrink twice killed it outright: the second call's layout
     // read commits the end transform before the browser has begun a transition to it, so the
@@ -772,16 +782,7 @@ function renderClue(clue) {
   $("#clueText").hidden = hideClue;
   if (!hideClue) mathText($("#clueText"), clue.text);
 
-  const img = $("#clueImage");
-  if (clue.image && !hideClue) {
-    // Images are public by design: a clue image goes on the projector, so it is not a secret
-    // and has no reason to be local. The cell holds a filename or any URL.
-    img.src = /^https?:/.test(clue.image) ? clue.image : "clues/images/" + clue.image;
-    img.hidden = false;
-  } else {
-    img.hidden = true;
-    img.removeAttribute("src");
-  }
+  showMedia(hideClue ? null : localMedia(clue));
 
   const ansEl = $("#clueAnswer");
   const showing = !!(game.reveal && !hideClue && clue.answer);
@@ -795,6 +796,59 @@ function renderClue(clue) {
   }
 
   if (fresh || panel.hidden) expandFrom(panel, clue.cat, clue.row);
+}
+
+// The clue's picture or video comes from this device's own copy of the set and nowhere else:
+// the room never carries one, so nothing about it reaches a student's phone. A board on a
+// device that has not opened the game shows the words alone - which is why, with a phone as
+// the control screen, the laptop on the projector opens the file too. The clue text has to
+// match as well, so a board holding some other set shows nothing rather than the wrong picture.
+function localMedia(clue) {
+  if (!clueSet) return null;
+  const R = clueSet.rounds[(Number(game.round) || 1) - 1];
+  const s = clue.final ? clueSet.final : R && R.cells[clue.cat] && R.cells[clue.cat][clue.row];
+  return s && s.media && s.clue === clue.text ? s.media : null;
+}
+
+// Rebuilt only when the media itself changes (mediaKey, up top). This runs on every snapshot,
+// and a video put back up on each one would start again every time a team buzzed.
+function showMedia(m) {
+  const key = m ? JSON.stringify(m) : "";
+  if (key === mediaKey) return;
+  mediaKey = key;
+  const box = $("#clueMedia");
+  box.textContent = "";
+  box.hidden = !m;
+  if (!m) return;
+  if (m.kind === "picture") {
+    const img = document.createElement("img");
+    img.alt = "";
+    img.addEventListener("error", () => { box.hidden = true; });
+    box.appendChild(img);
+    if (!m.id) { img.src = m.url; return; }
+    loadPictures([m.id]).then(() => {
+      if (mediaKey !== key) return;
+      if (pictureURLs[m.id]) img.src = pictureURLs[m.id];
+      else box.hidden = true;   // not on this device
+    });
+    return;
+  }
+  // The teacher presses play on it, here: a clue is read out first, and a video that started
+  // on its own would already be running.
+  const embed = embedURL(m);
+  const el = document.createElement(embed ? "iframe" : "video");
+  if (embed) {
+    el.src = embed;
+    el.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";
+    el.allowFullscreen = true;
+    el.referrerPolicy = "strict-origin-when-cross-origin";
+    el.title = (m.host || "") + " video";
+  } else {
+    el.src = m.url;
+    el.controls = true;
+    el.playsInline = true;
+  }
+  box.appendChild(el);
 }
 
 // The answer arriving is the beat of the whole screen, so it is the one thing that moves

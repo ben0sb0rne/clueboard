@@ -45,8 +45,7 @@
 
   <footer class="corners">
     <a class="corner" href="control.html">Host a game</a>
-    <!-- Placeholder. When there is a designer: give this an href and drop .soon. -->
-    <a class="corner soon">Designer <span class="pend">soon</span></a>
+    <a class="corner" href="designer.html">Designer</a>
   </footer>
   <p class="legal"><a href="privacy.html">Privacy and COPPA</a></p>
 </main>
@@ -472,8 +471,8 @@ function sendWager() {
     });
 }
 
-// The board itself, in the shape the room is looking at: same six columns, same five rows,
-// same spent cells. It used to be a list, one row per category, which asked a student to
+// The board itself, in the shape the room is looking at: the same columns, the same rows,
+// the same spent cells. It used to be a list, one row per category, which asked a student to
 // find on their phone a thing they could already see on the wall - and read as a different
 // game from the one being played. The cells are laid out exactly as board.html lays them.
 function renderPick() {
@@ -485,6 +484,8 @@ function renderPick() {
     return;
   }
   $("#pickErr").textContent = "";
+  wrap.style.setProperty("--cols", grid.cats.length);   // the round's own size, as on the wall
+  wrap.style.setProperty("--rows", (grid.values[0] || []).length);
 
   grid.cats.forEach((name, c) => {
     const head = document.createElement("div");

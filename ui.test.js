@@ -7,8 +7,8 @@
 const assert = require("assert");
 const fs = require("fs");
 
-const css = ["style.css", "board.css"].map((f) => fs.readFileSync(f, "utf8")).join("\n");
-const pages = ["index.html", "control.html", "board.html"];
+const css = ["style.css", "board.css", "designer.css"].map((f) => fs.readFileSync(f, "utf8")).join("\n");
+const pages = ["index.html", "control.html", "board.html", "designer.html"];
 const unstyled = [];
 
 pages.forEach((page) => {

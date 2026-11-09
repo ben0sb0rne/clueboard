@@ -64,48 +64,6 @@ function beep() {
 addEventListener("pointerdown", audio, { once: true });
 addEventListener("keydown", audio, { once: true });
 
-// Clue and answer text may carry $...$ maths, because 8th grade algebra needs stacked
-// fractions and multi-term radicals that Unicode cannot do. KaTeX renders it on the two
-// screens that load KaTeX - the board and the control screen. It is committed to the repo, so
-// a blocked CDN cannot reach it; anywhere KaTeX is absent the raw text shows through, which
-// looks wrong but is never blank mid-question.
-//
-// Only ever called on text from the teacher's own spreadsheet. Student-typed text goes
-// through textContent and nothing else, here as in the buzzer.
-const MATH_SPLIT = /(\$[^$]*\$)/;
-function isMath(bit) {
-  return bit.length > 2 && bit[0] === "$" && bit[bit.length - 1] === "$";
-}
-
-function mathText(el, text) {
-  el.textContent = "";
-  String(text == null ? "" : text).split(MATH_SPLIT).forEach(function (bit) {
-    if (!bit) return;
-    const span = document.createElement("span");
-    if (window.katex && isMath(bit)) {
-      // throwOnError: false so a typo in a clue shows as red text rather than blowing up the
-      // projector in front of the class.
-      katex.render(bit.slice(1, -1), span, { throwOnError: false, displayMode: false });
-    } else {
-      span.textContent = bit;
-    }
-    el.appendChild(span);
-  });
-}
-
-// What KaTeX would refuse, if it were ever allowed to refuse. Used only by the pre-lesson
-// check on the control screen, and it has to ask KaTeX a second time rather than read the
-// rendering above: throwOnError: false turns a broken expression into a .katex-error span,
-// but an *undefined command* - the likelier typo, \Frac for \frac - is drawn in red with no
-// class on it at all. Same KaTeX, same split, one different option.
-function mathErrors(text) {
-  if (!window.katex) return [];
-  return String(text == null ? "" : text).split(MATH_SPLIT).filter(isMath).map(function (bit) {
-    try { katex.renderToString(bit.slice(1, -1), { throwOnError: true }); return null; }
-    catch (e) { return e.message; }
-  }).filter(Boolean);
-}
-
 // Placeholder sounds until the real files land. The ids are what gets stored and are meant to
 // be stable; the labels are not. Every one of them plays beep() for now - see the lobby grid.
 // Eight to a group, because eight is what the grid flows in: 8 across, then 4, then 2.
