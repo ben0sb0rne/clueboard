@@ -569,12 +569,15 @@ body.board {
   border: 2px solid var(--line);
   border-radius: 12px;
 }
-/* Two kinds of button on the host screens and no others: the one to press, and everything
-   else. This is what the eight per-id rules it replaces could not be - each of those had its
-   own size, so no two rows of buttons lined up. The designer is a host screen too, and sizes
-   its own on top in designer.css. */
+/* Two kinds of button on the host screens: the one to press, and everything else. This is
+   what the eight per-id rules it replaces could not be - each of those had its own size, so
+   no two rows of buttons lined up. The designer is a host screen too, and sizes its own on
+   top in designer.css. The Edit Game panel adds two of the same size for the game moves,
+   below. */
 .control button.act,
 .control button.quiet,
+.control button.solid,
+.control button.endo,
 .designer button.act,
 .designer button.quiet {
   padding: 0.6em 1.2em;
@@ -607,6 +610,17 @@ body.board {
   background: none;
   box-shadow: inset 0 0 0 2px var(--line);
 }
+/* The game moves in the Edit Game panel. Filled, because they are what the panel is opened
+   for mid-lesson, and an outlined button there read as one that could not be pressed; not
+   gold, because gold is the next thing to press and that lives in the strip. End game is
+   ringed in red as the one that cannot be taken back, and fills red once armed, as
+   style.css's .danger does everywhere else - .danger is in an earlier sheet, so it is
+   restated here. */
+.control button.solid { color: var(--ink); background: var(--line); }
+.control button.solid:hover:not(:disabled) { background: var(--off); }
+.control button.endo { color: #ff6a6a; background: none; box-shadow: inset 0 0 0 2px var(--red); }
+.control button.endo:hover:not(:disabled),
+.control button.endo.danger { color: #fff; background: var(--red); box-shadow: none; }
 /* One row of buttons, right-aligned wherever it appears, so the last of them is always in
    the same corner - and the gold one is ordered there whatever the markup says. Between them
    that puts the button to press in the same place in every state of the game. */

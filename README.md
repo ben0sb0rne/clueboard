@@ -51,7 +51,7 @@ runs out - this game is marked by hand, and a slow Chromebook is not a wrong ans
 Start the final clue from the cog, at any point - the class is about to end and the board is
 half full. It leaves spent cells alone, so dismissing it returns to the board as it was.
 
-**Ending the game is not closing the room.** `End the game` puts the scores on the board and
+**Ending the game is not closing the room.** `End game` puts the scores on the board and
 leaves everything standing; it is offered in the cog at any time, and in the strip as the
 gold button the moment the final clue has been revealed, because that is what follows a final
 clue. `Close the room` is the separate step that wipes the teams and the scores and goes back
@@ -65,7 +65,7 @@ who was in it and the final score. Equal scores share a place and the next one d
 clue whenever it likes takes that away, so student devices cannot touch the board by default.
 An icon sits beside whoever is up next: tap it to hand them the board for one pick, and it
 comes back on its own the moment the clue opens. If you want a whole game where teams choose,
-`Let teams pick their own clues` in the cog restores that, and is remembered between games.
+`Let teams pick clues` in the cog restores that, and is remembered between games.
 
 **Every game has a title**, asked for before the room is made and remembered between games.
 It heads the welcome card the class joins on, and it is the first card of the intro.
@@ -119,8 +119,8 @@ entirely and reads as a shadow floating free of the digit. A fraction bar is a b
 radical is an SVG path, so neither `text-shadow` nor `text-stroke` reaches them at all; they
 get the same two moves from `box-shadow` and `drop-shadow` instead. Nothing names whose turn
 it is either - the gold line under a podium already says that, and it is the only one in the
-game: the dashboard says whose pick it is in words instead. `Show the room code on the
-board` in the cog puts the code and the join address back in the corner between clues; it is
+game: the dashboard says whose pick it is in words instead. `Show room code on board`
+in the cog puts the code and the join address back in the corner between clues; it is
 off, because a class that has already joined has no use for it.
 
 **Back to grid without revealing leaves the clue on the board.** A cell is spent when you
@@ -179,14 +179,14 @@ watch it on the card, over a buzzer gone dead whose bar names the team it belong
 clears itself when the clue changes, so what somebody typed and never locked in cannot follow
 them into the next question.
 
-**`Buzzers only` in the cog takes the answer boxes away** for a whole game: teams ring in and
+**`Use buzzers only` in the cog takes the answer boxes away** for a whole game: teams ring in and
 answer out loud, and the buzzer fills the phone. Use it for a room where the devices are a
 show of hands with a buzz order attached. The dashboard still has the correct answer to mark
 against, and the buzz order column is what it is read by. The final clue keeps its box in any
 case - every team answers that one at the same time, so there is nobody to say it to. The
 setting is remembered between games and can be flipped mid-game.
 
-**`Show the clue on student devices` puts the clue in every student's hand** as it goes up on
+**`Show clues on student devices` puts the clue in every student's hand** as it goes up on
 the board, and its answer the moment you reveal it - so the student at the back reads it as
 well as the one at the front. It is on by default, remembered between games, and can be
 flipped mid-game; off, the student screens are exactly what they were. The card is the board
@@ -230,9 +230,12 @@ game, so it sits up in the header, where it never moves. The cog goes to its lef
 into the corner, so that `Open projector` and the gold button below it end on one line down
 the side of the screen.
 
-The cog holds two kinds of thing and keeps them apart: what is true for the whole game, then
-the three ways out of where it is now. `End the game` is the one that cannot be taken back,
-so it sits on its own at the far end of that row.
+The cog holds three rows, each named on the left. **Game** comes first - a `Go to` button for
+each other round with clues in it, `Go to final clue` and `End game` - filled rather than
+outlined, because they are what the cog is opened for in the middle of a lesson. Then
+**Settings**, what is true for the whole game, with `Show clues on student devices` first, and
+**Themes**. `End game` is the one that cannot be taken back, so it sits on its own at the far
+end of its row, ringed in red.
 
 The control screen is built around checking answers, which is most of what you do with it.
 The clue runs full width across the top, and the correct answer sits at the head of the same
@@ -272,7 +275,7 @@ answers to reveal. That is the gate, not a permission.
 Three buttons leave the bar the moment they have nothing left to do, because on a projected
 board a button that cannot be pressed is not a hint - it is a thing the class is reading.
 `Reveal answer` goes when the answer is up, and the timer and `Back to grid` go once a final
-clue has been revealed, which leaves `End the game` on its own.
+clue has been revealed, which leaves `End game` on its own.
 
 **The control screen also opens on a phone**, which is the other way to run a lesson without
 a second display: the phone in your hand is the dashboard and the laptop stays on the board. Below 700px a team stops being a row and becomes a card: name, score
@@ -303,15 +306,18 @@ is no place for a paragraph of instructions:
   hand-over icon, and the answer column holds each team's buzzer with a menu to change it.
   Both columns go back to their usual jobs the moment the game starts, which is why the
   padlock cannot simply live beside the hand-over icon: that one is only ever on one row.
-- `Mute all buzzers` in the cog silences the whole room, student devices included, not just
+- `Mute buzzers` in the cog silences the whole room, student devices included, not just
   the dashboard. It is remembered between games.
-- `Buzzers only` in the cog runs the game with no answer boxes on the student devices, except
+- `Use buzzers only` in the cog runs the game with no answer boxes on the student devices, except
   on the final clue. Also remembered between games.
-- `Show the clue on student devices` in the cog puts the clue, and then its answer, on every
+- `Show clues on student devices` in the cog puts the clue, and then its answer, on every
   student's device as it goes up on the board. On by default, and remembered between games.
-- `Let teams pick their own buzzer sound` in the cog adds a grid of sounds to the lobby, in
+- `Let teams pick buzzer sounds` in the cog adds a grid of sounds to the lobby, in
   groups of eight. Off by default, because it is five more minutes a class can spend on
   something that is not the quiz. Remembered between games.
+- `Themes` in the cog repaint the board, the dashboard and the student devices: five made
+  themes, or a `Custom theme` from two colors, the board and the accent. Remembered between
+  games.
 - On the final clue, tap a team's answer to put it on the board.
 - While wagers are coming in, the teams column says who is in, never how much. An amount
   there is a number you can read and do nothing with - it cannot go on the board until the

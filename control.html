@@ -64,7 +64,7 @@
          Lucide's own gear, pasted from icons/settings.svg: it has to be inline to take its
          colour from the button, and an <img> cannot. icons/ holds the files and the ISC
          licence; copy the next one in the same way. -->
-    <button id="cog" class="quiet" aria-expanded="false" title="Settings, colours, and removing a team">
+    <button id="cog" class="quiet" aria-expanded="false" title="Settings, themes, and removing a team">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
         <path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"></path>
@@ -81,34 +81,48 @@
       >Run from the board</button>
   </header>
 
-  <!-- Two kinds of thing, kept apart rather than run together in one wrapping row: what is
-       true for the whole game, then the three ways out of where it is now. End the game is
-       the one that cannot be undone, so it sits on its own at the far end. -->
+  <!-- Three rows, each named on the left: the game moves first, because they are what this
+       panel is opened for in a lesson; then what is true for the whole game; then its look.
+       End game is the one that cannot be undone, so it sits on its own at the far end. -->
   <div id="panel" class="panel" hidden>
-    <div class="opts">
-      <label class="opt"><input type="checkbox" id="mute"> Mute all buzzers</label>
-      <label class="opt"><input type="checkbox" id="teamsPick"> Let teams pick their own clues</label>
-      <label class="opt"><input type="checkbox" id="showCode"> Show the room code on the board</label>
-      <label class="opt"><input type="checkbox" id="buzzOnly"> Buzzers only - teams answer out loud</label>
-      <label class="opt"><input type="checkbox" id="showClues"> Show the clue on student devices</label>
-      <label class="opt"><input type="checkbox" id="buzzPick"> Let teams pick their own buzzer sound</label>
+    <div class="sec">
+      <h2 class="sechead">Game</h2>
+      <!-- A "Go to" button for every other round with clues in it goes in ahead of the final
+           clue: renderRoundButtons builds them from the set. -->
+      <div class="acts">
+        <button id="finalBtn" class="solid">Go to final clue</button>
+        <button id="endGame" class="endo">End game</button>
+      </div>
     </div>
-    <!-- Five made pairs and then the two colours themselves, in that order, because the
-         realistic want is "the green one" rather than a hex code. The board repaints as the
-         picker is dragged, which is a better preview than any swatch: the question is never
-         whether a colour is nice, it is whether the dimmed podium still reads as dimmer than
-         the lit one from the back of the room, and only the board at full size shows that. -->
-    <div class="colours">
-      <span class="optname">Colours</span>
-      <div class="swatches" id="swatches"></div>
-      <label class="pick" title="The board"><input type="color" id="groundPick"></label>
-      <label class="pick" title="The values"><input type="color" id="accentPick"></label>
+    <!-- The one a game wants first, first, and it is the only one on until it is turned off.
+         Every label starts with what it does, and says no more than it needs to. -->
+    <div class="sec">
+      <h2 class="sechead">Settings</h2>
+      <div class="opts">
+        <label class="opt"><input type="checkbox" id="showClues"> Show clues on student devices</label>
+        <label class="opt"><input type="checkbox" id="buzzOnly"> Use buzzers only (answer out loud)</label>
+        <label class="opt"><input type="checkbox" id="teamsPick"> Let teams pick clues</label>
+        <label class="opt"><input type="checkbox" id="buzzPick"> Let teams pick buzzer sounds</label>
+        <label class="opt"><input type="checkbox" id="showCode"> Show room code on board</label>
+        <label class="opt"><input type="checkbox" id="mute"> Mute buzzers</label>
+      </div>
     </div>
-    <!-- A "Go to" button for every other round with clues in it goes in ahead of the final
-         clue: renderRoundButtons builds them from the set. -->
-    <div class="acts">
-      <button id="finalBtn" class="quiet">Go to the final clue</button>
-      <button id="endGame" class="quiet">End the game</button>
+    <!-- Five made themes and then a custom one, in that order, because the realistic want is
+         "the green one" rather than a hex code. The board repaints as the picker is dragged,
+         which is a better preview than any swatch: the question is never whether a colour is
+         nice, it is whether the dimmed podium still reads as dimmer than the lit one from the
+         back of the room, and only the board at full size shows that. -->
+    <div class="sec">
+      <h2 class="sechead">Themes</h2>
+      <div class="themes">
+        <div class="swatches" id="swatches"></div>
+        <span class="rule"></span>
+        <div class="custom" id="customTheme">
+          <span class="optname">Custom theme</span>
+          <label class="pick" title="Board"><input type="color" id="groundPick" aria-label="Custom theme: board"></label>
+          <label class="pick" title="Accent"><input type="color" id="accentPick" aria-label="Custom theme: accent"></label>
+        </div>
+      </div>
     </div>
     <span id="rulesHint" class="note warn" hidden>Auto-cleanup is off: deploy the latest database.rules.json.</span>
   </div>
@@ -131,7 +145,7 @@
       <!-- The two ways a game finishes, each offered where it is actually wanted: ending
            it once the final clue has been revealed, and closing the room once the results
            are on the board. Both arm on the first tap. -->
-      <button id="endBtn" class="act" hidden>End the game</button>
+      <button id="endBtn" class="act" hidden>End game</button>
       <button id="closeBtn" class="act" hidden>Close the room</button>
     </div>
   </div>
@@ -282,14 +296,14 @@ $("#buzzPick").addEventListener("change", setBuzzerPick);
 $("#groundPick").addEventListener("input", pickColours);
 $("#accentPick").addEventListener("input", pickColours);
 $("#endGame").addEventListener("click",
-  () => arm($("#endGame"), "End the game", () => moves.end()));
+  () => arm($("#endGame"), "End game", () => moves.end()));
 $("#keepAlive").addEventListener("click", markActive);
 $("#revealBtn").addEventListener("click", () => moves.reveal());
 $("#dismissBtn").addEventListener("click", () => moves.dismiss());
 $("#showClueBtn").addEventListener("click", () => moves.showClue());
 $("#finalBtn").addEventListener("click", () => moves.startFinal());
 $("#endBtn").addEventListener("click",
-  () => arm($("#endBtn"), "End the game", () => moves.end()));
+  () => arm($("#endBtn"), "End game", () => moves.end()));
 $("#closeBtn").addEventListener("click",
   () => arm($("#closeBtn"), "Close the room", closeRoom));
 $("#timerBtn").addEventListener("click", () => moves.startTimer());
@@ -730,7 +744,7 @@ function renderGame(snap) {
     // because until then it is the mis-tap that costs the most.
     setAct($("#showClueBtn"), wagering);
     setAct($("#revealBtn"), !wagering && !game.reveal);
-    // On a final clue the gold one is End the game beside it, not Back to grid: the board
+    // On a final clue the gold one is End game beside it, not Back to grid: the board
     // it would go back to is the one the game has just finished with.
     setAct($("#dismissBtn"), !!game.reveal && !clue.final);
   }
@@ -841,7 +855,7 @@ function renderRoundButtons(round) {
   clueSet.rounds.forEach((R, i) => {
     if (i + 1 === round || !clueCount(clueSet, i + 1, {})) return;
     const b = document.createElement("button");
-    b.className = "quiet roundbtn";
+    b.className = "solid roundbtn";
     b.textContent = "Go to " + R.name;
     b.addEventListener("click", () => moves.setRound(i + 1));
     $("#finalBtn").before(b);
@@ -1365,6 +1379,9 @@ function drawSwatches() {
     b.addEventListener("click", () => setTheme(t === THEMES[0] ? null : t));
     wrap.appendChild(b);
   });
+  // No made theme pressed means the pickers are the theme, so their label says so.
+  $("#customTheme").classList.toggle("on",
+    !THEMES.some((t) => t.ground === now.ground && t.accent === now.accent));
   $("#groundPick").value = now.ground;
   $("#accentPick").value = now.accent;
 }
@@ -1488,7 +1505,7 @@ function closeRoom() {
     $("#panel").hidden = true;
     $("#cog").setAttribute("aria-expanded", "false");
     document.body.classList.remove("editing", "inclue");
-    disarm($("#endGame"), "End the game");
+    disarm($("#endGame"), "End game");
     $("#dash").hidden = true;
     $("#setup").hidden = false;
     showSetup(false);

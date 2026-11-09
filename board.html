@@ -88,7 +88,7 @@
     <button id="hBack" class="quiet" hidden>Back to grid</button>
     <button id="hRound" class="quiet" hidden>Go to round 2</button>
     <button id="hFinal" class="quiet" hidden>Final clue</button>
-    <button id="hEnd" class="quiet" hidden>End the game</button>
+    <button id="hEnd" class="quiet" hidden>End game</button>
   </div>
 </div>
 
@@ -406,19 +406,19 @@ $("#hFinal").addEventListener("click", () => moves.startFinal());
 let endArmed = null;
 $("#hEnd").addEventListener("click", () => {
   if (!endArmed) {
-    endArmed = setTimeout(() => { endArmed = null; $("#hEnd").textContent = "End the game"; },
+    endArmed = setTimeout(() => { endArmed = null; $("#hEnd").textContent = "End game"; },
                           4000);
     $("#hEnd").textContent = "Confirm";
     return;
   }
   clearTimeout(endArmed);
   endArmed = null;
-  $("#hEnd").textContent = "End the game";
+  $("#hEnd").textContent = "End game";
   moves.end();
 });
-addEventListener("pointermove", () => wakeBar());
-addEventListener("pointerdown", () => { $("#hostErr").textContent = ""; wakeBar(); });
-addEventListener("keydown", () => wakeBar());
+addEventListener("pointermove", () => { wakeBar(); wakeFull(); });
+addEventListener("pointerdown", () => { $("#hostErr").textContent = ""; wakeBar(); wakeFull(); });
+addEventListener("keydown", () => { wakeBar(); wakeFull(); });
 
 // The scores, once the teacher has ended the game. Rebuilt only when a score actually
 // changes, so a correction after the whistle replays the reveal and a stray snapshot does
