@@ -410,8 +410,9 @@ tr.buzzed .name { font-weight: 800; }
    not in the nowrap list: it holds the team and its members, and both have to wrap.
    Score was not in it either, so the spare width was being split between it and the answer
    and the submissions began two thirds of the way across the screen, nowhere near the
-   scores they are read against. */
-.score, .rm { width: 1%; white-space: nowrap; }
+   scores they are read against. Cells only: a student's score is a .score too, and a 1%
+   box there let the number spill out under the Room button. */
+td.score, th.score, td.rm, th.rm { width: 1%; white-space: nowrap; }
 /* Wide enough for the hand-over button whether or not one is there. It used to shrink to
    its content, so the button appearing beside whoever is up next shoved the whole table
    sideways. 1.9em is the button; the first column has padding on one side only. */
@@ -933,6 +934,13 @@ body.editing .rm { display: table-cell; }
    a clue opens - left to collapse, the card would grow at exactly that moment. */
 .clues #playErr:empty,
 .clues #wagerErr:empty { display: block; }
+/* It keeps that place inside the gaps either side of it rather than adding to them, so the
+   box and the bar read as one control, and the card takes the wide gap instead: the clue is
+   the thing apart. The 20px floor is for a phone on its side, where 3dvh is less than the
+   error line and the gaps would read the wrong way round again. */
+.clues #playErr,
+.clues #wagerErr { margin: -1.6dvh 0; }   /* the .screen gap, taken back on both sides */
+.clues .cluecard { margin-bottom: max(3dvh, 20px); }
 /* The card says both. */
 .clues #wagerTitle,
 .clues #wagerCat { display: none; }
