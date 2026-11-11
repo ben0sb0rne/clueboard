@@ -252,9 +252,8 @@ puts the board in its own window, you drag it across, and you keep the dashboard
 you. **One screen** - an iPad mirrored to the TV, a laptop with no second output - is
 `Run from the board`. Take one or the other, never both.
 
-Either way the board has a full-screen button in its top left corner, up when the mouse moves
-like the bar. It is never automatic: the window has to be dragged across before it fills the
-projector, and a browser only gives a page full screen for a press. Esc leaves.
+For the projector, use the browser's own full screen once the window is on that display:
+Ctrl+Cmd+F on a Mac, F11 on Windows, the full-screen key on a Chromebook.
 
 **It reveals first and marks second**, which is the opposite way round from the control
 screen. There is nowhere private on a projected board, so the answer going up is what you

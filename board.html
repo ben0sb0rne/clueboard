@@ -94,15 +94,6 @@
 
 <div class="cornercode" id="cornerCode"></div>
 
-<!-- Full screen on a press, never on its own: the window has to be dragged onto the
-     projector's display first, and a browser only gives a page full screen for a press. -->
-<button id="fullBtn" class="fullbtn" type="button" aria-label="Full screen" title="Full screen" hidden>
-  <svg viewBox="0 0 24 24" aria-hidden="true">
-    <path class="enter" d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/>
-    <path class="leave" d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5"/>
-  </svg>
-</button>
-
 <script src="https://www.gstatic.com/firebasejs/12.0.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.0.0/firebase-database-compat.js"></script>
 <script src="katex/katex.min.js"></script>
@@ -303,29 +294,6 @@ function wakeBar(ms) {
   barTimer = setTimeout(() => $("#hostbar").classList.remove("up"), ms || 3000);
 }
 
-// The browser's own full screen. The button wakes on the same moves as the bar, hosting or
-// not, and goes again with it, so a still show carries no chrome. Hidden where a page cannot
-// have full screen at all - an iPhone, for one.
-const fullBtn = $("#fullBtn");
-let fullTimer = null;
-fullBtn.hidden = !document.fullscreenEnabled;
-fullBtn.addEventListener("click", () => {
-  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-  else document.documentElement.requestFullscreen().catch(() => {});
-});
-// Esc leaves without the button, so the icon follows the browser rather than the press.
-document.addEventListener("fullscreenchange", () => {
-  const on = !!document.fullscreenElement;
-  fullBtn.classList.toggle("on", on);
-  fullBtn.title = on ? "Leave full screen (Esc)" : "Full screen";
-  fullBtn.setAttribute("aria-label", on ? "Leave full screen" : "Full screen");
-});
-function wakeFull() {
-  fullBtn.classList.add("up");
-  clearTimeout(fullTimer);
-  fullTimer = setTimeout(() => fullBtn.classList.remove("up"), 3000);
-}
-
 function renderHostBar() {
   if (!hosting) return;
   const clue = game.clue || null;
@@ -416,9 +384,9 @@ $("#hEnd").addEventListener("click", () => {
   $("#hEnd").textContent = "End game";
   moves.end();
 });
-addEventListener("pointermove", () => { wakeBar(); wakeFull(); });
-addEventListener("pointerdown", () => { $("#hostErr").textContent = ""; wakeBar(); wakeFull(); });
-addEventListener("keydown", () => { wakeBar(); wakeFull(); });
+addEventListener("pointermove", () => wakeBar());
+addEventListener("pointerdown", () => { $("#hostErr").textContent = ""; wakeBar(); });
+addEventListener("keydown", () => wakeBar());
 
 // The scores, once the teacher has ended the game. Rebuilt only when a score actually
 // changes, so a correction after the whistle replays the reveal and a stray snapshot does
