@@ -20,6 +20,8 @@
      in their hand - which is why the code field gets the middle of the screen and the two
      links for everybody else get a corner each. -->
 <main id="join" class="screen home">
+  <!-- The board behind the front page, filled in and lit by the tiles script at the foot. -->
+  <div class="tiles" id="tiles" aria-hidden="true"></div>
   <h1>Clueboard</h1>
 
   <div class="entry">
@@ -1158,6 +1160,63 @@ addEventListener("resize", () => {
   clearTimeout(fitTimer);
   fitTimer = setTimeout(fitCard, 150);
 });
+
+/* ---------- the board behind the front page ---------- */
+
+// The board's cells, laid behind the front page and invisible until a mouse moves over it. The
+// tiles near the pointer come up, brightest under it, and each goes back out a moment after the
+// pointer has moved on - so a still page is the plain page, and a moving mouse draws a short
+// trail of the board. Opacity alone, in the board's tempo: a third of a beat up and half a beat
+// down, linear, like every fade on the wall. Not for a finger, which has no hover to reveal
+// with, and not for anybody who has asked for less motion.
+//
+// Thirty-six of them, six by six as the board is in a game, laid out by the grid in style.css.
+const TILE_HOLD = SLOW / 4;  // how long a tile stays up after the pointer was last near it
+let tiles = [], tileReach = 0, tileAt = null;
+
+// Where each tile is, read off the layout so that lighting them is arithmetic and nothing else.
+// Read the first time the pointer is over the page, not at load: a student rejoining a room
+// starts on another screen, with this one hidden and every tile measuring nothing. The tiles
+// take the window's shape, tall in a narrow one, so the light reaches by whichever way they
+// are spaced further apart.
+function measureTiles() {
+  tiles.forEach((t) => { const b = t.el.getBoundingClientRect(); t.x = b.x + b.width / 2; t.y = b.y + b.height / 2; });
+  tileReach = 1.1 * Math.max(tiles[1].x - tiles[0].x, tiles[12].y - tiles[6].y);
+}
+
+function lightTiles(x, y) {
+  if (!tileReach) measureTiles();
+  tiles.forEach((t) => {
+    const d = Math.hypot(t.x - x, t.y - y) / tileReach;
+    if (d > 1) return;
+    // Three steps rather than a smooth falloff, so a tile changes when the pointer crosses into
+    // a nearer band, not on every pixel it moves.
+    const level = d < 0.45 ? 0.9 : d < 0.75 ? 0.55 : 0.25;
+    if (level > t.level) {
+      t.level = level;
+      t.el.style.transitionDuration = SLOW / 3 + "ms";
+      t.el.style.opacity = level;
+    }
+    clearTimeout(t.timer);
+    t.timer = setTimeout(() => {
+      t.level = 0;
+      t.el.style.transitionDuration = SLOW / 2 + "ms";
+      t.el.style.opacity = 0;
+    }, TILE_HOLD);
+  });
+}
+
+if (matchMedia("(hover: hover) and (pointer: fine)").matches && !reduced.matches) {
+  for (let k = 0; k < 36; k++) tiles.push({ el: $("#tiles").appendChild(document.createElement("i")), level: 0, timer: 0 });
+  $("#join").classList.add("tiled");
+  // One update a frame, however fast the mouse reports.
+  addEventListener("pointermove", (e) => {
+    if (e.pointerType !== "mouse" || $("#join").hidden) return;
+    if (!tileAt) requestAnimationFrame(() => { lightTiles(tileAt.x, tileAt.y); tileAt = null; });
+    tileAt = { x: e.clientX, y: e.clientY };
+  });
+  addEventListener("resize", () => { tileReach = 0; });   // measured again on the next move
+}
 </script>
 </body>
 </html>

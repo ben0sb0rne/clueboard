@@ -134,6 +134,40 @@ body.student { height: 100dvh; overflow: hidden; }
    overflow-y because .screen is exactly 100dvh and the body cannot scroll: on a short phone
    with the keyboard up this scrolls rather than cutting the links off the bottom. */
 .home { gap: 0; overflow-y: auto; }
+
+/* The board behind the front page: its blue cells, six by six as they are in a game - the top
+   row a category row, as in board.css - invisible until a mouse moves over the page, and lit
+   near it by the tiles script in index.html. The page's own colour shows between them, as the
+   gap ink does between cells on the board. Fixed, so a short phone's scroll never moves it,
+   and blind to the pointer, so every click lands on the page above. Wherever the tiles are
+   drawn (.tiled), the corner links take the same grid, so they sit in its bottom corners. */
+.home .tiles,
+.home.tiled .corners {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  grid-template-rows: 0.85fr repeat(5, 1fr);
+  gap: clamp(3px, 0.5vw, 9px);
+  margin: 0;
+  pointer-events: none;
+}
+.home .tiles i {
+  background: var(--board-blue);
+  opacity: 0;
+  transition-property: opacity;
+  transition-timing-function: linear;
+}
+/* Positioned, so the page paints over the tiles that come before it. */
+.home > :not(.tiles) { position: relative; }
+/* Centred in the bottom corner cells, as a value is in its cell on the board. */
+.home.tiled .corner {
+  grid-area: 6 / 1;
+  place-self: center;
+  text-align: center;
+  pointer-events: auto;
+}
+.home.tiled .corner:last-child { grid-column: 6; }
 .home h1 {
   text-align: center;
   font-size: clamp(30px, 8.5vw, 52px);

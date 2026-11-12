@@ -136,6 +136,14 @@ asked them to find on a phone a thing already on the wall in front of them. The 
 in the system font there, not Anton - a webfont on thirty phones for a screen that is up for
 five seconds is not a trade worth making.
 
+**The board is behind the front page.** Its 36 cells, six by six with the top row a category
+row, are laid out full-window and invisible until a mouse moves over the page. The cells near
+the pointer come up, brightest under it, and each fades out again about a second after the
+pointer moves on, so a still page is the plain page. `Host a game` and `Designer` sit in the
+bottom corner cells. It is opacity alone, at the board's tempo, and only where there is a
+mouse: a phone, or anyone with reduced motion turned on, gets the plain page with its links
+in their usual corners.
+
 **Joining and being ready are two separate acts.** The front page takes the room code and
 nothing else. That drops a team into a lobby, where they settle their name, who is in the
 team and - if the cog has it switched on - which buzzer sound they want, and then press
