@@ -40,7 +40,7 @@
       <button type="button" id="templateBtn" class="linkbtn">Download a blank template</button>
     </div>
     <p id="importErr" class="err"></p>
-    <p class="alt">or <span id="fromDesigner" hidden><button type="button" id="storedBtn" class="linkbtn"></button> &middot; </span><button type="button" id="sampleBtn" class="linkbtn">use the sample set</button></p>
+    <p class="alt">or <span id="backTo" hidden><button type="button" id="backBtn" class="linkbtn"></button> &middot; </span><button type="button" id="sampleBtn" class="linkbtn">use the sample set</button></p>
   </div>
 
   <!-- The whole set as the designer saves it, to read and correct before the lesson. -->
@@ -61,15 +61,20 @@
     <button id="keepAlive" class="act">Keep game open</button>
   </div>
 
+  <!-- The game's title on the left and the three buttons on the right, Edit Game last. The
+       room code and the join address that used to lead this bar are on the board, where the
+       class reads them - up here they only pushed the teams further down the screen. -->
   <header class="bar">
-    <div class="roomcode" id="roomCode"></div>
-    <div class="joinlink">Join at <a id="joinLink" href="#"></a></div>
-    <!-- Up here with the room's own details rather than in the action strip: it is pressed
-         once at the start and belongs to the room, not to the state of the game, and in the
-         strip it was the one button that moved every time another appeared beside it.
-         The cog goes to its left, not into the corner, so that this button and the gold one
-         in the strip below share one right edge - two rows, one line down the side.
-         Lucide's own gear, pasted from icons/settings.svg: it has to be inline to take its
+    <p class="bartitle" id="barTitle"></p>
+    <button id="openBoard" class="quiet">Open projector</button>
+    <!-- One screen, for a teacher who cannot extend their display. This tab becomes the
+         board, with the controls on it; Dashboard there comes back. Next to the button that
+         opens the board because they are the two answers to the same question - two screens
+         or one - and you take one or the other, never both. -->
+    <button id="hostBoard" class="quiet"
+      title="One screen: turn this tab into the board and choose clues on it"
+      >Run from the board</button>
+    <!-- Lucide's own gear, pasted from icons/settings.svg: it has to be inline to take its
          colour from the button, and an <img> cannot. icons/ holds the files and the ISC
          licence; copy the next one in the same way. -->
     <button id="cog" class="quiet" aria-expanded="false" title="Settings, themes, and removing a team">
@@ -79,14 +84,6 @@
         <circle cx="12" cy="12" r="3"></circle>
       </svg><span>Edit Game</span>
     </button>
-    <button id="openBoard" class="quiet">Open projector</button>
-    <!-- One screen, for a teacher who cannot extend their display. This tab becomes the
-         board, with the controls on it; Dashboard there comes back. Next to the button that
-         opens the board because they are the two answers to the same question - two screens
-         or one - and you take one or the other, never both. -->
-    <button id="hostBoard" class="quiet"
-      title="One screen: turn this tab into the board and choose clues on it"
-      >Run from the board</button>
   </header>
 
   <!-- Three rows, each named on the left: the game moves first, because they are what this
@@ -171,6 +168,8 @@
     <section id="clueState" class="off">
       <div class="ctlclue">
         <div id="ctlClueText"></div>
+        <!-- The clue's picture, from this device's own set, as the board shows it. -->
+        <img id="ctlPic" class="ctlpic" alt="" hidden>
       </div>
     </section>
   </div>
@@ -180,6 +179,7 @@
       <thead>
         <tr>
           <th class="num"></th>
+          <th class="ready"></th>
           <th class="name">Team</th>
           <th class="score">Score</th>
           <th class="answer">Answer</th>
@@ -213,7 +213,7 @@ const $ = (s) => document.querySelector(s);
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ";   // no I or O: they read as 1 and 0 on a projector
 const MUTE_KEY = "clueboard-muted";
 const LAST_ROOM = "clueboard-host-room";
-const SET_KEY = "clueboard-set";           // the set, shared with the designer: see readSet
+const SET_KEY = "clueboard-set";           // the set this screen is running: see useSet
 const PICK_KEY = "clueboard-teams-pick";   // host preference, remembered between games
 const CODE_KEY = "clueboard-show-code";    // the same, for the code in the board's corner
 const BUZZ_KEY = "clueboard-buzzers-only"; // and for a game played without answer boxes
@@ -245,6 +245,8 @@ let buzzedIds = null;       // null until the first snapshot, so reopening a roo
 // this script has finished loading, and a let further down cannot be touched until the
 // script reaches it: the reopen threw, and left the room with no grid and no heartbeat.
 let roundButtonsFor = null;
+// The picture the clue view is showing, up here for the same reason: renderGame draws it.
+let ctlPicKey = "";
 let muted = localStorage.getItem(MUTE_KEY) === "1";
 let teamsPick = localStorage.getItem(PICK_KEY) === "1";
 // Off unless it has been turned on: a game screen carries the clue and nothing else, and a
@@ -287,13 +289,18 @@ $("#fileIn").addEventListener("change", () => {
   if (file) importFile(file);
 });
 $("#sampleBtn").addEventListener("click", loadSample);
-$("#storedBtn").addEventListener("click", useStored);
+$("#backBtn").addEventListener("click", () => showSetup(false));
 $("#templateBtn").addEventListener("click", () => {
   downloadTemplate().catch((err) => { $("#importErr").textContent = "Could not make the template: " + err.message; });
 });
 $("#reimportBtn").addEventListener("click", () => showSetup(true));
 // The sheet's name is the game's, as the file would be.
-$("#title").addEventListener("input", () => { if (clueSet) $("#xlName").textContent = sheetName(); });
+// And it goes with the set, so going back to the set from Load a different set keeps it.
+$("#title").addEventListener("input", () => {
+  if (!clueSet) return;
+  clueSet.title = $("#title").value.trim();
+  $("#xlName").textContent = sheetName();
+});
 // The sheet: a tab chosen, a cell left, Enter for the cell below, Escape to put it back.
 $("#xlTabs").addEventListener("click", (e) => {
   const b = e.target.closest(".xltab");
@@ -339,6 +346,15 @@ $("#accentPick").addEventListener("input", pickColours);
 $("#endGame").addEventListener("click",
   () => arm($("#endGame"), "End game", () => moves.end()));
 $("#keepAlive").addEventListener("click", markActive);
+// A host who closes this tab mid-lesson leaves the room with nobody running it, so the browser
+// asks first while one is open - its own "Leave site?", worded the way every teacher already
+// knows. Not for this screen's own way out: Run from the board takes the tab there on purpose.
+let leavingOnPurpose = false;
+addEventListener("beforeunload", (e) => {
+  if (!roomCode || leavingOnPurpose) return;
+  e.preventDefault();
+  e.returnValue = "";
+});
 $("#revealBtn").addEventListener("click", () => moves.reveal());
 $("#dismissBtn").addEventListener("click", () => moves.dismiss());
 $("#showClueBtn").addEventListener("click", () => moves.showClue());
@@ -359,7 +375,7 @@ addEventListener("keydown", markActive);
 let fitTimer = null;
 addEventListener("resize", () => {
   clearTimeout(fitTimer);
-  fitTimer = setTimeout(fitRows, 150);
+  fitTimer = setTimeout(() => { fitRows(); placeCtlPicture(); }, 150);
 });
 
 const fromUrl = (new URL(location).searchParams.get("room") || "")
@@ -383,8 +399,11 @@ leftovers().forEach((code) => {
 
 /* ---------- the clue set ---------- */
 
-// The set is kept as the set, under the same key the designer writes, so a game made there is
-// one press away here. What a file said about itself is shown once, as it is opened.
+// The set this screen is running is kept on the device for two things - a refresh mid-lesson,
+// and a board on this laptop, which finds a clue's picture in it - and is never offered back.
+// A browser's storage is not a save (Safari clears it after a week without a visit), so the
+// next visit starts with no set and a set comes from a file every time. What a file said about
+// itself is shown once, as it is opened.
 
 // The .xlsx the designer saved, or a .csv or .tsv from any spreadsheet: the same set either
 // way, named after the file.
@@ -400,11 +419,9 @@ function useSet(parsed, from) {
       : "No clues in " + from + ".");
     return;
   }
-  // One set per device, and the designer is editing it too. A set it has not saved to a file
-  // yet exists nowhere else, so replacing it is asked about rather than done.
-  const was = readSet(localStorage.getItem(SET_KEY));
-  if (was && was.unsaved && !confirm("Replace the game in the designer? Its latest changes " +
-      "aren't in a saved file yet.")) return;
+  // Corrections made on the sheet are in no file, so opening another over them asks first.
+  if (clueSet && clueSet.unsaved && !confirm("Replace this game? The corrections made to it " +
+      "here aren't in any file.")) return;
   $("#importErr").textContent = "";
   localStorage.setItem(SET_KEY, JSON.stringify(parsed.set));
   clueSet = parsed.set;
@@ -419,29 +436,17 @@ function loadSample() {
     .catch((err) => { $("#importErr").textContent = err.message; });
 }
 
-// This device's set - the designer's, or the last one opened here - taken up again in one
-// press, rather than saved to a file and that file opened.
-function useStored() {
-  const kept = readSet(localStorage.getItem(SET_KEY));
-  if (!kept || !firstRound(kept)) { showSetup(true); return; }
-  clueSet = kept;
-  importNotes = [];
-  showSetup(false);
-}
-
 function showSetup(importing) {
   $("#importBox").hidden = !importing;
   $("#ready").hidden = importing;
   $("#setupBar").hidden = importing;
   $("#titleErr").textContent = "";
   if (importing) {
-    // Offered only when there is something to go back to, and by its name.
-    const kept = readSet(localStorage.getItem(SET_KEY));
-    const ok = !!(kept && firstRound(kept));
-    $("#fromDesigner").hidden = !ok;
-    if (ok) $("#storedBtn").textContent = kept.title
-      ? "continue with \u201c" + kept.title + "\u201d from the designer"
-      : "continue with the set from the designer";
+    // The way back from Load a different set, to the set this tab already has open - and only
+    // that: a set kept from another visit is never offered.
+    const name = $("#title").value.trim();
+    $("#backTo").hidden = !clueSet;
+    $("#backBtn").textContent = name ? "go back to “" + name + "”" : "go back to the open set";
     return;
   }
   if (!clueSet) return;
@@ -659,8 +664,8 @@ function mediaAt(tab, row) {
 
 // A correction goes into the set and into this device's copy of it, and the sheet is drawn
 // again from that - so a renamed category or a changed value shows on every row it belongs to,
-// and the check runs on what is there now. Marked unsaved, as an edit in the designer is: the
-// next file opened here, and the designer itself, both ask before losing it.
+// and the check runs on what is there now. Marked unsaved, because a correction is for this
+// game and in no file: the next file opened here asks before losing it.
 function commitCell(td) {
   const row = +td.dataset.row, col = +td.dataset.col, v = td.textContent.trim();
   let changed = false;
@@ -754,12 +759,6 @@ function newCode() {
 function openRoom(code) {
   try { history.replaceState(null, "", "?room=" + code + (window.DEMO ? "&demo=1" : "")); } catch (e) {}
 
-  const link = new URL("./", location.href);
-  const shown = link.href.replace(/^https?:\/\//, "").replace(/\/$/, "");
-  link.search = "?room=" + code;
-  $("#roomCode").textContent = code;
-  $("#joinLink").textContent = shown;
-  $("#joinLink").href = link.href;
   $("#setup").hidden = true;
   $("#dash").hidden = false;
 
@@ -771,8 +770,13 @@ function openRoom(code) {
   moves = hostMoves({
     db: db, code: code,
     game: () => game, teams: () => teams, clueSet: () => clueSet,
-    fail: (msg) => alert(msg)
+    fail: (msg) => alert(msg),
+    // Off window: for ten minutes after a deploy this page can run beside an older
+    // pictures.js, and then the phones go without pictures rather than the room not opening.
+    pictureCopy: window.phoneCopy
   });
+  // The phones' copy of every picture in the set, made now, so each clue goes up with its own.
+  if (window.warmPhoneCopies) warmPhoneCopies(clueSet);
   teamsRef = moves.teamsRef;
   gameRef = moves.gameRef;
 
@@ -825,6 +829,7 @@ function openBoardWindow() {
 // it, so it travels in the URL and leaves no flag behind in a room to go stale.
 function runFromBoard() {
   if (!roomCode) return;
+  leavingOnPurpose = true;
   location.href = "board.html?room=" + roomCode + "&host=1" + (window.DEMO ? "&demo=1" : "");
 }
 
@@ -849,6 +854,7 @@ function tickIdle() {
 
 function renderGame(snap) {
   game = snap.val() || {};
+  $("#barTitle").textContent = game.title || gameTitle || "";
   // Something moved in this room, so somebody is running it - this screen, a team picking a
   // clue, or a board being driven from the projector. Without this the idle timer only ever
   // saw pointers on this page, and would end a game being run entirely from the board.
@@ -909,8 +915,10 @@ function renderGame(snap) {
       : "Start the game";
   }
 
+  if (!clue) showCtlPicture(null);
   if (clue) {
     mathText($("#ctlClueText"), clue.text);
+    showCtlPicture(clue);
     $("#timerBtn").textContent = game.timerEnds && game.timerEnds > serverNow()
       ? "Restart the timer"
       : "Start the timer";
@@ -1121,6 +1129,64 @@ function renderTeams(snap) {
   maybeShowClue();
 }
 
+// The clue's picture on this screen too, from this device's own set as the board finds it, so
+// the teacher is not reading a clue that says "this shape" with no shape in front of them.
+// Beside the words or under them, whichever shows it larger in the room the clue has here.
+function showCtlPicture(clue) {
+  const img = $("#ctlPic");
+  const m = clue && window.pictureSpot && mediaHere(clue);   // none beside an older clues.js
+  const key = m && m.kind === "picture" ? m.id || m.url || "" : "";
+  if (key === ctlPicKey) { placeCtlPicture(); return; }
+  ctlPicKey = key;
+  img.hidden = true;
+  img.removeAttribute("src");
+  placeCtlPicture();
+  if (!key) return;
+  const show = (src) => {
+    if (ctlPicKey !== key || !src) return;
+    img.onload = placeCtlPicture;
+    img.src = src;
+    img.hidden = false;
+  };
+  if (m.id) loadPictures([m.id]).then(() => show(pictureURLs[m.id]));
+  else show(m.url);
+}
+function mediaHere(clue) {
+  if (!clueSet) return null;
+  if (clue.final) return (clueSet.final && clueSet.final.media) || null;
+  const R = clueSet.rounds[(Number(game.round) || 1) - 1];
+  const s = R && R.cells[clue.cat] && R.cells[clue.cat][clue.row];
+  return (s && s.media) || null;
+}
+// pictureSpot() in clues.js on the room the clue view has, and the words, which keep their CSS
+// size, stepped down a pixel at a time only if they no longer fit beside or under the picture.
+// The room is measured with the picture out of it: the panel grows to fit what is in it, so
+// measured around a picture at its own size it would make room for that, and push the teams
+// down the screen on every clue with one. Growing past that height is what "no longer fit" is.
+function placeCtlPicture() {
+  const box = $("#clueState .ctlclue"), img = $("#ctlPic"), text = $("#ctlClueText");
+  box.classList.remove("pic-right", "pic-below");
+  img.style.width = img.style.height = "";
+  text.style.fontSize = "";
+  if (img.hidden || !img.naturalWidth) return;
+  img.style.display = "none";
+  const room = box.clientHeight;
+  const cs = getComputedStyle(box);
+  const w = box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  const h = room - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+  img.style.display = "";
+  if (w <= 0 || h <= 0) return;
+  const spot = pictureSpot(w, h, img.naturalWidth / img.naturalHeight, 0.5);
+  box.classList.add("pic-" + spot.side);
+  img.style.width = spot.w + "px";
+  img.style.height = spot.h + "px";
+  let size = parseFloat(getComputedStyle(text).fontSize);
+  while (size > 14 && (box.scrollHeight > room || text.scrollWidth > text.clientWidth + 1)) {
+    size -= 1;
+    text.style.fontSize = size + "px";
+  }
+}
+
 // A grid glyph, so it reads as "the board" rather than as another score control. Lucide's
 // layout-grid, built from icons/layout-grid.svg: same four rects, stroked at the set's own
 // weight rather than filled, which is what makes it a sibling of the cog in the header.
@@ -1152,6 +1218,21 @@ function boardButton(t, has) {
   return b;
 }
 
+// Who has pressed Ready, at a glance down the column, rather than only how many on the state
+// line. Lucide's circle-check for a team that is in, and the same circle empty for one that is
+// still deciding, so the two read as the same mark filled in or not.
+function readyMark(t) {
+  const mark = document.createElement("span");
+  mark.className = t.ready ? "readymark in" : "readymark";
+  mark.setAttribute("role", "img");
+  mark.title = t.ready ? "Ready" : "Not ready yet";
+  mark.setAttribute("aria-label", mark.title);
+  mark.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' +
+    '<circle cx="12" cy="12" r="10"/>' + (t.ready ? '<path d="m9 12 2 2 4-4"/>' : "") + "</svg>";
+  return mark;
+}
+
 function renderTeamRows() {
   const body = $("#rows");
   const clue = game.clue || null;
@@ -1165,6 +1246,9 @@ function renderTeamRows() {
   // calls back here, so the cost is a second of staleness in one cell.
   if (body.querySelector("select:focus")) return;
   body.textContent = "";
+  // The ready column is the lobby's alone: once the game starts, a team that has not pressed
+  // Ready reads grey in the name column instead.
+  document.body.classList.toggle("lobby", pre);
 
   // Checking answers is most of what this screen is for, so the answer being marked against
   // heads the same column the submissions are in. Same table, so they line up on their own
@@ -1177,6 +1261,7 @@ function renderTeamRows() {
   const kr = body.insertRow();
   kr.className = showing ? "keyrow" : "keyrow off";
   cell(kr, "", "num");
+  cell(kr, "", "ready");
   cell(kr, "", "name");
   // The label sits in the column to the left, so the answer itself starts on exactly the
   // same edge as every submission under it.
@@ -1208,6 +1293,9 @@ function renderTeamRows() {
       numCell.textContent = "";
       numCell.appendChild(boardButton(t, game.picker === t.id));
     }
+
+    const readyCell = cell(tr, "", "ready");
+    if (pre) readyCell.appendChild(readyMark(t));
 
     const nameCell = cell(tr, teamLabel(t), "name", true);
     // Grey italic already means "not a team you can do anything with yet". A team still in

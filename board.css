@@ -857,6 +857,12 @@ body.board {
   font-weight: 600;
   line-height: 1.25;
 }
+/* The clue's picture, beside the words or under them as placeCtlPicture() in control.html
+   decides, on white as the board shows one. */
+.control .ctlclue.pic-right { gap: 1.2em; }
+.control .ctlclue.pic-right #ctlClueText { flex: 1 1 0; min-width: 0; }
+.control .ctlclue.pic-below { flex-direction: column; justify-content: center; gap: 0.8em; }
+.control .ctlpic { flex: none; display: block; object-fit: contain; background: #fff; border-radius: 6px; }
 
 /* The answer, at the head of the column the submissions are in. */
 .control tr.keyrow td {
@@ -919,6 +925,14 @@ body.board {
   background: var(--good);
   box-shadow: none;
 }
+
+/* Who has pressed Ready: a column of its own between the lock and the name, and only in the
+   lobby - once the game starts, the name column says the same thing in grey. */
+.control .ready { display: none; }
+.control.lobby .ready { display: table-cell; width: 1%; padding-right: 0; vertical-align: middle; }
+.control .readymark { display: block; width: 1.5em; height: 1.5em; color: var(--off); }
+.control .readymark svg { display: block; width: 100%; height: 100%; }
+.control .readymark.in { color: var(--good); }
 
 /* The lock takes the same cell as the hand-over icon and wears the same box, so the column
    does not change width when the game starts. On every row, though, where .give is only ever
@@ -1222,6 +1236,14 @@ body.board {
     align-self: start;
   }
   .control tbody td.name { grid-area: name; }
+  /* In the lobby the card's first line makes room for the ready mark beside the lock. */
+  .control.lobby tbody tr {
+    grid-template-columns: auto auto minmax(0, 1fr) auto auto auto;
+    grid-template-areas:
+      "num ready  name   score  mark   rm"
+      "num answer answer answer answer answer";
+  }
+  .control.lobby tbody td.ready { display: block; grid-area: ready; width: auto; }
   .control tbody td.score { grid-area: score; text-align: right; }
   .control tbody td.mark { grid-area: mark; text-align: right; }
   .control tbody td.answer { grid-area: answer; }

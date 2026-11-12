@@ -18,6 +18,7 @@
 //   teams(),    the teams, for a name and a score
 //   clueSet(),  the parsed set, held on this device and never published whole
 //   fail(msg)   how this screen says something went wrong
+//   pictureCopy(media)   optional: a phone-sized copy of a clue's picture, as a Promise
 // }
 function hostMoves(ctx) {
   var db = ctx.db;
@@ -100,8 +101,8 @@ function hostMoves(ctx) {
 
   // Publishes the clue text, which is about to be on the projector anyway. It does not spend
   // the cell - reveal() does that - so a mis-tap costs nothing and a clue can be held over.
-  // Its picture or video is not published: the board finds that in this device's own set,
-  // so nothing about media ever reaches a student's phone.
+  // The board finds its picture or video in this device's own set; a picture goes to the
+  // phones as a small copy, by sendPicture() below, and a video never leaves this device.
   function select(cat, row) {
     var game = ctx.game();
     var round = Number(game.round) || 1;
@@ -126,8 +127,25 @@ function hostMoves(ctx) {
       shown: null,
       timerEnds: null
     })
-      .then(resetBuzzers)
+      .then(function () {
+        sendPicture(clue.media, function () {
+          var c = ctx.game().clue;
+          return !!c && !c.final && c.cat === cat && c.row === row;
+        });
+        return resetBuzzers();
+      })
       .catch(caught("open that clue"));
+  }
+
+  // A clue's picture, to the phones: its own write once the words are up, so the board - which
+  // draws its own copy - is never held for it. Only while the clue card is on, since with it off
+  // no phone shows a clue and nothing about the picture need leave this device. It goes with
+  // the clue: Back to grid, or the next clue, writes the whole clue over.
+  function sendPicture(media, stillUp) {
+    if (!media || media.kind !== "picture" || !ctx.pictureCopy || !ctx.game().showClues) return;
+    ctx.pictureCopy(media).then(function (src) {
+      if (src && stillUp()) gameRef.child("clue/picture").set(src).catch(function () {});
+    }, function () {});
   }
 
   function reveal() {
@@ -184,7 +202,10 @@ function hostMoves(ctx) {
       },
       wagering: true, reveal: false, pick: null, shown: null, timerEnds: null
     })
-      .then(resetBuzzers)
+      .then(function () {
+        sendPicture(f.media, function () { var c = ctx.game().clue; return !!c && !!c.final; });
+        return resetBuzzers();
+      })
       .catch(caught("start the final clue"));
   }
 

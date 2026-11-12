@@ -266,8 +266,10 @@ function setHosting(on) {
     moves = hostMoves({
       db: db, code: code,
       game: () => game, teams: () => teams, clueSet: () => clueSet,
-      fail: hostFail
+      fail: hostFail,
+      pictureCopy: window.phoneCopy   // off window, as in control.html: pictures.js may be older
     });
+    if (window.warmPhoneCopies) warmPhoneCopies(clueSet);   // each picture's phone copy, ready before its clue
     // The control screen may have been closed and dragged away from, so this board says the
     // room still has a host. Two screens writing the same timestamp costs nothing.
     moves.startHeartbeat();
@@ -800,8 +802,9 @@ function renderClue(clue) {
   if (fresh || panel.hidden) expandFrom(panel, clue.cat, clue.row);
 }
 
-// The clue's picture or video comes from this device's own copy of the set and nowhere else:
-// the room never carries one, so nothing about it reaches a student's phone. A board on a
+// The clue's picture or video comes from this device's own copy of the set and nowhere else.
+// The room carries a smaller copy of a picture for the phones - sendPicture() in game.js - but
+// the board shows its own, at full size and whatever the clue setting. A board on a
 // device that has not opened the game shows the words alone - which is why, with a phone as
 // the control screen, the laptop on the projector opens the file too. The clue text has to
 // match as well, so a board holding some other set shows nothing rather than the wrong picture.

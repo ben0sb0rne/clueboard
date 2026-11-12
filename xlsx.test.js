@@ -90,6 +90,27 @@ tests["pictures are real Excel pictures, anchored in their rows"] = function () 
   });
 };
 
+// A designer opening in another tab lets go of stored pictures the control screen does not use,
+// so one this page is still showing is saved from its own copy rather than lost from the file.
+tests["a picture gone from the store is saved from the page's own copy"] = function () {
+  var png = new Uint8Array([137, 80, 78, 71, 9, 9]);
+  var fetchWas = global.fetch;
+  global.getPicture = function () { return Promise.resolve(undefined); };
+  global.pictureURLs = { mem: "blob:mem" };
+  global.fetch = function (url) {
+    assert.strictEqual(url, "blob:mem");
+    return Promise.resolve({ blob: function () { return Promise.resolve(new Blob([png], { type: "image/png" })); } });
+  };
+  var s = set();
+  s.rounds[0].cells[0][1] = { clue: "Kept", answer: "a", media: { kind: "picture", id: "mem", name: "m.png", w: 10, h: 10 }, dd: false };
+  return X.writeXlsx(s).then(function (r) {
+    assert.strictEqual(r.missing, 0);
+    return r.blob.arrayBuffer();
+  }).then(X.unzip).then(function (files) {
+    assert.deepStrictEqual(Array.from(files["xl/media/image1.png"]), Array.from(png));
+  }).finally(function () { delete global.pictureURLs; global.fetch = fetchWas; });
+};
+
 var names = Object.keys(tests), failed = 0;
 names.reduce(function (p, name) {
   return p.then(function () { return tests[name](); })

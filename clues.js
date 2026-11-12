@@ -3,7 +3,7 @@
 // the control screen keeps the set on its own device and publishes only the grid, plus the
 // current clue once it is on the projector.
 //
-// A set is what the designer edits, and what a device keeps under clueboard-set:
+// A set is what the designer edits, and what the control screen keeps under clueboard-set:
 //   { title, rounds: [{ id, name, cats: [name], prices: [one per row], cells: [cat][row] }],
 //     final: { cat, clue, answer, media } or null }
 // A square is { clue, answer, media, dd }, or null when it is empty. One with a clue and no
@@ -340,8 +340,9 @@ function distinctValues(rows) {
   return Object.keys(seen).length;
 }
 
-// What this device keeps under clueboard-set: the set itself, as JSON. A set pasted before
-// the designer existed was kept as the raw paste, so that still loads.
+// What the control screen keeps under clueboard-set, for a refresh mid-lesson and the board:
+// the set itself, as JSON. A set pasted before the designer existed was kept as the raw
+// paste, so that still loads.
 function readSet(raw) {
   if (!raw) return null;
   if (!/^\s*\{/.test(raw)) return parseClueSet(raw).set;
@@ -502,8 +503,42 @@ function cardFor(game, myId) {
   if (clue.final && game.wagering) {
     return { kind: "title", key: key, title: "Final Clue", sub: clue.category || "" };
   }
-  return { kind: "clue", key: key, text: clue.text || "",
-           answer: game.reveal && clue.answer ? clue.answer : "" };
+  var card = { kind: "clue", key: key, text: clue.text || "",
+               answer: game.reveal && clue.answer ? clue.answer : "" };
+  // The picture comes as a picture and nothing else: a phone shows an image the room carries
+  // whole, never a link, so a student writing to the room by hand cannot send thirty phones to
+  // some other site.
+  if (isPictureData(clue.picture)) card.picture = clue.picture;
+  return card;
+}
+
+function isPictureData(v) {
+  return typeof v === "string" && /^data:image\/(jpeg|png|gif|webp);base64,[A-Za-z0-9+\/]+=*$/.test(v);
+}
+
+// Where a clue's picture goes on a card w by h, and how big: beside the words or under them,
+// with at most `share` of the card's width (beside) or height (under) given to it, so the words
+// always keep the rest. Whichever shows it larger wins - weighed, when `type` is given, by what
+// each leaves the words: type(w, h) is the largest the words can be drawn in a room that size,
+// and each side scores its picture's area times that.
+//
+// A tall picture wins beside and a wide one under, but where the line falls depends on the card
+// as well as the picture. The host's words have a set size that fits either way, so there it is
+// the picture alone, and on its wide panel even a 16:9 one is larger beside them. A phone sizes
+// its words to their room, and held upright that room is short of width: beside a 3:4 photo the
+// words would drop to half their size for a picture barely larger than it is under them, so the
+// photo goes under, while a 9:16 screenshot, twice the size beside, stays there. Held sideways,
+// nearly everything is larger beside.
+function pictureSpot(w, h, ratio, share, type) {
+  share = share || 0.5;
+  type = type || function () { return 1; };
+  var fit = function (bw, bh) {
+    return ratio > bw / bh ? { w: bw, h: bw / ratio } : { w: bh * ratio, h: bh };
+  };
+  var beside = fit(w * share, h), under = fit(w, h * share);
+  return beside.w * beside.h * type(w - beside.w, h) > under.w * under.h * type(w, h - under.h)
+    ? { side: "right", w: beside.w, h: beside.h }
+    : { side: "below", w: under.w, h: under.h };
 }
 
 // The cap on a wager: the larger of what a team already has and the top value on the board.
@@ -556,7 +591,7 @@ if (typeof module !== "undefined" && module.exports) {
     MAX_COLS: MAX_COLS, MAX_ROWS: MAX_ROWS, FINAL_TAB: FINAL_TAB, ladder: ladder,
     cleanRoundName: cleanRoundName, parseLink: parseLink, embedURL: embedURL, csvRows: csvRows,
     parseClueSet: parseClueSet, setFromTables: setFromTables, setToTables: setToTables,
-    readSet: readSet, blankSet: blankSet,
+    readSet: readSet, blankSet: blankSet, pictureSpot: pictureSpot,
     playable: playable, roundGrid: roundGrid, cellKey: cellKey, clueAt: clueAt,
     finalClue: finalClue, firstRound: firstRound, nextRound: nextRound, clueCount: clueCount,
     wagerCap: wagerCap, readWager: readWager, stake: stake, inLobby: inLobby, cardFor: cardFor

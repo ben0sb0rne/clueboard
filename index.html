@@ -64,7 +64,6 @@
 <main id="lobby" class="screen" hidden>
   <header class="lobbyhead">
     <h2 id="lobbyTitle">Get ready</h2>
-    <p class="lobbycode">Room <span id="lobbyCode"></span></p>
   </header>
 
   <div class="lobbyform">
@@ -92,12 +91,10 @@
 
 <main id="play" class="screen" hidden>
   <div class="who">
-    <span id="whoTeam"></span>
+    <!-- The team's own name is the way out of the room: pressed, then confirmed by the
+         browser, so a stray tap on a phone in a pocket cannot do it. -->
+    <button type="button" class="whoname" id="whoTeam" title="Leave this room"></button>
     <span id="playScore" class="score"></span>
-    <button id="leave" class="leave" title="Change room">
-      <span id="leaveIdle">Room <b id="whoCode"></b></span>
-      <span id="leaveArm" hidden>Leave this room?</span>
-    </button>
   </div>
 
   <!-- The clue on the projector, in the student's hand, when the cog has it on: the board's
@@ -114,6 +111,9 @@
       <p class="cluetext" id="cardText"></p>
       <p class="clueanswer" id="cardAnswer" hidden></p>
     </div>
+    <!-- The clue's picture, when it has one: a copy the host sends with the clue, beside the
+         words or under them as placePicture() decides. -->
+    <img class="cardpic" id="cardPic" alt="" hidden>
   </div>
 
   <!-- The id is on the wrapper rather than the input: a buzzers-only game hides the box and
@@ -129,7 +129,7 @@
 
 <main id="pick" class="screen" hidden>
   <div class="who">
-    <span id="pickWho"></span>
+    <button type="button" class="whoname" id="pickWho" title="Leave this room"></button>
     <span id="pickScore" class="score"></span>
   </div>
   <h2 class="picktitle">Your pick</h2>
@@ -139,7 +139,7 @@
 
 <main id="wager" class="screen" hidden>
   <div class="who">
-    <span id="wagerWho"></span>
+    <button type="button" class="whoname" id="wagerWho" title="Leave this room"></button>
     <span id="wagerScore" class="score"></span>
   </div>
   <h2 class="picktitle" id="wagerTitle">Daily Double</h2>
@@ -161,7 +161,7 @@
 
 <main id="wait" class="screen" hidden>
   <div class="who">
-    <span id="waitWho"></span>
+    <button type="button" class="whoname" id="waitWho" title="Leave this room"></button>
     <span id="waitScore" class="score"></span>
   </div>
   <p class="waitmsg" id="waitMsg"></p>
@@ -221,6 +221,13 @@ const KIT_WAIT = 3000;          // how long a clue waits on KaTeX before it goes
 // the same proportion, and never above the clue's own size.
 const ANSWER_SCALE = 3.6 / 4.6;
 const MIN_TYPE = 12;            // px: below this the card clips rather than shrinking further
+// The largest the words are drawn in a room w by h - seven ems across, five down - which is
+// where fitCard() starts, and what placePicture() weighs a picture against.
+const typeFor = (w, h) => Math.min(w / 7, h / 5);
+// The most of the card a picture may take: half its width beside the words, or half its height
+// under them. The words always keep the other half to fit into.
+const PIC_SHARE = 0.5;
+let picBox = null;              // where the picture went: { side, w, h, gap }, or null
 let cardKey = null;             // the clue on the card, keyed as renderClue() keys the board
 let cardShown = null;           // what the card is showing of it, from cardFor()
 let cardClose = null;           // the timer while a closed clue's words fade out
@@ -273,7 +280,15 @@ $("#members").addEventListener("input", saveLobbySoon);
 $("#team").addEventListener("blur", saveLobby);
 $("#members").addEventListener("blur", saveLobby);
 $("#readyBtn").addEventListener("click", toggleReady);
-$("#leave").addEventListener("click", armLeave);
+document.querySelectorAll(".whoname").forEach((b) => b.addEventListener("click", leaveRoom));
+// Closing the tab or the window mid-game asks first, in the browser's own words, while this
+// phone is in a room: a team that closes by accident is off the buzzer until it finds the
+// page again. Leaving on purpose is the name above, and that has its own question.
+addEventListener("beforeunload", (e) => {
+  if (!myId) return;
+  e.preventDefault();
+  e.returnValue = "";
+});
 $("#lock").addEventListener("click", lockIn);
 $("#answer").addEventListener("keydown", (e) => { if (e.key === "Enter") lockIn(); });
 $("#wagerBtn").addEventListener("click", sendWager);
@@ -358,8 +373,6 @@ function attach(code, teamId) {
       return;
     }
     $("#whoTeam").textContent = team.name;
-    $("#whoCode").textContent = code;
-    $("#lobbyCode").textContent = code;
     $("#pickWho").textContent = team.name;
     $("#waitWho").textContent = team.name;
     $("#wagerWho").textContent = team.name;
@@ -582,27 +595,11 @@ function sendPick(cat, row) {
     .catch((err) => { $("#pickErr").textContent = err.message; });
 }
 
-let leaveArmed = false;
-let leaveTimer = null;
-function armLeave() {
-  if (!leaveArmed) {
-    leaveArmed = true;
-    $("#leaveIdle").hidden = true;
-    $("#leaveArm").hidden = false;
-    $("#leave").classList.add("arm");
-    leaveTimer = setTimeout(disarmLeave, 4000);
-    return;
-  }
-  clearTimeout(leaveTimer);
-  disarmLeave();
+// Twice over, the second time in the browser's own box: the press on the name, then OK. The
+// team stays in the room for the host to remove, and the code on the board brings it back.
+function leaveRoom() {
+  if (!confirm("Leave this room? You can join again with the code on the board.")) return;
   toJoinScreen();
-}
-
-function disarmLeave() {
-  leaveArmed = false;
-  $("#leaveIdle").hidden = false;
-  $("#leaveArm").hidden = true;
-  $("#leave").classList.remove("arm");
 }
 
 // ---------------------------- the lobby ----------------------------
@@ -790,8 +787,11 @@ function renderPlay() {
   // Cleared when the clue changes, not when the lock is released: a score correction
   // mid-typing used to be the only re-render that could wipe a half-typed answer, and the
   // host's reset only ever reaches a team that locked something in - a student who typed and
-  // never locked carried it into the next question.
-  const round = !live ? null : game.clue.final ? "final" : game.clue.cat + "-" + game.clue.row;
+  // never locked carried it into the next question. Keyed on the clue rather than on whether
+  // it is live, so the box empties the moment the host goes back to the board instead of
+  // holding the last answer until the next clue opens - and a team's typing stays in view
+  // with the answer at the reveal.
+  const round = !game.clue ? null : game.clue.final ? "final" : game.clue.cat + "-" + game.clue.row;
   if (round !== answerRound) {
     answerRound = round;
     box.value = "";
@@ -897,7 +897,7 @@ function openCard(card) {
 function updateCard(card) {
   const was = cardShown;
   if (card.kind !== was.kind || card.title !== was.title || card.sub !== was.sub
-      || card.text !== was.text) {
+      || card.text !== was.text || (card.picture || "") !== was.picture) {
     fillCard(card);
   }
   if (card.answer && !cardShown.answer) showAnswer(card.answer, true);
@@ -914,7 +914,19 @@ function fillCard(card) {
   if (title) $("#cardText").textContent = "";
   else words($("#cardText"), card.text);
   hideAnswer();
-  cardShown = { kind: card.kind, title: card.title, sub: card.sub, text: card.text, answer: "" };
+  // The picture is decoded before it can be placed, so the words are fitted once without it
+  // and again when it has its size - while they are still invisible, as a copy the room carries
+  // whole decodes in a few milliseconds.
+  const img = $("#cardPic");
+  const pic = card.picture || "";
+  img.hidden = !pic;
+  if (!pic) img.removeAttribute("src");
+  else if (img.getAttribute("src") !== pic) {
+    img.onload = () => { if (cardShown && cardShown.picture === pic) fitCard(); };
+    img.src = pic;
+  }
+  cardShown = { kind: card.kind, title: card.title, sub: card.sub, text: card.text,
+                picture: pic, answer: "" };
   fitCard();
   // A face the warm-up never asked for - a rarer KaTeX one - is still on its way. Fitted
   // again when it lands; the words are held invisible for the first 600ms, which is usually
@@ -925,7 +937,8 @@ function fillCard(card) {
 // The answer going up is the beat of the whole card, as it is of the board's: the clue eases
 // up out of the way while the answer and its rule fade in underneath, over the same span, so
 // they are fully there exactly as the clue comes to rest. openAnswer() in board.html - a
-// FLIP, transform and opacity only - with one mover, because a card carries no picture. The
+// FLIP, transform and opacity only - with one mover, because the picture sits outside the column of
+// words and stays where it is. The
 // answer is fitted into the room under the clue before the "after" is measured, so the clue
 // keeps its size and only moves. Unmoved when the card opens on a clue already revealed.
 function showAnswer(text, move) {
@@ -977,6 +990,10 @@ function clearCard() {
   $("#cardSub").textContent = "";
   $("#cardText").textContent = "";
   hideAnswer();
+  const img = $("#cardPic");
+  img.hidden = true;
+  img.removeAttribute("src");
+  placePicture();
   cardKey = null;
   cardShown = null;
 }
@@ -991,6 +1008,7 @@ function fitCard() {
   const el = $("#clueCard");
   const body = $("#cardBody");
   const ans = $("#cardAnswer");
+  placePicture();
   const room = cardRoom();
   cardWidth = el.clientWidth;
   if (!cardShown || !room) return;      // not on screen: fitted when it is
@@ -1005,7 +1023,7 @@ function fitCard() {
     ans.style.fontSize = ANSWER_SCALE + "em";
     ans.hidden = false;
   }
-  const top = Math.min(room.w / 7, room.h / 5);
+  const top = typeFor(room.w, room.h);
   for (let k = 20; k > 0; k--) {
     body.style.fontSize = top * k / 20 + "px";
     if (fits(room) || top * (k - 1) / 20 < MIN_TYPE) break;
@@ -1029,8 +1047,37 @@ function fitAnswer() {
   }
 }
 
-// The card's content box, or null while it is not on screen.
+// The picture beside the words or under them, whichever shows it larger for what it leaves
+// the words - pictureSpot() in clues.js - sized to the card before the words are fitted into
+// the rest. Run on every fit, so a phone turned on its side gets the layout its new shape wants.
+function placePicture() {
+  const el = $("#clueCard"), img = $("#cardPic");
+  el.classList.remove("pic-right", "pic-below");
+  img.style.width = img.style.height = "";
+  picBox = null;
+  if (img.hidden || !img.naturalWidth) return;
+  const box = cardBox();
+  if (!box) return;
+  const spot = pictureSpot(box.w, box.h, img.naturalWidth / img.naturalHeight, PIC_SHARE, typeFor);
+  el.classList.add("pic-" + spot.side);
+  const cs = getComputedStyle(el);
+  img.style.width = spot.w + "px";
+  img.style.height = spot.h + "px";
+  picBox = { side: spot.side, w: spot.w, h: spot.h,
+             gap: parseFloat(spot.side === "right" ? cs.columnGap : cs.rowGap) || 0 };
+}
+
+// The room the words have: the card's content box, less the picture and the gap beside it.
 function cardRoom() {
+  const box = cardBox();
+  if (!box || !picBox) return box;
+  return picBox.side === "right"
+    ? { w: box.w - picBox.w - picBox.gap, h: box.h }
+    : { w: box.w, h: box.h - picBox.h - picBox.gap };
+}
+
+// The card's content box, or null while it is not on screen.
+function cardBox() {
   const el = $("#clueCard");
   const cs = getComputedStyle(el);
   const w = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);

@@ -144,7 +144,9 @@ team and - if the cog has it switched on - which buzzer sound they want, and the
 The reason is what the dashboard used to look like during the five minutes before a game. A
 team that had entered the code and a team still arguing about its name were the same row, so
 the only way to tell a tech problem from a naming committee was to walk over. The state line
-now reads `3 of 5 ready`, and the ones that are not are visible as the ones still working.
+now reads `3 of 5 ready`, and a column in front of the team names, there only in the lobby,
+fills a team's circle with a check once it is - so the ones that are not are visible as the
+ones still working.
 It is the pattern a multiplayer lobby uses, for the same reason: you can see that somebody is
 there and fiddling with their loadout rather than wondering whether they loaded at all.
 
@@ -176,8 +178,15 @@ things take it off screen, and each is something to do rather than something to 
 grid when this team has the pick, a Daily Double that belongs to somebody else, and the
 wager. With the clue card on, somebody else's Daily Double is the exception: the other teams
 watch it on the card, over a buzzer gone dead whose bar names the team it belongs to. The box
-clears itself when the clue changes, so what somebody typed and never locked in cannot follow
-them into the next question.
+clears itself when the teacher goes back to the grid, so what somebody typed and never locked
+in cannot follow them into the next question - and not before, so the reveal does not wipe an
+answer from under the team still reading it against the board.
+
+**Leaving is the team name.** It sits at the top of every student screen, and tapping it asks
+`Leave this room?` before going back to the join screen: two steps, so a stray thumb cannot do
+it. Closing or reloading the tab mid-game asks too, with the browser's own prompt, which iOS
+Safari does not show. The room code is not on student screens at all - they have just typed
+it, and it is on the board.
 
 **`Use buzzers only` in the cog takes the answer boxes away** for a whole game: teams ring in and
 answer out loud, and the buzzer fills the phone. Use it for a room where the devices are a
@@ -282,8 +291,8 @@ and the two scoring buttons on one line, the answer across the full width undern
 columns on a 390px screen put the deduct button off the right edge and gave the answer six
 characters a line, so the fallback was not one.
 
-**The dashboard is as large as it will go and no larger.** The room code and the whole team
-table are scaled by one number, wound down a twentieth at a time until the last team is on
+**The dashboard is as large as it will go and no larger.** The whole team table is scaled by
+one number, wound down a twentieth at a time until the last team is on
 screen - measured rather than counted, because one team writing a sentence wraps to three
 lines and costs more height than three teams answering "42". It stops at seven tenths and
 lets the page scroll instead: below that the answers are too small to read at arm's length,
@@ -323,6 +332,11 @@ is no place for a paragraph of instructions:
   clue is up - and the board's own rule is that a wager stays secret until its team is
   revealed. The state line counts them in.
 - Open the cog to remove a team, with the `x` beside its row.
+- The bar at the top is the game's title, then `Open projector`, `Run from the board` and
+  `Edit Game`, last. The room code is on the board, where the class reads it, and not here.
+- Closing or reloading the dashboard while a room is open asks first. `Run from the board`
+  does not, since handing over is the point; and the board never asks, because it is the
+  screen that gets dragged about and refreshed.
 - A game ends by itself an hour after you last touch the control screen, or an hour after it
   is closed. You get a warning five minutes before.
 
@@ -401,15 +415,14 @@ when it needs no layout:** a clue's words go up in capitals and only maths keeps
 so `Rewrite 2y = 6x + 10` written plainly reads `2Y = 6X + 10` on the board.
 
 To load a set, open a file on `control.html`: the .xlsx the designer saved, a filled-in
-template, or a `.csv` or `.tsv` from any spreadsheet. **The screen opens with no set**, because
-whatever a device held last may be last week's game: the one a lesson needs is chosen, not
-assumed. `continue with ... from the designer` takes up the device's set in one press, so the
-designer needs no Play button, and `use the sample set` is there to try it. A set is kept on
-that device and never sent anywhere: under `clueboard-set`, as the set itself, the same place
-the designer keeps the one it is editing. A set stored as a paste before there was a designer
-still loads. Replacing one the designer has not yet saved to a file asks first, because that
-set exists nowhere else. A refresh in the middle of a lesson goes straight back to its room, on
-that device's set.
+template, or a `.csv` or `.tsv` from any spreadsheet. **The screen opens with no set, every
+time**, and `use the sample set` is there to try it. Nothing a device kept is offered back: a
+browser's own storage is not a save - Safari clears a site's after about a week without a visit
+- so rather than look like one, Clueboard keeps no sets to return to, and a set comes from a
+file. A real list of saved games waits on accounts. The set a host screen is running is kept on
+that device, under `clueboard-set`, for two things only: a refresh in the middle of a lesson
+goes straight back to its room, and a board on the same laptop finds a clue's picture in it. It
+is never sent anywhere. A set stored as a paste before there was a designer still loads.
 
 **A game is a list of rounds**, played in the set's order. The room only ever carries the
 round's number, so a spent cell's key and everything that reads it are unchanged. The cog has
@@ -425,7 +438,8 @@ Before the room opens, **the host screen shows the whole set as a sheet**: the s
 .xlsx holds, a tab per round, then `Final Clue` and `Help`. Any cell can be corrected where it
 is - a clue, an answer, a Daily Double, a category (renamed on every row it belongs to) or a
 value (that row's, in every category). Enter moves down and Escape puts a cell back. A
-correction goes into the device's copy and marks it unsaved, as an edit in the designer does.
+correction is for this game: it is in no file, so opening another file over it asks first, and
+one worth keeping is made in the designer too.
 Maths KaTeX cannot read, pictures that are not there and squares that are half written are
 marked in red, with the reason as the cell's tooltip, and the count is in the line above, so a
 broken set is visible at a glance. Pictures are shown and changed in the designer. A typo found
@@ -447,13 +461,13 @@ is the file's name, less the ` (1)` a browser adds to a second download. "Saved"
 revision number that is never reused, so undoing back past a save and then editing cannot read
 as saved.
 
-**The device keeps a copy as you work**, under `clueboard-set`, the key the control screen
-reads - so the game being written is one press away on the host screen, with no Play button.
-It is a safety net and not the save, because Safari clears a site's storage after about a week
-without a visit. Until it is saved the copy carries an `unsaved` flag, so the control screen
-asks before a file replaces it; and when another tab does replace it, the designer
-follows. Leaving with changes unsaved asks first: the logo offers `Save and leave`, `Cancel`
-and `Leave without saving`, `Open file` asks the same way, and closing the tab warns.
+**Nothing is kept between visits.** The game lives in its tab until it is saved: a new visit,
+or a reload, starts a new game, and `Open file` brings a saved one back. To host it, open the
+same file on the host screen. Leaving with changes unsaved asks first: the logo offers
+`Save and leave`, `Cancel` and `Leave without saving`, `Open file` asks the same way, and
+closing or reloading the tab warns. Pictures are stored on the device while they are in use
+(`pictures.js`), and a designer opening lets go of any the host screen's set does not use; a
+designer tab already open saves its own from memory.
 
 **The .xlsx.** One tab per round, named after it and played in tab order, then `Final Clue`,
 whose name is fixed and which is always last, then `Help`, which is ignored when reading. A
@@ -494,14 +508,31 @@ go when the designer opens, when no undo history can still want them. A video is
 Google Drive link in the same column, and a link straight to a picture or an `.mp4` works too.
 Answers carry no pictures.
 
-**Pictures and videos are on the board only.** The room never carries one, so nothing about
-media reaches a student's phone or Firebase. The board finds a clue's picture or video in its
-own device's copy of the set, by round and square, and only when the clue's words match - a
-board holding some other set shows the words alone rather than the wrong picture. Two screens
-on one laptop share that copy. **With a phone as the control screen, the laptop on the
-projector has to open the file too**, in the designer or on its own control screen, or its
-board shows no pictures. A video is YouTube's privacy-enhanced player or Drive's own, under the
-clue, and the teacher presses play on it: a clue is read out first.
+**The board finds a clue's picture or video in its own device's copy of the set**, by round and
+square, and only when the clue's words match - a board holding some other set shows the words
+alone rather than the wrong picture. Two screens on one laptop share that copy. **With a phone
+as the control screen, the laptop on the projector has to open the file too**, on its own
+control screen, or its board shows no pictures. A video is YouTube's
+privacy-enhanced player or Drive's own, under the clue, and the teacher presses play on it: a
+clue is read out first. Videos stay on the board.
+
+**A picture also goes to the phones and the host.** The host screen shows it from the same
+local copy. The phones get it through the room: with *Show the clue on student devices* on,
+the hosting screen writes a smaller copy - 800px on its long side, a JPEG on white, about 16 KB
+for a diagram - into `clue/picture` once the clue is up, and the next clue or Back to grid
+writes it over. Each picture's copy is made when the room opens, so a clue does not wait on it. A phone
+takes only an image the room carries whole (`data:image/...;base64`), never a link, so nobody
+writing to the room by hand can send thirty phones to another site. A picture linked from
+another website reaches the phones only if that site allows it to be copied (CORS).
+
+**Beside the words or under them** is worked out per screen by `pictureSpot()` in `clues.js`:
+the picture may take half the card's width beside the words or half its height under them,
+and the side that shows it larger wins. On a phone, which sizes its words to their room, each
+side's picture is weighed by the largest type the words could keep beside it, so a 3:4 photo
+goes under the words on an upright phone (beside, they would drop to half their size for a
+picture barely larger) while a 9:16 screenshot stays beside. The host's words have a set size,
+so there it is the picture alone, and its clue panel is so wide that nearly everything goes
+beside. Held sideways, a phone's card is a strip about 90px tall, and its pictures are small.
 
 ## Its own Firebase project, always
 

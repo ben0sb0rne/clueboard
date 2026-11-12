@@ -17,7 +17,7 @@ law, and a beta with strangers. None of that is needed to put this in a friend's
 
 **1. Bugs and hardening come first.** Before any new screen. The list is at the bottom.
 
-**2. A saved game lives on the device that made it, and travels as a file.** No sign-in, no
+**2. A saved game is a file on the device that made it, and travels as one.** No sign-in, no
 sync, no rewrite of `database.rules.json`, and **clue answers still never touch the
 network before they are on the projector** - which is the property the whole design is built
 on. An answer reaches the room only when the teacher reveals it (`reveal()` in `game.js`), and
@@ -25,7 +25,9 @@ the student devices that show the clue read it from there. The cost is real and 
 game built on the laptop is not on the iPad unless you send yourself the file.
 
 Sign-in and sync stay possible later and nothing here blocks them. They are not being built
-now, and the file export is not a stepping stone to them - it is the answer.
+now, and the file export is not a stepping stone to them - it is the answer. A list of saved
+or recent games belongs with them: the browser's own storage is no place for one, since it
+can be cleared without asking.
 
 **3. Board-only mode reveals first, then marks.** Today you mark before revealing, because
 the answer is on a second screen only you can see. Project the board and there is nowhere
@@ -47,8 +49,10 @@ been seen on either.
    What was settled, and is not to be reopened:
    - **The save is an .xlsx file**, which is decision 2 above made concrete. Opening `.csv`
      and `.tsv` still works; the host screen's paste box went in November 2026, when the blank
-     template made a file the easy way in. A copy is kept on the device as you
-     work, as a safety net only.
+     template made a file the easy way in. Nothing is kept on the device to come back to:
+     the designer's copy-as-you-work and the host screen's "continue with ... from the
+     designer" went in November 2026, because storage a browser can clear after a week is
+     not a save. Saved games wait on accounts.
    - **The format**: a tab per round in play order, then `Final Clue`, then `Help`; one row
      per square in board order, empty squares included; Category, Clue and Answer as Text
      columns. README.md has the whole of it.
@@ -60,9 +64,11 @@ been seen on either.
      that keeps its name and is always last. The grid is capped at 6 by 5, prices go by row,
      and a round can be smaller.
    - **A half-written square is kept**, so it survives a save, and is never played.
-   - **Media is on the board only**, found in that device's own copy of the set. Nothing about
-     it goes to Firebase, so `database.rules.json` did not change. A phone as the control
-     screen means the laptop on the projector opens the file too.
+   - **Media comes from the device's own copy of the set**, on the board and the host. A phone
+     as the control screen means the laptop on the projector opens the file too. Reopened in
+     November: a picture now also reaches the phones, as an 800px JPEG copy written into
+     `clue/picture` while the clue setting is on, and gone with the clue. The `game` node was
+     already open, so `database.rules.json` still did not change. Videos stay on the board.
    - **"Final Clue" is the name**, here and in the file.
 4. **A landing page**, as the front door a friend arrives at.
 

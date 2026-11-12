@@ -7,9 +7,9 @@
 //
 // They live in IndexedDB, because localStorage holds a few megabytes and a game of pictures is
 // more than that. The set refers to each by an id that is a hash of the picture, so the same
-// one added twice, or a file opened twice, is stored once. This copy is a safety net, and the
-// way the board shows them on this device; the .xlsx is the real save. Safari clears both
-// after about a week without a visit.
+// one added twice, or a file opened twice, is stored once. This copy is how the board shows
+// them on this device and where a save reads them back from; it is not a save itself - the
+// .xlsx is - and Safari clears it after about a week without a visit.
 
 var MAX_SIDE = 1920;
 var pictureURLs = {};   // id -> object URL, for drawing a picture without waiting for it
@@ -105,8 +105,8 @@ function loadPictures(ids) {
   }));
 }
 
-// Drops every stored picture the set no longer uses. Run as the designer opens, when nothing
-// - not even its undo history - can still be holding one.
+// Drops every stored picture not in ids. The designer runs it as it opens, with the control
+// screen's set, so stored pictures last as long as something on this device can show them.
 function keepPictures(ids) {
   var keep = {};
   ids.forEach(function (id) { keep[id] = true; });
@@ -129,4 +129,51 @@ function pictureIds(set) {
   ((set && set.rounds) || []).forEach(function (R) { R.cells.forEach(function (col) { col.forEach(add); }); });
   add(set && set.final);
   return ids;
+}
+
+// A clue's picture as the phones in the room get it: a copy made on this device, at most
+// PHONE_SIDE on its long side, as a JPEG drawn on white - a picture with transparency would
+// otherwise go black. From this device's store, or from its link when the site it is on lets a
+// page read it; null when neither can be had, and the phones then show the words alone. Kept
+// for the session, keyed by the picture, so a clue goes up with its copy at once.
+var PHONE_SIDE = 800;
+var phoneCopies = {};
+function phoneCopy(media) {
+  if (!media || media.kind !== "picture" || !(media.id || media.url)) return Promise.resolve(null);
+  var key = media.id || media.url;
+  if (!phoneCopies[key]) {
+    var from = media.id
+      ? loadPictures([media.id]).then(function () { return pictureURLs[media.id] || null; })
+      : Promise.resolve(media.url);
+    phoneCopies[key] = from.then(function (url) {
+      if (!url) return null;
+      return new Promise(function (resolve) {
+        var img = new Image();
+        if (!media.id) img.crossOrigin = "anonymous";
+        img.onload = function () {
+          try {
+            var k = Math.min(1, PHONE_SIDE / Math.max(img.naturalWidth, img.naturalHeight));
+            var c = document.createElement("canvas");
+            c.width = Math.max(1, Math.round(img.naturalWidth * k));
+            c.height = Math.max(1, Math.round(img.naturalHeight * k));
+            var g = c.getContext("2d");
+            g.fillStyle = "#fff";
+            g.fillRect(0, 0, c.width, c.height);
+            g.drawImage(img, 0, 0, c.width, c.height);
+            resolve(c.toDataURL("image/jpeg", 0.75));
+          } catch (e) { resolve(null); }   // a linked picture whose site will not let it be read
+        };
+        img.onerror = function () { resolve(null); };
+        img.src = url;
+      });
+    });
+  }
+  return phoneCopies[key];
+}
+
+// Every picture a set uses, made ready for the phones before its clue is picked.
+function warmPhoneCopies(set) {
+  var add = function (s) { if (s && s.media) phoneCopy(s.media); };
+  ((set && set.rounds) || []).forEach(function (R) { R.cells.forEach(function (col) { col.forEach(add); }); });
+  add(set && set.final);
 }

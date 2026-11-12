@@ -240,7 +240,12 @@ function writeXlsx(set) {
     t.pictures.forEach(function (p) { if (ids.indexOf(p.media.id) === -1) ids.push(p.media.id); });
   });
   return Promise.all(ids.map(function (id) {
-    return getPicture(id).then(function (b) { return b ? b.arrayBuffer().then(function (buf) { return { type: b.type, data: new Uint8Array(buf) }; }) : null; },
+    // From the store, or from this page's own copy: a designer opening in another tab lets go
+    // of every stored picture the control screen is not using, this tab's included.
+    return getPicture(id).then(function (b) {
+      var url = !b && typeof pictureURLs !== "undefined" && pictureURLs[id];
+      return url ? fetch(url).then(function (r) { return r.blob(); }) : b;
+    }).then(function (b) { return b ? b.arrayBuffer().then(function (buf) { return { type: b.type, data: new Uint8Array(buf) }; }) : null; },
       function () { return null; });
   })).then(function (found) {
     var media = {};

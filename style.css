@@ -77,24 +77,11 @@ body.student { height: 100dvh; overflow: hidden; }
 
 /* The one student screen that can outgrow the phone: sixteen tiles and a soft keyboard do not
    both fit in 100dvh. The screen itself still does not scroll - the FORM does, inside it, so
-   the room code stays at the top and Ready stays under the thumb however long the grid is. */
+   the title stays at the top and Ready stays under the thumb however long the grid is. */
 #lobby { overflow: hidden; }
 
 .lobbyhead { display: flex; align-items: baseline; justify-content: space-between; gap: 1em; }
 #lobbyTitle { margin: 0; font-size: clamp(20px, 5.4vw, 30px); }
-.lobbycode {
-  margin: 0;
-  font-size: clamp(13px, 3.4vw, 16px);
-  font-weight: 600;
-  color: var(--muted);
-  white-space: nowrap;
-}
-/* The same monospace the code box uses, for the same reason: it is a code, not a word. */
-#lobbyCode {
-  color: var(--value-gold);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  letter-spacing: 0.1em;
-}
 
 /* Takes the slack so Ready sits at the foot of the screen, where Join does on the way in.
    min-height: 0 is what lets it shrink below its content instead of shoving the button off. */
@@ -272,25 +259,22 @@ body.student { height: 100dvh; overflow: hidden; }
   font-weight: 600;
   color: var(--muted);
 }
-.who span:first-child {
+/* The team's name, and the way out of the room: a button set as the text it was. */
+.who .whoname {
   flex: 1;
   min-width: 0;
+  padding: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.who .leave {
+  text-align: left;
   font: inherit;
-  font-weight: 600;
-  color: var(--muted);
+  color: inherit;
   background: none;
-  padding: 0.25em 0.5em;
-  border-radius: 8px;
-  white-space: nowrap;
-  flex: none;
+  border: 0;
+  border-radius: 0;
+  cursor: pointer;
 }
-.who .leave:hover { background: var(--faint); }
-.who .leave.arm { color: #fff; background: var(--red); }
 
 .answerbox { position: relative; flex: 1; min-height: 0; display: flex; }
 .answerbox input {
@@ -357,23 +341,19 @@ body.student { height: 100dvh; overflow: hidden; }
   margin-bottom: 1.6vh;
   border-bottom: 3px solid var(--line);
 }
-/* fitRows() in control.html winds --fit down a twentieth at a time until the last team is
-   on screen, so the dashboard is always as large as it can be and no larger. Every size it
-   scales carries the multiplier: the room code here, and the table's own sizes at the foot
-   of board.css, which override the td rule below and so need it in their own right. */
-.roomcode {
-  font-size: calc(clamp(44px, 9vw, 110px) * var(--fit, 1));
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: 0.08em;
-  color: var(--value-gold);
+/* The game's title takes the line's slack, which pushes the three buttons to the far edge
+   as one, with Edit Game in the corner. */
+.bar .bartitle {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: clamp(15px, 1.6vw, 21px);
+  font-weight: 700;
+  color: var(--muted);
 }
-.joinlink { font-size: clamp(15px, 1.8vw, 24px); color: var(--muted); }
-/* The auto margin is on the cog, which is the first of the pair: it pushes both to the far
-   edge as one, so Open projector ends on the same line as the gold button in the strip
-   below it and the cog sits inside that line rather than owning the corner. */
-.bar #cog { margin-left: auto; }
-.joinlink a { color: var(--value-gold); }
 table { width: 100%; border-collapse: collapse; }
 /* One horizontal padding for the whole table, in px rather than em. The headings and the
    cells are set at different sizes, so 0.5em on both put every heading seven-odd pixels
@@ -849,7 +829,28 @@ body.editing .rm { display: table-cell; }
 }
 /* Straight back to spent, with no fade from wherever the last close had got to. */
 .clues .cluecard.snap::before,
-.clues .cluecard.snap .cluebody { transition: none; }
+.clues .cluecard.snap .cluebody,
+.clues .cluecard.snap .cardpic { transition: none; }
+
+/* A clue's picture: beside the words or under them, at the size placePicture() in index.html
+   works out, on white as the board shows one, and fading in and out with the words. */
+.clues .cluecard.pic-right { flex-direction: row; gap: 0.7em; }
+.clues .cluecard.pic-below { gap: 0.7em; }
+.clues .cluecard.pic-right .cluebody { flex: 1 1 0; min-width: 0; }
+.clues .cardpic {
+  position: relative;
+  flex: none;
+  display: block;
+  object-fit: contain;
+  background: #fff;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity var(--slow) linear;
+}
+.clues .cluecard.open .cardpic {
+  opacity: 1;
+  transition: opacity 900ms linear calc(var(--slow) - 900ms);
+}
 
 /* The type is board.css's .cluetext and .clueanswer. Only the size differs: fitCard() in
    index.html sets it on the column, because a card in the hand is too small for the board's
@@ -938,9 +939,8 @@ body.editing .rm { display: table-cell; }
   filter: drop-shadow(var(--edge) var(--edge) 0 #000);
 }
 
-/* The bands around it. The name line is one height on every screen, because the buzzer's
-   carries the room button and the wager's does not, and a Daily Double moves from one to
-   the other mid-clue. */
+/* The bands around it. The name line is one height on every screen, so a Daily Double going
+   from the wager screen to the buzzer mid-clue moves nothing. */
 .clues .who { height: 1.8em; align-items: center; }
 /* One line, not the whole screen: the card has the room now, and an answer is a few words.
    Its type follows the shorter side of the screen rather than the width, which is the same

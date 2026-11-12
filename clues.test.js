@@ -537,6 +537,46 @@ tests["the final clue shows its category while the wagers come in"] = function (
   assert.strictEqual(C.cardFor({ clue: fin, wagering: null }, "me").key, "final");
 };
 
+tests["a picture reaches the card only as an image the room carries whole"] = function () {
+  var pic = "data:image/jpeg;base64,/9j/4AAQSkZJRg==";
+  assert.strictEqual(C.cardFor({ clue: Object.assign({}, OPEN, { picture: pic }) }, "me").picture, pic);
+  // Never a link, never a page dressed as one, never something that is not a string.
+  ["https://example.com/a.jpg", "javascript:alert(1)", "data:text/html;base64,PGI+",
+   "data:image/svg+xml;base64,PHN2Zz4=", "data:image/png;base64,abc def", 42].forEach(function (bad) {
+    assert.strictEqual("picture" in C.cardFor({ clue: Object.assign({}, OPEN, { picture: bad }) }, "me"), false);
+  });
+  // A splash carries none: the clue is not up yet.
+  var dd = Object.assign({}, OPEN, { dd: true, picture: pic });
+  assert.strictEqual("picture" in C.cardFor({ clue: dd, wagering: true }, "me"), false);
+};
+
+tests["a tall picture goes beside the words and a wide one under them, by what shows it larger"] = function () {
+  // A phone held upright: 313 by 397 of card.
+  assert.strictEqual(C.pictureSpot(313, 397, 0.5).side, "right");
+  assert.strictEqual(C.pictureSpot(313, 397, 1).side, "below");    // even square is larger under
+  assert.strictEqual(C.pictureSpot(313, 397, 1.78).side, "below");
+  // Held sideways: 747 by 88, where even a wide one is larger beside.
+  assert.strictEqual(C.pictureSpot(747, 88, 1.78).side, "right");
+  assert.strictEqual(C.pictureSpot(747, 88, 4).side, "right");
+  // Weighed against the words as a phone weighs it, seven ems across and five down at most:
+  // beside a 3:4 photo they would drop to half their size for a picture barely larger, so it
+  // goes under, while a 9:16 screenshot, twice the size beside, stays there.
+  var type = function (w, h) { return Math.min(w / 7, h / 5); };
+  assert.strictEqual(C.pictureSpot(313, 397, 0.75).side, "right");
+  assert.strictEqual(C.pictureSpot(313, 397, 0.75, 0.5, type).side, "below");
+  assert.strictEqual(C.pictureSpot(313, 397, 0.5625, 0.5, type).side, "right");
+  assert.strictEqual(C.pictureSpot(747, 88, 4, 0.5, type).side, "right");
+  // Never more than its share of the card, and always in its own shape.
+  [0.25, 0.5, 1, 1.78, 4].forEach(function (r) {
+    [[313, 397], [747, 88], [1300, 260]].forEach(function (box) {
+      var s = C.pictureSpot(box[0], box[1], r);
+      assert.ok(Math.abs(s.w / s.h - r) < 1e-9);
+      if (s.side === "right") assert.ok(s.w <= box[0] / 2 + 1e-9 && s.h <= box[1] + 1e-9);
+      else assert.ok(s.h <= box[1] / 2 + 1e-9 && s.w <= box[0] + 1e-9);
+    });
+  });
+};
+
 var failed = 0;
 Object.keys(tests).forEach(function (name) {
   try {
