@@ -51,11 +51,16 @@ runs out - this game is marked by hand, and a slow Chromebook is not a wrong ans
 Start the final clue from the cog, at any point - the class is about to end and the board is
 half full. It leaves spent cells alone, so dismissing it returns to the board as it was.
 
-**Ending the game is not closing the room.** `End game` puts the scores on the board and
-leaves everything standing; it is offered in the cog at any time, and in the strip as the
-gold button the moment the final clue has been revealed, because that is what follows a final
-clue. `Close the room` is the separate step that wipes the teams and the scores and goes back
-to setup. Both take two taps.
+**Ending the game takes you home and leaves the scores up.** `End game` puts the scores on
+the board and every team's result on its phone, then takes the control screen back to the
+front page; it is offered in the cog at any time, and in the strip as the gold button the
+moment the final clue has been revealed, because that is what follows a final clue. The room
+is left standing for the board's results, and nobody can join or rejoin a game that has
+ended. It is deleted the next time this browser opens the host screen, or when its code is
+handed out again. `Close the room`, which wipes it on the spot, is still there for a
+dashboard that comes back to an ended game - a refresh, or a game that ended itself after an
+hour untouched. Both take two taps. The board's own `End game` and the hour's auto-end stay
+where they are, because the projector is where the results are shown.
 
 **The results come up last place first**, each place arriving a beat above the one before it,
 so the room finishes on the winner at the top of the screen. Each line is the place, the team,
@@ -90,18 +95,28 @@ value fading over a third of one - then the title card rises. The card is held o
 rather than fired by a timer, so it is on the same clock as the values and cannot drift from
 them. A clue expands out of its own cell, a
 Daily Double arrives with weight, and a score counts up with the podium flashing which way it
-went. A student's device moves only with its clue card, on the same beat and the same easing,
-and holds still otherwise; the control screen is a working surface. Anyone whose system asks
-for reduced motion gets the same board, and the same card, with none of it.
+went. When a Daily Double's title, or the final's category, gives way to its clue, the one
+dissolves into the other over the beat - it was a cut, the last hard edit on the board. A
+student's device moves only with its clue card, on the same beat and the same easing, and
+holds still otherwise; the control screen is a working surface, and its copy of the card has
+no motion at all. Anyone whose system asks for reduced motion gets the same board, and the
+same card, with none of it.
 
 **A wager takes the score's place for a beat** as that team is revealed, in gold and at the
 score's own size. It was a ten-pixel line under the podium, which from the back of a room is
 not there at all - and the number is the whole point of a final clue.
 
-**A podium is a name and a number, at the same size.** The score is white and the name is the
-quieter blue; it is the colour that tells them apart, not a caption set half the size. A name
-too long for its sixth of the screen gives up its tail rather than wrapping, because six
-podiums have to stay one row deep.
+**A podium is a name, a number and an answer, and nothing on it is cut short.** The score is
+white and the biggest thing there; the name is the quieter blue, near its size. The podiums
+are a band a quarter of the screen deep (31% when the board is running the game, for its +/-
+row), and every podium has a room for each of the three: two lines for the name, one for the
+score, the rest for the answer, kept whether or not an answer is in it - so answers going up
+and coming down never take height from the grid or make the clue above jump, which they used
+to. A name or an answer too long for its room is set smaller until it fits, rather than
+losing its tail: a class with "Golden State Warriors" sees all of it. A single word too long
+for any line breaks inside itself at the smallest size, and only an answer of a few hundred
+characters is ever clamped. The category names are fitted the same way, from a bigger size:
+a long one shrinks to fit its cell instead of losing its ends.
 
 **The reveal is the one beat that takes its time.** The clue eases up out of the way while the
 answer and its rule fade in underneath, both over the same span, so they are fully there
@@ -185,16 +200,26 @@ place and lights up when it works is less to learn than a screen that keeps chan
 things take it off screen, and each is something to do rather than something to read: the
 grid when this team has the pick, a Daily Double that belongs to somebody else, and the
 wager. With the clue card on, somebody else's Daily Double is the exception: the other teams
-watch it on the card, over a buzzer gone dead whose bar names the team it belongs to. The box
-clears itself when the teacher goes back to the grid, so what somebody typed and never locked
-in cannot follow them into the next question - and not before, so the reveal does not wipe an
-answer from under the team still reading it against the board.
+watch it on the card, and the box and the bar under it go - hidden in place, so the card
+keeps its size. A dead buzzer there read as broken, and a class kept trying to tap it. The box
+clears itself when the teacher goes back to the grid - a typed answer and a locked one alike,
+which it did not at first - so nothing follows a team into the next question; and not before,
+so the reveal does not wipe an answer from under the team still reading it against the board.
+**On a Chromebook or a laptop the box is ready to type in** the moment a clue opens, and the
+wager box the moment a wager is asked for: it takes focus itself as it comes alive, so nobody
+clicks into it first, and never again until the next clue, so a buzz from across the room
+cannot pull focus away from wherever a student put it. A phone does not do this, because
+there it would throw the on-screen keyboard over the card.
 
 **Leaving is the team name.** It sits at the top of every student screen, and tapping it asks
 `Leave this room?` before going back to the join screen: two steps, so a stray thumb cannot do
 it. Closing or reloading the tab mid-game asks too, with the browser's own prompt, which iOS
 Safari does not show. The room code is not on student screens at all - they have just typed
-it, and it is on the board.
+it, and it is on the board. A phone that reloads only goes back into its room while that game
+is still running: a room the teacher has closed, a game that has ended, or a room an hour
+without its host lets the remembered team go and says so on the join screen. It used to let
+a student opening the site the next day straight back into last lesson's results, which had
+no way out; they have a `Join another game` button now.
 
 **`Use buzzers only` in the cog takes the answer boxes away** for a whole game: teams ring in and
 answer out loud, and the buzzer fills the phone. Use it for a room where the devices are a
@@ -210,7 +235,12 @@ flipped mid-game; off, the student screens are exactly what they were. The card 
 in miniature: board blue, Anton capitals, the hard black edge, maths through KaTeX. It shows
 what the board shows and never more - a Daily Double's splash naming whose it is (on that
 team's own device, the category it is wagering on), the final clue's category while the wagers
-come in, then the clue, then the answer. Pictures and videos stay on the board.
+come in, then the clue, then the answer, and the clue's picture. Videos stay on the board.
+**The host screen shows the same card**, drawn by the same rules - the splash, the words in
+the same capitals and edge, the picture where the phones put it, the answer under its rule
+once it is revealed - with none of the motion, because the teacher glances at it mid-question
+and it should be what the room is looking at. It uses this device's full-size picture, and the
+answer is still on the dashboard's key row before the reveal.
 
 It moves the way the board does: it fills with blue over the board's beat while the words fade
 in over the back of it, landing as the board's panel does; the reveal is the board's own, the
@@ -235,7 +265,7 @@ away, which is a deduction, a negative score or ending a game.
 
 **One region for the buttons, and one gold button in it.** Every control the game has lives
 in the strip above the stage, right-aligned. Exactly one of them is gold, it is whatever comes
-next - `Start intro`, then `Next`, then `Show the clue` once the wagers are in, then `Reveal
+next - `Start intro`, then `Next`, then `Show the clue` while the wagers come in, then `Reveal
 answer`, then `Back to grid` - and **it is always the last button in the row**, so the one to
 press is in the same corner in every state of the game. CSS orders it there rather than the
 markup, which is what lets a button keep its place in the source and still end up under your
@@ -338,13 +368,23 @@ is no place for a paragraph of instructions:
 - While wagers are coming in, the teams column says who is in, never how much. An amount
   there is a number you can read and do nothing with - it cannot go on the board until the
   clue is up - and the board's own rule is that a wager stays secret until its team is
-  revealed. The state line counts them in.
+  revealed. The state line counts them in, and says "all wagers in" when they are. **The clue
+  never goes up by itself**: `Show the clue` is yours to press, all wagers in or not. It used
+  to appear the instant the last wager landed, before the teacher had said a word.
+- A team you have given this clue's points to turns green, so with eight teams marked you
+  can see which you have already paid. Taking the points back with the minus takes the green
+  away; it clears when the clue does.
 - Open the cog to remove a team, with the `x` beside its row.
-- The bar at the top is the game's title, then `Open projector`, `Run from the board` and
-  `Edit Game`, last. The room code is on the board, where the class reads it, and not here.
+- In the lobby the room code is big and gold on the line under the bar, where you read it
+  out while the class joins. Once the game is on it sits in gold beside the game's title in
+  the bar, for a team that arrives late. The bar is the title, then `Open projector`, `Run
+  from the board` and `Edit Game`, last.
 - Closing or reloading the dashboard while a room is open asks first. `Run from the board`
-  does not, since handing over is the point; and the board never asks, because it is the
-  screen that gets dragged about and refreshed.
+  and `End game` do not, since leaving is the point of both; and the board never asks,
+  because it is the screen that gets dragged about and refreshed.
+- `Open a set` and the designer's `Open file` show every file, not only spreadsheets: a Mac
+  greyed an .xlsx out the first time it was opened from OneDrive or iCloud. Anything that
+  is not an .xlsx, .csv or .tsv is turned away with a reason.
 - A game ends by itself an hour after you last touch the control screen, or an hour after it
   is closed. You get a warning five minutes before.
 
@@ -538,9 +578,9 @@ the picture may take half the card's width beside the words or half its height u
 and the side that shows it larger wins. On a phone, which sizes its words to their room, each
 side's picture is weighed by the largest type the words could keep beside it, so a 3:4 photo
 goes under the words on an upright phone (beside, they would drop to half their size for a
-picture barely larger) while a 9:16 screenshot stays beside. The host's words have a set size,
-so there it is the picture alone, and its clue panel is so wide that nearly everything goes
-beside. Held sideways, a phone's card is a strip about 90px tall, and its pictures are small.
+picture barely larger) while a 9:16 screenshot stays beside. The host's copy of the card
+weighs it the same way, and its card is a wide strip, so there nearly everything goes beside.
+Held sideways, a phone's card is a strip about 90px tall, and its pictures are small.
 
 ## Its own Firebase project, always
 

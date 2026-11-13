@@ -10,7 +10,9 @@
 <!-- Every claim on this page is a claim about code in this repo, so it changes when the code
      does. Where each one comes from:
        the five fields        database.rules.json
-       deletion, and when     closeRoom() / wipeRoom() / wipeIfDead() in control.html
+       deletion, and when     closeRoom() / wipeRoom() / wipeIfDead() in control.html; endGame()
+                              there leaves an ended room for the board, and roomState() in
+                              index.html refuses to let anyone join or rejoin it
        the hour               HOST_GONE in index.html, freeCode() in control.html
        the one outside script the firebasejs <script> tags at the foot of every page
        answers stay local     the host screen keeps the set it is running in localStorage
@@ -33,8 +35,9 @@
 <p class="updated">Last updated 12 November 2026</p>
 
 <p class="lede">Clueboard has no accounts, no sign-in, no advertising and no tracking. While a
-game is running it holds the team names and what students type into it. When the game is closed,
-that is deleted.</p>
+game is running it holds the team names and what students type into it. When the game is over,
+that is deleted: at once if the teacher closes the room, and otherwise the next time they open
+the control screen.</p>
 
 <h2>Who runs Clueboard</h2>
 <p>Clueboard is run by one person, not a company.</p>
@@ -104,6 +107,11 @@ Nothing is archived, backed up by us, or looked at after the lesson.</p>
 <ul>
   <li><strong>Closing the room deletes it at once.</strong> <em>Close the room</em> on the
     teacher's screen wipes the teams, the scores and the game, there and then.</li>
+  <li><strong>Ending the game leaves the results up, then goes.</strong> <em>End game</em>
+    takes the teacher's screen back to the front page and leaves the final scores on the board
+    and each team's result on its own device. Nobody can join or rejoin a game that has ended.
+    It is deleted the next time that teacher opens the control screen, or when its code is
+    handed out again.</li>
   <li><strong>A room nobody closed stops working after an hour.</strong> Nobody can join it, the
     teams on it are told the game has ended, and the code goes back in the pool. It is wiped
     before it is handed to anybody else, so one class's room can never turn up in another's.

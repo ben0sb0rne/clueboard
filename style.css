@@ -381,13 +381,30 @@ body.student { height: 100dvh; overflow: hidden; }
   flex: 1;
   min-width: 0;
   margin: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: flex;
+  align-items: baseline;
+  gap: 0.7em;
   font-size: clamp(15px, 1.6vw, 21px);
   font-weight: 700;
   color: var(--muted);
 }
+/* A long title gives way before the code does: the code is the one a late team needs. */
+.bar #barTitle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bar .barcode {
+  flex: none;
+  font-family: var(--board-font);
+  font-weight: 400;
+  font-size: 1.35em;
+  letter-spacing: 0.06em;
+  color: var(--value-gold);
+}
+/* In the lobby the code is big on the line below instead. */
+.lobby .bar .barcode { display: none; }
 table { width: 100%; border-collapse: collapse; }
 /* One horizontal padding for the whole table, in px rather than em. The headings and the
    cells are set at different sizes, so 0.5em on both put every heading seven-odd pixels
@@ -746,6 +763,19 @@ body.editing .rm { display: table-cell; }
   color: var(--value-gold);
 }
 @keyframes resultIn { from { opacity: 0; } to { opacity: 1; } }
+/* Quiet, under the result: the result is the point of the screen, and this is only the way
+   off it - the ready button's "already done" look. */
+#againBtn {
+  width: min(100%, 24rem);
+  margin: 0 auto;
+  padding: 0.7em;
+  font-size: clamp(16px, 4.4vw, 20px);
+  font-weight: 700;
+  color: var(--ink);
+  background: var(--faint);
+  box-shadow: inset 0 0 0 2px var(--line);
+}
+#againBtn:active { background: var(--podium); }
 
 @media (prefers-reduced-motion: reduce) {
   .result, .resultwho, .resultscore { animation: none; }
@@ -937,6 +967,24 @@ body.editing .rm { display: table-cell; }
 .clues .splash.punch .splashtitle { animation: ddPunch var(--slow) var(--ease) both; }
 .clues .splash.punch .splashwho   { animation: ddPunch var(--slow) var(--ease) 400ms both; }
 
+/* The title giving way to its clue (ghostSplash() in index.html), as the board dissolves it: a
+   copy over the card where the real one was - the card's own padding, centred as its column
+   centres it - fading out over the board's beat while the clue and its picture fade in. The
+   keyframes are board.css's boardFade, copied, as ddPunch is above. */
+@keyframes cardFade { from { opacity: 0; } to { opacity: 1; } }
+.clues .cluecard > .ghost {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: inherit;
+  animation: cardFade var(--slow) linear reverse both;
+}
+.clues .cluecard.dissolve .cluebody,
+.clues .cluecard.dissolve .cardpic { animation: cardFade var(--slow) linear both; }
+
 /* The board's hard black edge, at the depth its clue panel takes, because against white the
    black collapses into the stroke unless it is deeper. Declared on every element, as
    board.css does, since an em shadow computes at the element that declares it; the numbers
@@ -999,6 +1047,11 @@ body.editing .rm { display: table-cell; }
 .clues #playErr,
 .clues #wagerErr { margin: -1.6dvh 0; }   /* the .screen gap, taken back on both sides */
 .clues .cluecard { margin-bottom: max(3dvh, 20px); }
+/* Somebody else's Daily Double: the card alone. Hidden in place rather than taken out, so the
+   card keeps the size it was fitted to as the Daily Double opens and closes. */
+#play.theirs #answerWrap,
+#play.theirs #playErr,
+#play.theirs #lock { visibility: hidden; }
 /* The card says both. */
 .clues #wagerTitle,
 .clues #wagerCat { display: none; }

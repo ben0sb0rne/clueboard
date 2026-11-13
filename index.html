@@ -177,6 +177,9 @@
     <p class="resultwho" id="resultWho"></p>
     <p class="resultscore" id="resultScore"></p>
   </div>
+  <!-- The way off, which this screen never had: a phone left on it stayed on the last
+       lesson's score. Nothing is lost by leaving a finished game, so there is no question. -->
+  <button id="againBtn">Join another game</button>
 </main>
 
 <script src="https://www.gstatic.com/firebasejs/12.0.0/firebase-app-compat.js"></script>
@@ -218,13 +221,18 @@ const rootStyle = getComputedStyle(document.documentElement);
 const EASE = rootStyle.getPropertyValue("--ease").trim();
 const SLOW = parseFloat(rootStyle.getPropertyValue("--slow"));
 const reduced = matchMedia("(prefers-reduced-motion: reduce)");
-const KIT_WAIT = 3000;          // how long a clue waits on KaTeX before it goes up raw
+// A mouse or a trackpad, so a keyboard of its own: a Chromebook, a laptop. The answer box takes
+// focus by itself only here - on a phone that would raise the on-screen keyboard over the card.
+const FINE_POINTER = matchMedia("(hover: hover) and (pointer: fine)").matches;
+const KIT_WAIT = 3000;         // how long a clue waits on KaTeX before it goes up raw
 // The board's answer is set at 3.6vw under a 4.6vw clue (board.css), so the card's starts at
 // the same proportion, and never above the clue's own size.
 const ANSWER_SCALE = 3.6 / 4.6;
 const MIN_TYPE = 12;            // px: below this the card clips rather than shrinking further
 // The largest the words are drawn in a room w by h - seven ems across, five down - which is
-// where fitCard() starts, and what placePicture() weighs a picture against.
+// where fitCard() starts, and what placePicture() weighs a picture against. The host screen
+// draws its own copy of this card (fitCtlCard() in control.html) with these same numbers and
+// the same fitting, so the teacher sees what the room does: change both.
 const typeFor = (w, h) => Math.min(w / 7, h / 5);
 // The most of the card a picture may take: half its width beside the words, or half its height
 // under them. The words always keep the other half to fit into.
@@ -233,6 +241,8 @@ let picBox = null;              // where the picture went: { side, w, h, gap }, 
 let cardKey = null;             // the clue on the card, keyed as renderClue() keys the board
 let cardShown = null;           // what the card is showing of it, from cardFor()
 let cardClose = null;           // the timer while a closed clue's words fade out
+let cardGhost = null;           // the copy of a title fading out over its clue, see ghostSplash()
+let cardGhostTimer = null;
 let cardWidth = 0;              // the width the words were last fitted at; 0 if never on screen
 let kit = null;                 // KaTeX, math.js and the fonts, once a room has asked for them
 let kitDone = false;
@@ -245,12 +255,17 @@ $("#code").value = urlCode || (saved ? saved.code : "");
 if (saved && (!urlCode || urlCode === saved.code)) {
   show("boot");
   roomState(saved.code).then((state) => {
-    if (state === "over") {
-      dropDeadRoom(saved.code, saved.teamId);
-      show("join");
-      return;
-    }
-    attach(saved.code, saved.teamId);
+    if (state === "live") { attach(saved.code, saved.teamId); return; }
+    // Anything else and the remembered team is let go, with a reason: a room the teacher
+    // closed, a game that was ended, or a room an hour without its host. Rejoining used to
+    // be refused only for the last, so a student opening the site the next day landed back
+    // in last lesson's results with no way out. Only an hour-dead room also loses the row -
+    // an ended game's teams are the final scores the board is still showing.
+    localStorage.removeItem(STORE);
+    $("#code").value = urlCode || "";
+    if (state === "over") db.ref("rooms/" + saved.code + "/teams/" + saved.teamId).remove().catch(() => {});
+    $("#joinErr").textContent = "That game has ended. Ask for the new code.";
+    show("join");
   });
 } else {
   show("join");
@@ -282,6 +297,7 @@ $("#members").addEventListener("input", saveLobbySoon);
 $("#team").addEventListener("blur", saveLobby);
 $("#members").addEventListener("blur", saveLobby);
 $("#readyBtn").addEventListener("click", toggleReady);
+$("#againBtn").addEventListener("click", toJoinScreen);
 document.querySelectorAll(".whoname").forEach((b) => b.addEventListener("click", leaveRoom));
 // Closing the tab or the window mid-game asks first, in the browser's own words, while this
 // phone is in a room: a team that closes by accident is off the buzzer until it finds the
@@ -320,15 +336,15 @@ function show(which) {
   renderCard();
 }
 
+// "live" only while its host has been there within the hour and its game has not been ended.
+// An ended game keeps its room for a while - the board is still showing the final scores -
+// but nobody joins or rejoins it: its host has gone home.
 function roomState(code) {
-  return hostSeenAge(code).then((age) =>
-    age === null ? "unknown" : age > HOST_GONE ? "over" : "live");
-}
-
-function dropDeadRoom(code, teamId) {
-  localStorage.removeItem(STORE);
-  $("#code").value = urlCode || "";
-  db.ref("rooms/" + code + "/teams/" + teamId).remove().catch(() => {});
+  return hostSeenAge(code).then((age) => {
+    if (age === null) return "unknown";
+    if (age > HOST_GONE) return "over";
+    return db.ref("rooms/" + code + "/game/over").once("value").then((s) => (s.val() ? "ended" : "live"));
+  });
 }
 
 function loadSaved() {
@@ -345,7 +361,8 @@ function join() {
   $("#joinBtn").disabled = true;
   roomState(code)
     .then((state) => {
-      if (state === "over") throw new Error("That game has ended. Ask for the new code.");
+      // An ended game too: a new team there would land on the board's final scores at $0.
+      if (state === "over" || state === "ended") throw new Error("That game has ended. Ask for the new code.");
       // Anything but a live room: a typo, or a game that was cleared. Refusing here is what
       // stops a mistyped code looking exactly like a room nobody has started yet.
       if (state !== "live") throw new Error("No game with that code. Check the board.");
@@ -398,7 +415,7 @@ function attach(code, teamId) {
 // and each of them is a thing to do rather than a thing to read - the grid when this team has
 // the pick, somebody else's Daily Double, and the final clue's wager. With the clue card on,
 // somebody else's Daily Double stays here too: it is on the card, so there is something to
-// watch rather than a sentence to read.
+// watch rather than a sentence to read - with the box and the bar taken away under it.
 //
 // It used to be replaced by "Waiting for the next clue...", which is a sentence a student
 // reads once and then stares at for the rest of the lesson. A control that is always in the
@@ -409,6 +426,9 @@ function route() {
   // style.css, so with it off this page is the page it always was.
   document.body.classList.toggle("clues", !!game.showClues);
   if (game.showClues) clueKit();
+  // Whether each box could be typed in before this snapshot, so the one that has just opened
+  // up takes focus below - see focusBox().
+  const answerWas = usable($("#answer")), wagerWas = usable($("#wagerBox"));
   // Drawn whether or not it is the screen on show, because it is where the router lands by
   // default and both listeners come through here.
   renderPlay();
@@ -434,8 +454,8 @@ function route() {
   if (clue) {
     // A Daily Double belongs to one team. myClue() is false for nothing else, so this is
     // always that: everyone else watches, and is told whose it is. With the clue card on
-    // they watch it on the card instead, over their own buzzer gone dead - renderPlay()
-    // says whose it is on the button.
+    // they watch it on the card instead, with nothing under it - renderPlay() hides the box
+    // and the bar, and the card's own splash says whose it is.
     if (!myClue(clue)) {
       if (!game.showClues) {
         $("#waitMsg").textContent =
@@ -453,13 +473,15 @@ function route() {
       // With the clue card on it stays put instead, the box and the bar dead and saying so,
       // because the card is on this screen and the card is the thing to watch.
       if (hasWagered() && sending !== "wager" && !game.showClues) {
-        $("#waitMsg").textContent = money(team.wager)
-          + " wager locked. Waiting for the other teams...";
+        // The clue, not the other teams: the teacher shows it once every wager is in, so the
+        // wait can outlast the slowest team.
+        $("#waitMsg").textContent = money(team.wager) + " wager locked. Waiting for the clue...";
         show("wait");
         return;
       }
       renderWager(clue);
       show("wager");
+      if (!wagerWas) focusBox($("#wagerBox"));
       return;
     }
   } else if (game.turn === myId && (game.teamsPick || game.picker === myId)) {
@@ -470,6 +492,22 @@ function route() {
   }
 
   show("play");
+  if (!answerWas) focusBox($("#answer"));
+}
+
+// A box that can be typed in right now: enabled, and on the screen that is showing.
+function usable(el) {
+  return !el.disabled && !el.closest("[hidden]");
+}
+
+// Students were clicking into the box before every answer: it goes dead between clues, and a
+// dead box loses focus. So it takes focus itself at the one moment it opens up - never on the
+// snapshots after, so a buzz from across the room cannot pull focus back from wherever the
+// student put it - and only where there is a keyboard to type with. Another team's Daily
+// Double, a locked answer and a buzzers-only game all leave it dead or hidden, so none of
+// them focus anything. preventScroll, because this page is exactly one screen and never moves.
+function focusBox(el) {
+  if (FINE_POINTER && usable(el)) el.focus({ preventScroll: true });
 }
 
 // Final is everyone's. A Daily Double is one team's, frozen onto the clue when it was opened
@@ -770,7 +808,8 @@ function typingOn() {
 
 // The one place the buzzer screen is drawn, in the three states the room puts it in: a clue
 // is open and it takes an answer, this team has already locked one in, or there is no clue
-// and both controls are dead. Dead rather than gone - see route().
+// and both controls are dead. Dead rather than gone - see route() - except under somebody
+// else's Daily Double, where they are hidden and the card is the whole screen.
 function renderPlay() {
   const box = $("#answer");
   const btn = $("#lock");
@@ -785,6 +824,10 @@ function renderPlay() {
   $("#answerWrap").hidden = !typing;
   box.disabled = !live || locked;
   btn.disabled = !live || locked;
+  // The card is all this team has during somebody else's Daily Double. A dead box and bar
+  // under it read as something broken - a class tried to tap them - so they go: hidden rather
+  // than removed, so the card keeps the size it was fitted to and nothing moves.
+  $("#play").classList.toggle("theirs", theirs);
 
   // Cleared when the clue changes, not when the lock is released: a score correction
   // mid-typing used to be the only re-render that could wipe a half-typed answer, and the
@@ -799,12 +842,13 @@ function renderPlay() {
     box.value = "";
     $("#playErr").textContent = "";
   }
-  // Empty until the write echoes back, and the box already holds what was typed.
-  if (locked && team && team.answer) box.value = team.answer;
+  // Empty until the write echoes back, and the box already holds what was typed. Only while a
+  // clue is up: Back to grid writes clue:null one write before the reset reaches the team, so
+  // refilling from that one-behind copy kept a locked answer in the box for the whole grid.
+  if (locked && game.clue && team && team.answer) box.value = team.answer;
 
   // Grey like any dead bar, not red: red only ever takes something away, and nothing has been.
   btn.textContent = sending === "answer" ? "Sending..."
-    : theirs ? (game.clue.ownerName || "Another team") + "'s Daily Double"
     : locked ? (typing ? "Locked in" : "Buzzed in")
     : (typing ? "Lock Answer" : "Buzz In");
 }
@@ -820,7 +864,8 @@ function lockIn() {
   // after that is a team copying it down, so the clue is closed to new answers even though
   // it is still on screen. reveal is cleared by every route out of a clue. And another team's
   // Daily Double is theirs alone: with the clue card on, this team watches it from the buzzer
-  // screen, and this line - not the dead button - is what keeps a buzz out of it.
+  // screen, and this line - not the hidden button, nor the Enter key in a hidden box - is what
+  // keeps a buzz out of it.
   if (!game.clue || game.wagering || game.reveal || !myClue(game.clue)) return;
   const typing = typingOn();
   const answer = $("#answer").value.trim();
@@ -894,12 +939,15 @@ function openCard(card) {
   if (card.kind === "title" && game.clue.dd) $("#cardSplash").classList.add("punch");
 }
 
-// The same clue, moved on: the splash giving way to the clue once the wagers are in, which
-// the board does as a cut and so does this, or the answer going up.
+// The same clue, moved on: the splash giving way to the clue once the teacher shows it, which
+// the board dissolves and so does this, or the answer going up.
 function updateCard(card) {
   const was = cardShown;
   if (card.kind !== was.kind || card.title !== was.title || card.sub !== was.sub
       || card.text !== was.text || (card.picture || "") !== was.picture) {
+    // The title giving way to the clue dissolves, as the board's does now: a copy of it over
+    // the card fades out while the clue, filled and fitted underneath, fades in.
+    if (was.kind === "title" && card.kind === "clue" && !reduced.matches) ghostSplash();
     fillCard(card);
   }
   if (card.answer && !cardShown.answer) showAnswer(card.answer, true);
@@ -978,13 +1026,43 @@ function hideAnswer() {
 // Back to a spent tile: the words fade out over the board's beat, linearly, as its panel
 // fades on the way back to its cell, and only then come off the card.
 function closeCard() {
+  dropGhost();
   $("#clueCard").classList.remove("open");
   cardClose = setTimeout(clearCard, reduced.matches ? 0 : SLOW);
+}
+
+// board.html's dissolveTitle(), for the card. A copy, frozen at the size it was fitted to -
+// the splash is sized in ems of the column, which is about to be refitted for the clue - laid
+// over the card where the real one was, and taken away once it has faded.
+function ghostSplash() {
+  dropGhost();
+  const el = $("#clueCard");
+  const ghost = $("#cardSplash").cloneNode(true);
+  ghost.removeAttribute("id");
+  ghost.querySelectorAll("[id]").forEach((n) => n.removeAttribute("id"));
+  ghost.classList.remove("punch");
+  ghost.classList.add("ghost");
+  ghost.hidden = false;
+  ghost.setAttribute("aria-hidden", "true");
+  ghost.style.fontSize = $("#cardBody").style.fontSize;
+  el.appendChild(ghost);
+  cardGhost = ghost;
+  el.classList.add("dissolve");
+  cardGhostTimer = setTimeout(dropGhost, SLOW + 20);
+}
+
+function dropGhost() {
+  clearTimeout(cardGhostTimer);
+  cardGhostTimer = null;
+  if (cardGhost) cardGhost.remove();
+  cardGhost = null;
+  $("#clueCard").classList.remove("dissolve");
 }
 
 function clearCard() {
   clearTimeout(cardClose);
   cardClose = null;
+  dropGhost();
   $("#clueCard").classList.remove("open");
   $("#cardSplash").classList.remove("punch");
   $("#cardSplash").hidden = true;
@@ -1206,7 +1284,7 @@ function lightTiles(x, y) {
   });
 }
 
-if (matchMedia("(hover: hover) and (pointer: fine)").matches && !reduced.matches) {
+if (FINE_POINTER && !reduced.matches) {
   for (let k = 0; k < 36; k++) tiles.push({ el: $("#tiles").appendChild(document.createElement("i")), level: 0, timer: 0 });
   $("#join").classList.add("tiled");
   // One update a frame, however fast the mouse reports.

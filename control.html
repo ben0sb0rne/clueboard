@@ -36,7 +36,10 @@
     <p class="sub">Open the .xlsx you made in the designer, or any spreadsheet in its shape.</p>
     <div class="loadset">
       <button id="fileBtn" class="act">Open a set</button>
-      <input type="file" id="fileIn" accept=".xlsx,.csv,.tsv,.txt" hidden>
+      <!-- No accept filter, on purpose: a Mac's picker greyed an .xlsx out the first time it
+           was opened - a file in OneDrive or iCloud whose type it had not read yet - and only
+           the second try worked. openGameFile() turns away anything else, with a reason. -->
+      <input type="file" id="fileIn" hidden>
       <button type="button" id="templateBtn" class="linkbtn">Download a blank template</button>
     </div>
     <p id="importErr" class="err"></p>
@@ -61,11 +64,12 @@
     <button id="keepAlive" class="act">Keep game open</button>
   </div>
 
-  <!-- The game's title on the left and the three buttons on the right, Edit Game last. The
-       room code and the join address that used to lead this bar are on the board, where the
-       class reads them - up here they only pushed the teams further down the screen. -->
+  <!-- The game's title on the left, with the room code in gold beside it once the game is on,
+       and the three buttons on the right, Edit Game last. In the lobby the code is big on the
+       line below instead, where the teacher reads it out; here it is the reminder for a team
+       that arrives late. -->
   <header class="bar">
-    <p class="bartitle" id="barTitle"></p>
+    <p class="bartitle"><span id="barTitle"></span><span class="barcode" id="barCode"></span></p>
     <button id="openBoard" class="quiet">Open projector</button>
     <!-- One screen, for a teacher who cannot extend their display. This tab becomes the
          board, with the controls on it; Dashboard there comes back. Next to the button that
@@ -138,6 +142,9 @@
        Back to grid is gold only once the answer is up: until then it is the mis-tap that
        costs the most, so it is never the easy one to hit. -->
   <div class="strip">
+    <!-- The room code, large and gold, in the lobby only: it is what the teacher reads out
+         while the class joins, and the title it replaces is already in the bar above. -->
+    <span class="statecode" id="stateCode"></span>
     <p class="state" id="stateLine"></p>
     <div class="acts">
       <button id="startBtn" class="quiet" hidden>Start game</button>
@@ -147,9 +154,10 @@
       <button id="timerBtn" class="quiet" hidden>Start the timer</button>
       <button id="revealBtn" class="act" hidden>Reveal answer</button>
       <button id="dismissBtn" class="quiet" hidden>Back to grid</button>
-      <!-- The two ways a game finishes, each offered where it is actually wanted: ending
-           it once the final clue has been revealed, and closing the room once the results
-           are on the board. Both arm on the first tap. -->
+      <!-- The two ways a game finishes, each offered where it is actually wanted: ending it
+           once the final clue has been revealed, which takes the teacher home and leaves the
+           results on the board, and closing the room, for a dashboard that comes back to an
+           ended game. Both arm on the first tap. -->
       <button id="endBtn" class="act" hidden>End game</button>
       <button id="closeBtn" class="act" hidden>Close the room</button>
     </div>
@@ -165,11 +173,21 @@
       <p class="empty" id="roundDone" hidden>Every clue in this round is spent.</p>
     </section>
 
-    <section id="clueState" class="off">
-      <div class="ctlclue">
-        <div id="ctlClueText"></div>
-        <!-- The clue's picture, from this device's own set, as the board shows it. -->
-        <img id="ctlPic" class="ctlpic" alt="" hidden>
+    <!-- The clue as every phone shows it - the same card, the same words, picture and answer -
+         so what the teacher glances at is what the room is looking at. style.css's own card
+         rules, switched on by .clues; open and snapped from the start, so none of its fades
+         ever run. renderCtlCard() fills it. -->
+    <section id="clueState" class="off clues">
+      <div class="cluecard open snap" id="ctlCard">
+        <div class="cluebody" id="ctlBody">
+          <div class="splash" id="ctlSplash" hidden>
+            <div class="splashtitle" id="ctlTitle"></div>
+            <div class="splashwho" id="ctlSub"></div>
+          </div>
+          <p class="cluetext" id="ctlClueText"></p>
+          <p class="clueanswer" id="ctlAnswer" hidden></p>
+        </div>
+        <img class="cardpic" id="ctlPic" alt="" hidden>
       </div>
     </section>
   </div>
@@ -245,8 +263,18 @@ let buzzedIds = null;       // null until the first snapshot, so reopening a roo
 // this script has finished loading, and a let further down cannot be touched until the
 // script reaches it: the reopen threw, and left the room with no grid and no heartbeat.
 let roundButtonsFor = null;
-// The picture the clue view is showing, up here for the same reason: renderGame draws it.
-let ctlPicKey = "";
+// The clue card, up here for the same reason: renderGame draws it. Its three numbers are the
+// phone's, copied from index.html - change both - so the type and the picture land where they
+// do on every phone: the largest the words are drawn in a room (seven ems across, five down),
+// the answer's size against the clue's, and the share of the card a picture may take.
+const ANSWER_SCALE = 3.6 / 4.6;
+const MIN_TYPE = 12;               // px: below this the card clips rather than shrinking
+const PIC_SHARE = 0.5;
+const typeFor = (w, h) => Math.min(w / 7, h / 5);
+let ctlPicKey = "";                // the picture the card is showing
+let ctlShown = "";                 // everything the card last drew, so a buzz does not redraw it
+let ctlKind = "";                  // "title" or "clue", as cardFor() says
+let ctlSize = "";                  // the card's size when it was last fitted
 let muted = localStorage.getItem(MUTE_KEY) === "1";
 let teamsPick = localStorage.getItem(PICK_KEY) === "1";
 // Off unless it has been turned on: a game screen carries the clue and nothing else, and a
@@ -343,8 +371,7 @@ $("#buzzPick").addEventListener("change", setBuzzerPick);
 // projector window a live preview rather than an apply-and-see.
 $("#groundPick").addEventListener("input", pickColours);
 $("#accentPick").addEventListener("input", pickColours);
-$("#endGame").addEventListener("click",
-  () => arm($("#endGame"), "End game", () => moves.end()));
+$("#endGame").addEventListener("click", () => arm($("#endGame"), "End game", endGame));
 $("#keepAlive").addEventListener("click", markActive);
 // A host who closes this tab mid-lesson leaves the room with nobody running it, so the browser
 // asks first while one is open - its own "Leave site?", worded the way every teacher already
@@ -359,8 +386,7 @@ $("#revealBtn").addEventListener("click", () => moves.reveal());
 $("#dismissBtn").addEventListener("click", () => moves.dismiss());
 $("#showClueBtn").addEventListener("click", () => moves.showClue());
 $("#finalBtn").addEventListener("click", () => moves.startFinal());
-$("#endBtn").addEventListener("click",
-  () => arm($("#endBtn"), "End game", () => moves.end()));
+$("#endBtn").addEventListener("click", () => arm($("#endBtn"), "End game", endGame));
 $("#closeBtn").addEventListener("click",
   () => arm($("#closeBtn"), "Close the room", closeRoom));
 $("#timerBtn").addEventListener("click", () => moves.startTimer());
@@ -375,7 +401,7 @@ addEventListener("keydown", markActive);
 let fitTimer = null;
 addEventListener("resize", () => {
   clearTimeout(fitTimer);
-  fitTimer = setTimeout(() => { fitRows(); placeCtlPicture(); }, 150);
+  fitTimer = setTimeout(() => { fitRows(); fitCtlCard(); }, 150);
 });
 
 const fromUrl = (new URL(location).searchParams.get("room") || "")
@@ -765,6 +791,8 @@ function openRoom(code) {
   roomCode = code;
   roundButtonsFor = null;   // the set may have changed since the last room
   rememberRoom(code);
+  $("#barCode").textContent = code;
+  $("#stateCode").textContent = code;
   // The host's moves on this room, from game.js. It reads this screen's own state through
   // these getters rather than keeping a copy, so there is only ever one.
   moves = hostMoves({
@@ -915,18 +943,16 @@ function renderGame(snap) {
       : "Start the game";
   }
 
-  if (!clue) showCtlPicture(null);
   if (clue) {
-    mathText($("#ctlClueText"), clue.text);
-    showCtlPicture(clue);
     $("#timerBtn").textContent = game.timerEnds && game.timerEnds > serverNow()
       ? "Restart the timer"
       : "Start the timer";
     $("#revealBtn").disabled = !!game.reveal || wagering;
     $("#revealBtn").textContent = game.reveal ? "Answer is showing" : "Reveal answer";
-    // Exactly one gold button, and it is whatever comes next: show the clue once the wagers
-    // are in, then reveal the answer, then go back. Back to grid is gold only at the end,
-    // because until then it is the mis-tap that costs the most.
+    // Exactly one gold button, and it is whatever comes next: show the clue while wagers are
+    // open - it is always the teacher's press, never the last wager's - then reveal the
+    // answer, then go back. Back to grid is gold only at the end, because until then it is
+    // the mis-tap that costs the most.
     setAct($("#showClueBtn"), wagering);
     setAct($("#revealBtn"), !wagering && !game.reveal);
     // On a final clue the gold one is End game beside it, not Back to grid: the board
@@ -938,10 +964,11 @@ function renderGame(snap) {
   // the grid, so a dashboard refreshed mid-clue would otherwise have nothing holding that
   // height and the whole table would jump the moment the clue was dismissed.
   renderGrid();
+  // After the grid, which is what gives the card its size.
+  renderCtlCard();
 
   $("#stateLine").textContent = stateText();
   renderTeamRows();
-  maybeShowClue();
 }
 
 // The intro's stops, in the order the board pans through them: the game's title, then every
@@ -982,9 +1009,9 @@ function stateText() {
   if (!game.started) {
     // The whole point of the lobby: a team still arguing about its name is not a team that
     // cannot get in, and this is where that difference shows up without walking over.
+    // After the room code, not the title: the title is in the bar right above it.
     const ready = playing().length;
-    return (game.title || "Ready") + " \u00b7 "
-      + (teams.length ? ready + " of " + teams.length + " ready" : "not started");
+    return teams.length ? ready + " of " + teams.length + " ready" : "not started";
   }
   return roundName(Number(game.round) || 1) + " \u00b7 " + (game.turn
     ? "up next: " + (moves.teamName(game.turn) || "a team that has left")
@@ -1009,20 +1036,17 @@ function hasWagered(t) { return t.wager !== undefined && t.wager !== null; }
 function wagerStatus(clue) {
   const who = owing(clue);
   if (!who.length) return "nobody can wager";
-  if (clue.final) return who.filter(hasWagered).length + " of " + who.length + " wagers in";
+  if (clue.final) {
+    const done = who.filter(hasWagered).length;
+    return done === who.length ? "all wagers in" : done + " of " + who.length + " wagers in";
+  }
   const t = who[0];
   return hasWagered(t) ? t.name + " wagered " + money(t.wager) : "waiting for " + t.name;
 }
 
-// Advances by itself once every wager is in, so the usual case needs no tap. The button is
-// still there for a team that dithers, which is the same override the grid already allows.
-function maybeShowClue() {
-  const clue = game.clue;
-  if (!clue || !game.wagering || !gameRef) return;
-  const who = owing(clue);
-  if (!who.length || !who.every(hasWagered)) return;
-  moves.showClue();
-}
+// The clue never goes up by itself once the wagers are in. It did, and in a real lesson the
+// Daily Double appeared the instant the last wager landed - before the teacher had said a word.
+// Show the clue is the gold button for as long as wagers are open, so the next move is theirs.
 
 function roundName(round) {
   const R = clueSet && clueSet.rounds[round - 1];
@@ -1121,36 +1145,70 @@ function renderTeams(snap) {
   buzzedIds = nowBuzzed;
 
   renderTeamRows();
-  // A team joining or being renamed changes the line, and this listener fires on its own.
+  // A team joining or being renamed changes the line, and this listener fires on its own -
+  // a wager coming in too, which is a write to teams rather than to game.
   $("#stateLine").textContent = stateText();
-
-  // A wager is a write to teams, not to game, so the auto-advance has to be driven from
-  // here as well as from renderGame. The state line above already redraws on this listener.
-  maybeShowClue();
+  // A team row can bring a scrollbar with it, which narrows the card: refitted only if so.
+  renderCtlCard();
 }
 
-// The clue's picture on this screen too, from this device's own set as the board finds it, so
-// the teacher is not reading a clue that says "this shape" with no shape in front of them.
-// Beside the words or under them, whichever shows it larger in the room the clue has here.
-function showCtlPicture(clue) {
+// The clue card: what every phone shows for the clue that is up, drawn here without its fades.
+// cardFor() in clues.js decides what that is - the Daily Double or Final Clue title while the
+// wagers come in, then the words, then the answer under its rule once it is revealed - so the
+// teacher glancing down mid-question sees what the room sees. The picture is this device's own
+// full-size copy rather than the phones' small one. Redrawn only when what it shows changes:
+// every buzz and every score comes through here.
+function renderCtlCard() {
+  const clue = game.clue;
+  const card = clue && window.cardFor ? cardFor(game, null) : null;   // none beside an older clues.js
+  const m = card && card.kind === "clue" && window.pictureSpot ? mediaHere(clue) : null;
+  const pic = m && m.kind === "picture" ? m.id || m.url || "" : "";
+  const shown = card ? JSON.stringify([card.kind, card.title, card.sub, card.text, card.answer, pic]) : "";
+  const el = $("#ctlCard");
+  if (shown === ctlShown) {
+    if (el.clientWidth + "x" + el.clientHeight !== ctlSize) fitCtlCard();
+    return;
+  }
+  ctlShown = shown;
+  ctlKind = card ? card.kind : "";
+  const title = ctlKind === "title";
+  $("#ctlSplash").hidden = !title;
+  $("#ctlTitle").textContent = title ? card.title : "";
+  $("#ctlSub").textContent = title ? card.sub : "";
+  const text = $("#ctlClueText"), ans = $("#ctlAnswer");
+  text.hidden = title;
+  ctlWords(text, card && !title ? card.text : "");
+  ans.hidden = !(card && card.answer);
+  ans.style.fontSize = "";
+  ctlWords(ans, card && card.answer ? card.answer : "");
+
   const img = $("#ctlPic");
-  const m = clue && window.pictureSpot && mediaHere(clue);   // none beside an older clues.js
-  const key = m && m.kind === "picture" ? m.id || m.url || "" : "";
-  if (key === ctlPicKey) { placeCtlPicture(); return; }
-  ctlPicKey = key;
-  img.hidden = true;
-  img.removeAttribute("src");
-  placeCtlPicture();
-  if (!key) return;
-  const show = (src) => {
-    if (ctlPicKey !== key || !src) return;
-    img.onload = placeCtlPicture;
-    img.src = src;
-    img.hidden = false;
-  };
-  if (m.id) loadPictures([m.id]).then(() => show(pictureURLs[m.id]));
-  else show(m.url);
+  if (pic !== ctlPicKey) {
+    ctlPicKey = pic;
+    img.hidden = true;
+    img.removeAttribute("src");
+    if (pic) {
+      const show = (src) => {
+        if (ctlPicKey !== pic || !src) return;
+        img.onload = fitCtlCard;
+        img.src = src;
+        img.hidden = false;
+      };
+      if (m.id) loadPictures([m.id]).then(() => show(pictureURLs[m.id]));
+      else show(m.url);
+    }
+  }
+  fitCtlCard();
+  // A face the first clue needed and the page had not loaded yet - Anton, or one of KaTeX's -
+  // is fitted for again once it lands.
+  if (document.fonts && document.fonts.status === "loading") document.fonts.ready.then(fitCtlCard);
 }
+
+function ctlWords(el, text) {
+  if (window.mathText) mathText(el, text);
+  else el.textContent = text;
+}
+
 function mediaHere(clue) {
   if (!clueSet) return null;
   if (clue.final) return (clueSet.final && clueSet.final.media) || null;
@@ -1158,32 +1216,54 @@ function mediaHere(clue) {
   const s = R && R.cells[clue.cat] && R.cells[clue.cat][clue.row];
   return (s && s.media) || null;
 }
-// pictureSpot() in clues.js on the room the clue view has, and the words, which keep their CSS
-// size, stepped down a pixel at a time only if they no longer fit beside or under the picture.
-// The room is measured with the picture out of it: the panel grows to fit what is in it, so
-// measured around a picture at its own size it would make room for that, and push the teams
-// down the screen on every clue with one. Growing past that height is what "no longer fit" is.
-function placeCtlPicture() {
-  const box = $("#clueState .ctlclue"), img = $("#ctlPic"), text = $("#ctlClueText");
-  box.classList.remove("pic-right", "pic-below");
+
+// index.html's placePicture(), fitCard() and fitAnswer(), as one, without the parts that only
+// a moving card needs - change both. The picture goes beside the words or under them by
+// pictureSpot(), weighed by what it leaves the words; then the words step down a twentieth at
+// a time until they fit with an answer's line still free under them; then the answer, if it is
+// up, takes that room. The card is out of the flow (board.css), so nothing here can make the
+// stage taller and move the table.
+function fitCtlCard() {
+  const el = $("#ctlCard"), body = $("#ctlBody"), ans = $("#ctlAnswer"), img = $("#ctlPic");
+  ctlSize = el.clientWidth + "x" + el.clientHeight;
+  el.classList.remove("pic-right", "pic-below");
   img.style.width = img.style.height = "";
-  text.style.fontSize = "";
-  if (img.hidden || !img.naturalWidth) return;
-  img.style.display = "none";
-  const room = box.clientHeight;
-  const cs = getComputedStyle(box);
-  const w = box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-  const h = room - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
-  img.style.display = "";
-  if (w <= 0 || h <= 0) return;
-  const spot = pictureSpot(w, h, img.naturalWidth / img.naturalHeight, 0.5);
-  box.classList.add("pic-" + spot.side);
-  img.style.width = spot.w + "px";
-  img.style.height = spot.h + "px";
-  let size = parseFloat(getComputedStyle(text).fontSize);
-  while (size > 14 && (box.scrollHeight > room || text.scrollWidth > text.clientWidth + 1)) {
-    size -= 1;
-    text.style.fontSize = size + "px";
+  const cs = getComputedStyle(el);
+  const w = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  const h = el.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+  if (!ctlShown || w <= 0 || h <= 0) return;      // nothing up, or not on screen: fitted when it is
+  let room = { w: w, h: h };
+  if (!img.hidden && img.naturalWidth && window.pictureSpot) {
+    const spot = pictureSpot(w, h, img.naturalWidth / img.naturalHeight, PIC_SHARE, typeFor);
+    el.classList.add("pic-" + spot.side);
+    img.style.width = spot.w + "px";
+    img.style.height = spot.h + "px";
+    const gap = parseFloat(spot.side === "right" ? cs.columnGap : cs.rowGap) || 0;
+    room = spot.side === "right" ? { w: w - spot.w - gap, h: h } : { w: w, h: h - spot.h - gap };
+  }
+  const fits = () => body.offsetHeight <= room.h + 1 && body.scrollWidth <= room.w + 1;
+
+  const kept = Array.prototype.slice.call(ans.childNodes);
+  const wasHidden = ans.hidden, fontWas = ans.style.fontSize;
+  if (ctlKind === "clue") {
+    ans.textContent = "X";
+    ans.style.fontSize = ANSWER_SCALE + "em";
+    ans.hidden = false;
+  }
+  const top = typeFor(room.w, room.h);
+  for (let k = 20; k > 0; k--) {
+    body.style.fontSize = top * k / 20 + "px";
+    if (fits() || top * (k - 1) / 20 < MIN_TYPE) break;
+  }
+  ans.textContent = "";
+  kept.forEach((n) => ans.appendChild(n));
+  ans.hidden = wasHidden;
+  ans.style.fontSize = fontWas;
+  if (ans.hidden) return;
+  const clueSize = parseFloat(body.style.fontSize) || 0;
+  for (let k = 20; k > 0; k--) {
+    ans.style.fontSize = ANSWER_SCALE * k / 20 + "em";
+    if (fits() || clueSize * ANSWER_SCALE * (k - 1) / 20 < MIN_TYPE) break;
   }
 }
 
@@ -1279,6 +1359,7 @@ function renderTeamRows() {
     const tr = body.insertRow();
     if (t.buzzedAt) tr.className = "buzzed";
     if (t.id === game.turn) tr.className += " turn";
+    if (clue && clue.awarded && clue.awarded[t.id]) tr.className += " awarded";
 
     // The buzz order and the hand-over icon never want this cell at the same time: order only
     // matters while a clue is open, picking only matters while one is not.
@@ -1744,8 +1825,26 @@ function forgetRoom(code) {
   localStorage.setItem(LAST_ROOM, JSON.stringify(leftovers().filter((c) => c !== code)));
 }
 
+// Ending the game takes the teacher home, to the front page, and leaves the room where it is:
+// the board keeps the final scores up and every phone its result, for as long as the class is
+// looking at them, and nobody can join or rejoin a game that has ended. The room itself goes
+// the next time this browser opens the host screen - the leftovers sweep - or when its code
+// is handed out again. Only once the end is written: a failed write leaves the teacher on a
+// game that is still running. The idle auto-end and the board's own End game stay where they
+// are, because the projector is where the results are shown.
+function endGame() {
+  // An older cached game.js returns nothing from end(), and then this screen stays put.
+  Promise.resolve(moves.end()).then((ended) => {
+    if (!ended) return;
+    leavingOnPurpose = true;
+    location.href = "index.html" + (window.DEMO ? "?demo=1" : "");
+  });
+}
+
 // And this is the step that does destroy it, which is why it is a separate button with its
 // own two taps: the room, the teams and every score go, and the screen goes back to setup.
+// Reached now only by a dashboard that comes back to an ended game - a refresh, the Back
+// button, or a game that ended itself after an hour untouched.
 function closeRoom() {
   if (!teamsRef) return;
   const tRef = teamsRef;

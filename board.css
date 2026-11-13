@@ -210,13 +210,19 @@ body.board {
   text-align: center;
   overflow: hidden;
 }
+/* Bigger than it was - the categories are read from the back of the room - and fitted rather
+   than clipped: a long name is set smaller until it fits its cell (fitCats() in board.html),
+   where it used to lose its ends. A column, stretched, so the name's width can be measured. */
 .board .cat {
+  flex-direction: column;
+  align-items: stretch;
   padding: 0.3em 0.4em;
-  font-size: clamp(11px, 1.45vw, 26px);
+  font-size: clamp(14px, 2.2vw, 42px);
   font-weight: 700;
   line-height: 1.08;
   letter-spacing: 0.02em;
   text-transform: uppercase;
+  text-wrap: balance;
 }
 .board .cell span {
   font-size: clamp(20px, 3.6vw, 68px);
@@ -257,6 +263,21 @@ body.board {
 }
 .board #cluePanel .cluebody { opacity: 0; transition: opacity 900ms linear; }
 .board #cluePanel.settled .cluebody { opacity: 1; }
+/* A Daily Double's title, or the final's category, giving way to the clue (dissolveTitle() in
+   board.html): the copy lies exactly where the real one was - the panel's own padding, centred
+   as its column centres it - and fades out over the board's beat as the clue fades in. */
+.board #cluePanel > .going {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: inherit;
+  animation: boardFade var(--slow) linear reverse both;
+}
+.board #cluePanel.dissolving .cluetext,
+.board #cluePanel.dissolving .cluemedia { animation: boardFade var(--slow) linear both; }
 .board .cluebody {
   display: flex;
   flex-direction: column;
@@ -360,17 +381,33 @@ body.board {
   font-size: clamp(34px, 8vw, 150px);
 }
 
-/* Podiums along the bottom, as on the show. */
+/* Podiums along the bottom, as on the show: a band of one fixed height. It used to be as tall
+   as whatever was in it, so every answer going up took height from the grid and made the clue
+   above jump, and names were cut short to keep it one row deep. Now each podium has a room for
+   its name, its score and its answer, the band is a quarter of the screen, and nothing that
+   comes and goes changes its size. Nothing is shortened either: a long name or answer is set
+   smaller until it fits its room - fitPodiums() in board.html. The names and answers start
+   from these two sizes. */
 .board #podiums {
-  flex: 0 0 auto;
+  --pname: min(4.4vh, 2.6vw);
+  --panswer: 2.4vh;
+  flex: 0 0 27vh;
+  min-height: 0;
   display: flex;
   gap: clamp(3px, 0.5vw, 9px);
   padding: clamp(3px, 0.5vw, 9px);
   background: var(--gap-ink);
 }
+/* A board that is hosting has a row of +/- under each podium: room of its own for it, rather
+   than taken from the answers it is marking. */
+.board.hosting #podiums { flex-basis: 31vh; }
 .board .podium {
   flex: 1 1 0;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  container-type: inline-size;
+  overflow: hidden;
   padding: 0.7vh 0.5vw 1vh;
   text-align: center;
   background: var(--podium);
@@ -389,40 +426,63 @@ body.board {
 .board #podiums.live .podium:not(.buzzed) { background: var(--podium-dim); }
 .board #podiums.live .podium:not(.buzzed) .pname,
 .board #podiums.live .podium:not(.buzzed) .pscore { opacity: 0.4; }
-/* The team's name is set at the score's size, not a caption above it: a podium is a name
+/* The team's name is set near the score's size, not a caption above it: a podium is a name
    and a number, and on the show they carry the same weight. It is the colour that tells
-   them apart - the score in white, the name in the quieter blue. A long name gives up its
-   tail rather than wrapping, because six podiums have to stay one row deep. */
+   them apart - the score in white, the name in the quieter blue. Two lines of room, the name
+   sitting on the score when it needs only one; a name that wants more is set smaller, never
+   cut. The text is a child of this box so that it can be measured against it. */
 .board .pname {
-  font-size: clamp(20px, 2.6vw, 48px);
+  flex: none;
+  height: calc(2 * 1.1 * var(--pname));
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  overflow: hidden;
+  font-size: var(--pname);
   font-weight: 700;
   letter-spacing: 0.02em;
   line-height: 1.1;
   text-transform: uppercase;
+  text-wrap: balance;
   color: var(--muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
+/* The score is the biggest thing on the podium, and is held to the podium's width as well as
+   the screen's height, so "-$12,345" still fits twelve podiums across. The first size is for
+   a browser without container units. An explicit line height, because Anton's own is half as
+   tall again as its type and that is room taken from the answer. */
 .board .pscore {
-  font-size: clamp(20px, 2.6vw, 48px);
+  flex: none;
+  font-size: 5.8vh;
+  font-size: min(5.8vh, 24cqw);
+  line-height: 1.1;
+  white-space: nowrap;
   font-weight: 700;
   color: #fff;
   font-variant-numeric: tabular-nums;
+}
+/* The answer's room: the rest of the podium, kept whether or not there is an answer in it. */
+.board .pextra {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin-top: 0.5vh;
+  overflow: hidden;
 }
 .board .pscore.neg { color: #ff6a6a; }
 /* The wager standing in for the score. Gold, because it is the thing at stake and not the
    thing it replaces, and never red - a wager is a number you chose, not money you are down. */
 .board .pscore.wagered { color: var(--value-gold); }
+/* Bigger than it was, and never clamped to two lines: a long answer is set smaller instead.
+   The box is only for the last resort, a line clamp, if even the smallest size will not do. */
 .board .panswer {
-  margin-top: 0.3em;
-  font-size: clamp(11px, 1.15vw, 20px);
-  line-height: 1.25;
+  font-size: var(--panswer);
+  line-height: 1.2;
+  text-wrap: balance;
   color: var(--value-gold);
   overflow: hidden;
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
 }
 .board .panswer.blank { color: var(--label); }
 
@@ -782,9 +842,11 @@ body.board {
 .control #stage > section.off { visibility: hidden; }
 /* The clue takes the whole height the grid was holding rather than sitting on top of it
    with a dead band underneath. It is what the teacher is reading while they mark, so the
-   space may as well be its. */
-.control #clueState { display: flex; }
-.control #clueState .ctlclue { flex: 1; display: flex; align-items: center; }
+   space may as well be its. The card is the phones' own (style.css, under .clues), placed
+   out of the flow: nothing in it - a long clue, a tall picture - can make the stage taller
+   than the grid, so the grid alone sets the height and the table never moves. */
+.control #clueState { position: relative; }
+.control #clueState .cluecard { position: absolute; inset: 0; margin: 0; }
 /* Before the game and through the category intro there is no board yet, so the stage folds
    away rather than holding a screen-deep hole open above the teams. The table moves once,
    when the game starts; what it must not do is move on every clue. */
@@ -809,6 +871,17 @@ body.board {
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--muted);
+}
+/* The room code, in the lobby only, as the board writes it: big, gold, in the board's type.
+   The line grows for it there and nowhere else - the table moves once, when the game starts. */
+.control .statecode { display: none; }
+.control.lobby .statecode {
+  display: block;
+  font-family: var(--board-font);
+  font-size: clamp(30px, 3.4vw, 48px);
+  line-height: 1;
+  letter-spacing: 0.06em;
+  color: var(--value-gold);
 }
 
 /* A small, dense mirror of the board: this one is for clicking, not for reading from the
@@ -845,24 +918,6 @@ body.board {
 }
 .control .ctlcell:hover:not(:disabled) { background: var(--board-blue-lit); }
 .control .ctlcell.spent { background: var(--spent); color: transparent; }
-
-.control .ctlclue {
-  padding: 1em 1.1em;
-  background: var(--faint);
-  border-radius: 12px;
-}
-.control #ctlClueText {
-  text-wrap: balance;
-  font-size: clamp(21px, 3.1vw, 44px);
-  font-weight: 600;
-  line-height: 1.25;
-}
-/* The clue's picture, beside the words or under them as placeCtlPicture() in control.html
-   decides, on white as the board shows one. */
-.control .ctlclue.pic-right { gap: 1.2em; }
-.control .ctlclue.pic-right #ctlClueText { flex: 1 1 0; min-width: 0; }
-.control .ctlclue.pic-below { flex-direction: column; justify-content: center; gap: 0.8em; }
-.control .ctlpic { flex: none; display: block; object-fit: contain; background: #fff; border-radius: 6px; }
 
 /* The answer, at the head of the column the submissions are in. */
 .control tr.keyrow td {
@@ -973,7 +1028,11 @@ body.board {
 
 /* The answer and its buttons sit a third of the screen apart, which is where a tired eye
    slips a row. Lighting the whole row is the cheap half of that fix. */
-.control tbody tr:not(.keyrow):hover td:not(.onboard) { background: var(--faint); }
+.control tbody tr:not(.keyrow):not(.awarded):hover td:not(.onboard) { background: var(--faint); }
+/* Paid on this clue: the key row's green, so a teacher marking eight teams can see which they
+   have already given the points. Kept under the pointer, and never pulled back by the in-clue
+   dimming below - a team that stayed quiet can still be the one awarded. */
+.control tbody tr.awarded td:not(.onboard) { background: #0d2a16; }
 
 .control td.score {
   font-weight: 800;
@@ -987,7 +1046,7 @@ body.board {
    full strength. Opacity rather than a colour, so each cell keeps its own on the way down -
    a negative score stays red, just quieter. The scoring buttons are left alone: they are
    not what is being read, and a team that stayed quiet can still be awarded the clue. */
-.control.inclue tbody tr:not(.keyrow):not(.buzzed) td:not(.mark):not(.rm) { opacity: 0.45; }
+.control.inclue tbody tr:not(.keyrow):not(.buzzed):not(.awarded) td:not(.mark):not(.rm) { opacity: 0.45; }
 .control .mark { width: 1%; white-space: nowrap; }
 .control .mark button {
   width: 2.3em;
@@ -1044,8 +1103,7 @@ body.board {
 
 /* Who is ready, never how much: a wager stays secret until that team is revealed. */
 .board .pready {
-  margin-top: 0.3em;
-  font-size: clamp(10px, 1.05vw, 18px);
+  font-size: calc(var(--panswer) * 0.8);
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;

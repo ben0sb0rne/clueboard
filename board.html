@@ -133,6 +133,8 @@ const COUNT_MS = SLOW;
 // Matches .cluebody's transition in board.css.
 const BODY_FADE = 900;
 let shrinkTimer = null;  // non-null while a dismiss is on its way back to its cell
+let titleGhost = null;   // the copy of a title fading out over its clue, see dissolveTitle()
+let ghostTimer = null;
 
 // The opening of a game: a bare board, then the values five at a time, then the categories
 // one by one. Paced from the control screen except for the value sweep, which is one run of
@@ -157,12 +159,17 @@ let cellEls = [];        // cellEls[cat][row], so a clue can expand out of its o
 let shownKey = null;     // which cell the open clue came from, for the shrink back
 let mediaKey = "";       // the picture or video on screen, so a snapshot does not restart it
 let gridSig = "";        // rebuild the grid only when its shape actually changes
+// What the category names and the podiums were last fitted to - the grid and the band at the
+// size they were then - so either is fitted again as soon as it is on screen at another size:
+// a window resized, or the podiums arriving with the first team and the grid growing shorter.
+let catsFitFor = "";
+let podiumsFitAt = "";
 let introSig = "";       // which grid has already had its intro, so a resize does not replay it
 let podiumSig = "";      // rebuild the podiums only when the teams change, never mid-tick
 let resultsSig = "";     // the scores the results screen is currently showing
 let wagerFlash = {};     // teamId -> timer, while a wager is standing in for a score
 let wagerFlashed = {};   // teamId -> true once that wager has had its beat
-let podiumEls = {};      // teamId -> { box, score, extra }
+let podiumEls = {};      // teamId -> { box, name, score, extra, mark, said }
 let shownScores = {};    // what each podium currently reads, so a change can count up to it
 const reduced = matchMedia("(prefers-reduced-motion: reduce)");
 let thinkEnds = 0;       // server ms when the think time is up, 0 when there is no timer
@@ -523,6 +530,7 @@ function renderGrid() {
   const sig = JSON.stringify([grid.cats, grid.values]);
   if (sig !== gridSig) {
     gridSig = sig;
+    catsFitFor = "";    // new category elements, at their CSS size
     const wrap = $("#grid");
     // The round's own size, up to six by five; board.css lays it out from these two.
     wrap.style.setProperty("--cols", grid.cats.length);
@@ -543,7 +551,7 @@ function renderGrid() {
       head.className = "cat";
       head.style.gridColumn = c + 1;
       head.style.gridRow = 1;
-      head.textContent = name;
+      head.appendChild(document.createElement("span")).textContent = name;   // measured by fitCats()
       if (intro) head.style.animationDelay = (c * 115) + "ms";
       wrap.appendChild(head);
       cellEls[c] = [];
@@ -577,6 +585,64 @@ function renderGrid() {
     });
   });
 
+  // Once per grid and size, when it is on screen to be measured: the welcome card hides it until
+  // the first clue, and a hidden grid has no room to fit anything to.
+  const gridEl = $("#grid"), fitFor = gridSig + "@" + gridEl.clientWidth + "x" + gridEl.clientHeight;
+  if (catsFitFor !== fitFor && gridEl.clientHeight > 0) {
+    catsFitFor = fitFor;
+    fitCats();
+  }
+}
+
+function fitCats() {
+  document.querySelectorAll("#grid .cat").forEach((cat) => fitInto(cat, cat.firstChild, 11));
+  if (document.fonts && document.fonts.status === "loading") document.fonts.ready.then(fitCats);
+}
+
+// Text set as large as its CSS allows and stepped down a twentieth at a time until it fits
+// its box, which has a size of its own - index.html's fitCard() method. The text must be a
+// child that fills the box's width, so a word too long for any line shows up as overflow.
+// False if even the floor is too big, for the caller's last resort.
+function fitInto(box, text, floor) {
+  text.style.fontSize = "";
+  const cs = getComputedStyle(box);
+  const room = box.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+  if (room <= 0) return true;                       // not on screen: fitted when it is
+  const top = parseFloat(getComputedStyle(text).fontSize);
+  const fits = () => text.offsetHeight <= room + 1 && text.scrollWidth <= text.clientWidth + 1;
+  for (let k = 19; !fits(); k--) {
+    if (k < 1 || top * k / 20 < floor) return false;
+    text.style.fontSize = top * k / 20 + "px";
+  }
+  return true;
+}
+
+// Every name and answer on the podiums, after they are built, when the screen changes size
+// and when a face they needed has loaded. A name that will not fit at the floor breaks inside
+// its long word rather than being cut; an answer that will not, even at its floor, is the one
+// thing left clamped - a few hundred characters in a box a few words wide.
+function fitPodiums() {
+  Object.keys(podiumEls).forEach((id) => { fitName(podiumEls[id]); fitAnswer(podiumEls[id]); });
+  const band = $("#podiums");
+  podiumsFitAt = band.hidden ? "" : band.clientWidth + "x" + band.clientHeight;
+  if (document.fonts && document.fonts.status === "loading") document.fonts.ready.then(fitPodiums);
+}
+function fitName(els) {
+  const text = els.name.firstChild;
+  text.style.overflowWrap = "";
+  if (!fitInto(els.name, text, 12)) {
+    text.style.overflowWrap = "anywhere";
+    fitInto(els.name, text, 12);
+  }
+}
+function fitAnswer(els) {
+  const text = els.extra.querySelector(".panswer");
+  if (!text) return;
+  text.style.webkitLineClamp = "";
+  if (!fitInto(els.extra, text, 10)) {
+    const line = parseFloat(getComputedStyle(text).lineHeight) || 1;
+    text.style.webkitLineClamp = String(Math.max(1, Math.floor(els.extra.clientHeight / line)));
+  }
 }
 
 // Rebuilt only when the teams themselves change. Wiping the row on every snapshot would cut
@@ -586,9 +652,13 @@ function renderPodiums() {
   const order = teams.slice().sort((a, b) => a.id.localeCompare(b.id));
   const clue = game.clue || null;
   const isFinal = !!(clue && clue.final);
+  // Shown or hidden before anything in it is measured, so a band coming back is fitted on
+  // screen rather than at no size at all.
+  wrap.hidden = !order.length || !!game.over;    // the results screen is the podiums now
 
   const sig = JSON.stringify(order.map((t) => [t.id, t.name]));
-  if (sig !== podiumSig) {
+  const built = sig !== podiumSig;
+  if (built) {
     podiumSig = sig;
     wrap.textContent = "";
     podiumEls = {};
@@ -597,7 +667,7 @@ function renderPodiums() {
       box.className = "podium";
       const name = document.createElement("div");
       name.className = "pname";
-      name.textContent = t.name;
+      name.appendChild(podiumLine("ptext", t.name));   // a child, so fitName() can measure it
       const score = document.createElement("div");
       score.className = "pscore";
       const extra = document.createElement("div");
@@ -622,7 +692,7 @@ function renderPodiums() {
       });
       box.append(name, score, extra, mark);
       wrap.appendChild(box);
-      podiumEls[t.id] = { box: box, score: score, extra: extra, mark: mark };
+      podiumEls[t.id] = { box: box, name: name, score: score, extra: extra, mark: mark, said: "" };
     });
     Object.keys(shownScores).forEach((id) => {
       if (!podiumEls[id]) delete shownScores[id];
@@ -662,20 +732,32 @@ function renderPodiums() {
     // for the teams still thinking. Final is revealed team by team instead, reading `shown`
     // and ignoring `reveal` - otherwise revealing the answer would put every response up at
     // once and throw away the one-at-a-time reveal.
-    els.extra.textContent = "";
+    const said = [];
     if (isFinal && game.wagering && t.wager !== null) {
-      els.extra.appendChild(podiumLine("pready", "Wager in"));   // who is ready, never how much
+      said.push(["pready", "Wager in"]);                // who is ready, never how much
     }
     if (open && t.answer) {
-      els.extra.appendChild(podiumLine("panswer", t.answer));    // student-typed: textContent
+      said.push(["panswer", t.answer]);                 // student-typed: textContent
     } else if (open && isFinal) {
       // A Final reveal is one team, chosen by the teacher, so it has to show something even
       // when that team wrote nothing - otherwise tapping the answer on the dashboard looks
       // like a control that does not work. On an ordinary clue it stays silent: five podiums
       // saying "No answer" is noise, not a result.
-      els.extra.appendChild(podiumLine("panswer blank", "No answer"));
+      said.push(["panswer blank", "No answer"]);
+    }
+    // Redrawn only when it changes - every snapshot comes through here, and each redraw is a
+    // fit - and fitted at once, unless the whole row is about to be.
+    const key = JSON.stringify(said);
+    if (key !== els.said) {
+      els.said = key;
+      els.extra.textContent = "";
+      said.forEach(([cls, text]) => els.extra.appendChild(podiumLine(cls, text)));
+      if (!built) fitAnswer(els);
     }
   });
+  // After the whole row is built, never podium by podium: each new one narrows the rest. And
+  // whenever it is on screen without having been fitted at the size it is now.
+  if (built || (!wrap.hidden && podiumsFitAt !== wrap.clientWidth + "x" + wrap.clientHeight)) fitPodiums();
   // Nothing to replay once the final clue is behind us, so a reopened board does not flash
   // six wagers at a room that has already seen them.
   if (!isFinal) { clearFlashes(); }
@@ -686,7 +768,6 @@ function renderPodiums() {
   // lit there until the teacher reveals them, so dimming would give away who answered.
   const anyIn = order.some((t) => t.buzzedAt);
   wrap.classList.toggle("live", !!clue && !isFinal && !game.wagering && anyIn);
-  wrap.hidden = !order.length || !!game.over;    // the results screen is the podiums now
 }
 
 // The wager, where the score was, for a beat and a half. When it is up the podium goes back
@@ -769,6 +850,10 @@ function renderClue(clue) {
   const hideClue = splash || catOnly;
 
   const splashEl = $("#ddSplash");
+  // The title giving way to its clue - the wagers in, Show the clue pressed - dissolves rather
+  // than cuts. Read before anything below rewrites it: what is on screen now is the title.
+  const title = !splashEl.hidden ? splashEl : !$("#finalCat").hidden ? $("#finalCat") : null;
+  if (title && !hideClue && !fresh && !reduced.matches) dissolveTitle(panel, title);
   splashEl.hidden = !splash;
   $("#ddWho").textContent = splash ? (clue.ownerName || "") : "";
   // Restarted by hand: the element is reused, and a CSS animation only runs again if it is
@@ -800,6 +885,32 @@ function renderClue(clue) {
   }
 
   if (fresh || panel.hidden) expandFrom(panel, clue.cat, clue.row);
+}
+
+// A copy of the title stays on top and fades out over the board's beat while the clue fades in
+// underneath - it used to be a cut, the one hard edit left in a Daily Double. A copy, because
+// the real one is rewritten on every snapshot; on the panel rather than in its column, so the
+// reveal's movers never take it along; and without its punch, so it does not slam in again.
+function dissolveTitle(panel, title) {
+  dropTitle(panel);
+  const ghost = title.cloneNode(true);
+  ghost.removeAttribute("id");
+  ghost.querySelectorAll("[id]").forEach((el) => el.removeAttribute("id"));
+  ghost.classList.remove("punch");
+  ghost.classList.add("going");
+  ghost.setAttribute("aria-hidden", "true");
+  panel.appendChild(ghost);
+  titleGhost = ghost;
+  panel.classList.add("dissolving");
+  ghostTimer = setTimeout(() => dropTitle(panel), SLOW + 20);
+}
+
+function dropTitle(panel) {
+  clearTimeout(ghostTimer);
+  ghostTimer = null;
+  if (titleGhost) titleGhost.remove();
+  titleGhost = null;
+  panel.classList.remove("dissolving");
 }
 
 // The clue's picture or video comes from this device's own copy of the set and nowhere else.
@@ -1004,6 +1115,7 @@ function expandFrom(panel, cat, row) {
   // faded out in the last clue's cell.
   clearTimeout(shrinkTimer);
   shrinkTimer = null;
+  dropTitle(panel);   // a new clue never inherits the last one's dissolve
   panel.style.transition = panel.style.transform = panel.style.opacity = "";
   panel.hidden = false;
   panel.classList.remove("settled");
@@ -1073,6 +1185,7 @@ function shrinkBack(panel) {
 let resizeTimer = null;
 addEventListener("resize", () => {
   clearTimeout(resizeTimer);
+  // The category names and the podiums refit themselves at a new size - see catsFitFor.
   resizeTimer = setTimeout(() => { gridSig = ""; render(); }, 150);
 });
 </script>

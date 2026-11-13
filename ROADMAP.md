@@ -82,9 +82,16 @@ been seen on either.
   wrong, whooshes for transitions, a buzzer each team picks - is a project of its own, and
   most of it is curation rather than code. Nothing from the show: those cues are enforced.
 - **Still a fork.** A fix in the buzzer's `common.js` does not arrive here on its own.
+- **An ended room waits for its teacher.** `End game` leaves the room up for the board's
+  results (November 2026), and it is deleted by that browser's next visit to the host screen
+  or when its code is drawn again - the same as a room nobody closed. A teacher who never
+  comes back leaves it in Firebase until then. Nothing can delete it on a timer without a
+  server, so if that matters, the fix is for the front page to run the host's leftovers
+  sweep too.
 - **Browser storage is not a save.** Safari clears a site's storage after about a week
-  without a visit, so a game that only ever lived in the designer can vanish. The .xlsx is the
-  save, and the designer says so; the risk is a teacher who never presses it.
+  without a visit, so the designer keeps nothing between visits: a game never saved is gone
+  when its tab closes. The .xlsx is the save, and leaving with changes unsaved asks first; the
+  risk is a teacher who never presses it.
 - **The .xlsx was tested against the apps on 8 November 2026.** Excel 16.114 for Mac, Google
   Sheets and Numbers for iCloud each opened a game with its picture showing, kept text typed
   into an empty square as text, and saved a file this code reads back whole. `fixtures/` holds

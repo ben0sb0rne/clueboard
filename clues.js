@@ -523,12 +523,11 @@ function isPictureData(v) {
 // and each side scores its picture's area times that.
 //
 // A tall picture wins beside and a wide one under, but where the line falls depends on the card
-// as well as the picture. The host's words have a set size that fits either way, so there it is
-// the picture alone, and on its wide panel even a 16:9 one is larger beside them. A phone sizes
-// its words to their room, and held upright that room is short of width: beside a 3:4 photo the
-// words would drop to half their size for a picture barely larger than it is under them, so the
-// photo goes under, while a 9:16 screenshot, twice the size beside, stays there. Held sideways,
-// nearly everything is larger beside.
+// as well as the picture. The phones and the host's copy of their card size the words to their
+// room, and a phone held upright is short of width: beside a 3:4 photo the words would drop to
+// half their size for a picture barely larger than it is under them, so the photo goes under,
+// while a 9:16 screenshot, twice the size beside, stays there. The host's card is a wide strip,
+// and a phone held sideways one too, so there nearly everything is larger beside.
 function pictureSpot(w, h, ratio, share, type) {
   share = share || 0.5;
   type = type || function () { return 1; };

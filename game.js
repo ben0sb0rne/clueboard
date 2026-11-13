@@ -209,7 +209,8 @@ function hostMoves(ctx) {
       .catch(caught("start the final clue"));
   }
 
-  // Advances when a team dithers; it advances on its own once every wager is in.
+  // Always a press: the clue goes up when the teacher says so, whether the wagers are all in
+  // or a team is still dithering - never by itself as the last wager lands.
   function showClue() {
     gameRef.update({ wagering: null }).catch(caught("show the clue"));
   }
@@ -232,6 +233,11 @@ function hostMoves(ctx) {
     // it, which is what makes a Daily Double belong to the right team later. The final clue
     // moves nothing: there is no next pick.
     if (sign > 0 && !clue.final) updates[base + "/game/turn"] = team.id;
+    // Who has been given this clue's points, so the dashboard can show it: a teacher marking
+    // eight teams lost track of which they had already paid. A minus takes it back, the way
+    // it takes back the points. On the clue rather than the team, so it goes when the clue
+    // does - every clue is written whole and Back to grid clears it, as with clue/picture.
+    updates[base + "/game/clue/awarded/" + team.id] = sign > 0 ? true : null;
     db.ref().update(updates).catch(caught("score that"));
   }
 
@@ -247,12 +253,14 @@ function hostMoves(ctx) {
   }
 
   // Ending a game stops the play and puts the scores on the board. It destroys nothing: the
-  // teams, their members and their scores are what the results screen is made of.
+  // teams, their members and their scores are what the results screen is made of. Resolves
+  // true once it is written, so a screen that leaves afterwards leaves a game that ended, and
+  // stays put when it failed - the alert has said why, and the game is still running.
   function end() {
-    gameRef.update({ over: true, clue: null, reveal: false, wagering: null, pick: null,
-                     picker: null, shown: null, timerEnds: null, intro: null })
+    return gameRef.update({ over: true, clue: null, reveal: false, wagering: null, pick: null,
+                            picker: null, shown: null, timerEnds: null, intro: null })
       .then(resetBuzzers)
-      .catch(caught("end the game"));
+      .then(function () { return true; }, caught("end the game"));
   }
 
   return {

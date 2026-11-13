@@ -469,6 +469,12 @@ function readXlsx(file) {
 function openGameFile(file) {
   var name = file.name || "";
   var ext = ((/\.([a-z]+)$/i.exec(name) || [])[1] || "").toLowerCase();
+  // The pickers no longer filter by type (see control.html), so anything can arrive here. A
+  // PDF read as text failed on its header row, which says nothing useful about the real
+  // mistake. A file with no extension is still tried, as a paste saved from a text editor.
+  if (!/^(xlsx|csv|tsv|txt|)$/.test(ext)) {
+    return Promise.reject(new Error("Clueboard opens .xlsx, .csv and .tsv files."));
+  }
   var read = ext === "xlsx" ? readXlsx(file).then(setFromTables)
     : file.text().then(function (text) {
       return ext === "csv" ? setFromTables([{ name: "", rows: csvRows(text) }]) : parseClueSet(text);

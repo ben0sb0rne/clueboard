@@ -46,7 +46,9 @@
     <div class="toolbar">
       <label class="titlefield"><span class="sr">Game title</span><input id="title" type="text" maxlength="60" autocomplete="off" placeholder="Untitled game"></label>
       <button type="button" class="quiet lg" id="openBtn" data-ico="open">Open file</button>
-      <input type="file" id="openIn" accept=".xlsx,.csv,.tsv,.txt" hidden>
+      <!-- No accept filter, as on the host screen: a Mac's picker greys out a cloud file whose
+           type it has not read yet. openGameFile() turns away anything else, with a reason. -->
+      <input type="file" id="openIn" hidden>
       <button type="button" class="linkbtn" id="templateBtn">Download a blank template</button>
       <span class="sep" aria-hidden="true"></span>
       <button type="button" class="iconbtn" id="undoBtn" data-ico="undo" aria-label="Undo"></button>
